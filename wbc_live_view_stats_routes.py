@@ -2,13 +2,14 @@ import hashlib
 import json
 import os
 import re
+import unicodedata
 from datetime import date, datetime, timedelta
 from glob import glob
 from typing import Any, Dict, List, Optional, Tuple
 
 
 import io
-from flask import Blueprint, jsonify, render_template, request, send_file
+from flask import Blueprint, jsonify, render_template, request, send_file, session
 from flask_login import current_user, login_required
 
 from config import ADMIN_USERS, BU_DATABASE_MAPPING, JIRA_PDT_FILTER_ID, TARGET_GROUP, VIEWER_OVERRIDE_USERS
@@ -943,6 +944,217 @@ def _preview_rows_filtered(fq_table: str, limit: int = 100, open_cr_only: bool =
             pass
 
 
+def _wbc_cr_scenario_keys(value: Any) -> set:
+    """Return normalized lookup keys for CR/mapped-CR values."""
+    text = str(value or "").strip()
+    if not text:
+        return set()
+    keys = set()
+    for part in re.split(r"[,;\s]+", text):
+        token = part.strip().upper()
+        if not token:
+            continue
+        token = token.strip("()[]{}")
+        if re.fullmatch(r"\d{5,9}", token):
+            keys.add(token)
+            keys.add("CR" + token)
+        elif re.fullmatch(r"CR[-\s]?\d{5,9}", token, flags=re.I):
+            digits = re.sub(r"\D", "", token)
+            keys.add(digits)
+            keys.add("CR" + digits)
+        elif re.fullmatch(r"[A-Z][A-Z0-9]+-\d+", token):
+            keys.add(token)
+    for match in re.finditer(r"\b(?:CR[-\s]?)?(\d{5,9})\b", text, flags=re.I):
+        digits = match.group(1)
+        keys.add(digits)
+        keys.add("CR" + digits)
+    for match in re.finditer(r"\b[A-Z][A-Z0-9]+-\d+\b", text, flags=re.I):
+        keys.add(match.group(0).upper())
+    return keys
+
+
+def _wbc_scenario_piece_key(value: Any) -> str:
+    """Canonical key used only to collapse repeated common scenario fragments."""
+    text = re.sub(r"\s+", " ", str(value or "")).strip().lower()
+    text = re.sub(r"\battempt\s*[:\-]?\s*\d+\b", "", text, flags=re.I)
+    text = re.sub(r"\b(?:test\s*case|testcase|phase|scenario|pdt\s*scenario)\s*[:\-]\s*", "", text, flags=re.I)
+    text = re.sub(r"\.xml\b", "", text, flags=re.I)
+    return re.sub(r"[^a-z0-9]+", "", text)
+
+
+def _wbc_unique_scenario_display(values: Any) -> str:
+    """Keep only unique/common PDT scenario values for display."""
+    if isinstance(values, str):
+        parts = [p.strip() for p in re.split(r"\s+/\s+|\s+\|\s+", values) if p and p.strip()]
+    else:
+        parts = [str(v or "").strip() for v in (values or []) if str(v or "").strip()]
+    selected: List[str] = []
+    selected_keys: List[str] = []
+    for part in parts:
+        part = re.sub(r"\s+", " ", part).strip(" /|;-")
+        if not part:
+            continue
+        key = _wbc_scenario_piece_key(part)
+        if not key or key in selected_keys:
+            continue
+        contained = False
+        for idx, existing_key in enumerate(list(selected_keys)):
+            if key in existing_key:
+                contained = True
+                break
+            if existing_key in key:
+                selected[idx] = part
+                selected_keys[idx] = key
+                contained = True
+                break
+        if contained:
+            continue
+        selected.append(part)
+        selected_keys.append(key)
+        if len(selected) >= 2:
+            break
+    return " / ".join(selected)[:500]
+
+
+def _wbc_extract_testcase_from_jira_scenario(raw: Any) -> str:
+    """Extract the testcase/scenario portion from target JIRAs scenario text.
+
+    Example source:
+      https://axiom... ; Playlist : X Attempt: 1 ; TestCase : Foo.xml Attempt: 1
+
+    Return:
+      TestCase : Foo.xml Attempt: 1
+    """
+    text = str(raw or "").replace("\r\n", "\n").strip()
+    if not text:
+        return ""
+    segments = [seg.strip() for seg in re.split(r"[;\n|]", text) if seg and seg.strip()]
+    testcase_parts = []
+    for seg in segments:
+        if re.match(r"(?i)^test\s*case\s*[:\-]?", seg) or re.match(r"(?i)^testcase\s*[:\-]?", seg):
+            testcase_parts.append(re.sub(r"\s+", " ", seg).strip())
+    if testcase_parts:
+        return _wbc_unique_scenario_display(testcase_parts)
+    match = re.search(
+        r"(?i)\bTest\s*Case\s*[:\-]\s*([^;\n|]+(?:\s+Attempt\s*[:\-]?\s*\d+)?)",
+        text,
+    ) or re.search(
+        r"(?i)\bTestCase\s*[:\-]\s*([^;\n|]+(?:\s+Attempt\s*[:\-]?\s*\d+)?)",
+        text,
+    )
+    if match:
+        return _wbc_unique_scenario_display("TestCase : " + re.sub(r"\s+", " ", match.group(1)).strip())
+    for label in ("Scenario", "PDT Scenario", "Phase"):
+        match = re.search(rf"(?i)\b{re.escape(label)}\s*[:\-]\s*([^;\n|]+)", text)
+        if match:
+            val = re.sub(r"\s+", " ", match.group(1)).strip()
+            if val and not re.match(r"^(na|n/a|none|not available)$", val, flags=re.I):
+                return _wbc_unique_scenario_display(val)
+    if "axiom.qualcomm.com" in text.lower() or "playlist" in text.lower():
+        return ""
+    return _wbc_unique_scenario_display(re.sub(r"\s+", " ", text).strip())[:240]
+
+
+def _wbc_jiras_scenario_map(jiras_table: str) -> Dict[str, str]:
+    """Build CR/mapped-CR -> most common 1-2 PDT scenarios from target JIRAs."""
+    if not jiras_table:
+        return {}
+    conn = get_mysql_connection_db(database_name=_WBC_SCHEMA) or get_mysql_connection_db(bu_key=None)
+    if not conn:
+        return {}
+    cur = conn.cursor(dictionary=True)
+    try:
+        cols = _table_cols(cur, jiras_table)
+        if not cols:
+            return {}
+        scenario_col = _first_col(cols, [
+            "scenario", "test_scenario", "testscenario", "test case", "testcase",
+            "scenario_details", "pdt_scenario",
+        ])
+        if not scenario_col:
+            return {}
+        cr_cols = []
+        for aliases in (
+            ["mapped_cr", "mapped_crs", "mapped cr", "mapped CR"],
+            ["cr", "cr_id", "crid", "cr number", "cr_number", "CR"],
+            ["cr_current_ticket", "Change Request", "change_request"],
+            ["final_ticket", "Final Ticket"],
+        ):
+            col = _first_col(cols, aliases)
+            if col and col not in cr_cols:
+                cr_cols.append(col)
+        if not cr_cols:
+            return {}
+        date_col = _first_col(cols, ["jira_date", "last_instance", "updated", "created", "created_date", "date"])
+        selected = cr_cols + [scenario_col]
+        if date_col and date_col not in selected:
+            selected.append(date_col)
+        schema, table = _split_table(jiras_table)
+        order_sql = f" ORDER BY `{date_col}` DESC" if date_col else ""
+        cur.execute(
+            f"SELECT {', '.join('`'+c+'`' for c in selected)} FROM {_bt(schema, table)} "
+            f"WHERE `{scenario_col}` IS NOT NULL AND TRIM(`{scenario_col}`)<>''{order_sql} LIMIT 100000"
+        )
+        buckets: Dict[str, Dict[str, Any]] = {}
+        for row in cur.fetchall() or []:
+            scenario = _wbc_extract_testcase_from_jira_scenario(row.get(scenario_col))
+            if not scenario:
+                continue
+            keys = set()
+            for col in cr_cols:
+                keys.update(_wbc_cr_scenario_keys(row.get(col)))
+            for key in keys:
+                bucket = buckets.setdefault(key, {"counts": {}, "display": {}, "order": []})
+                norm = re.sub(r"\s+", " ", scenario).strip().lower()
+                bucket["counts"][norm] = bucket["counts"].get(norm, 0) + 1
+                bucket["display"].setdefault(norm, scenario)
+                if norm not in bucket["order"]:
+                    bucket["order"].append(norm)
+        out: Dict[str, str] = {}
+        for key, bucket in buckets.items():
+            counts = bucket["counts"]
+            order_index = {name: idx for idx, name in enumerate(bucket["order"])}
+            top = sorted(counts, key=lambda name: (-counts[name], order_index.get(name, 9999), name))[:4]
+            out[key] = _wbc_unique_scenario_display(
+                bucket["display"][name] for name in top if bucket["display"].get(name)
+            )
+        return out
+    except Exception:
+        return {}
+    finally:
+        try:
+            cur.close(); conn.close()
+        except Exception:
+            pass
+
+
+def _wbc_apply_pdt_scenarios_to_open_cr_preview(preview: Dict[str, Any], jiras_table: str) -> Dict[str, Any]:
+    """Annotate Open CR rows with PDT Scenario from the configured target JIRAs table."""
+    preview = preview if isinstance(preview, dict) else {}
+    rows = preview.get("rows") or []
+    cols = list(preview.get("columns") or [])
+    if not rows:
+        return preview
+    scenario_map = _wbc_jiras_scenario_map(jiras_table)
+    if not scenario_map:
+        return preview
+    cr_col = _first_col(cols, ["mapped_cr", "mapped_crs", "CR", "CR-ID", "CR ID", "cr", "cr_id", "crid", "unique_cr", "cr_number", "stability_ticket"])
+    if not cr_col:
+        return preview
+    if "PDT Scenario" not in cols:
+        cols.append("PDT Scenario")
+    for row in rows:
+        keys = _wbc_cr_scenario_keys(row.get(cr_col))
+        scenario = _wbc_unique_scenario_display(
+            next((scenario_map.get(key) for key in keys if scenario_map.get(key)), "")
+        )
+        if scenario:
+            row["PDT Scenario"] = scenario
+    preview["columns"] = cols
+    preview["rows"] = rows
+    return preview
+
+
 def _build_tail(value: Any) -> str:
     return str(value or "").strip().replace("/", "\\").split("\\")[-1]
 
@@ -1823,7 +2035,12 @@ def _target_payload(target_key: str, force_running_report: bool = False) -> Dict
     current = {"rows": [], "updated_at": "", "source": "saved_jql_tabs"}
 
     unique_table = db_cfg.get("unique_crs_table") or db_cfg.get("overall_crs_table") or ""
-    build_summary = _build_summary_from_jiras(db_cfg.get("jiras_table") or db_cfg.get("target_table") or "", db_cfg.get("openjiras_table") or "")
+    target_jiras_table = db_cfg.get("jiras_table") or db_cfg.get("target_table") or ""
+    open_crs_preview = _wbc_apply_pdt_scenarios_to_open_cr_preview(
+        _preview_rows_filtered(unique_table, 2000, open_cr_only=True),
+        target_jiras_table,
+    )
+    build_summary = _build_summary_from_jiras(target_jiras_table, db_cfg.get("openjiras_table") or "")
     # Current Running Builds is driven by the saved JQL cards in the UI.
     # Do not use Axiom for WBC dashboard summary/current-meta values.
     running_build_report = _empty_running_build_report(current)
@@ -1854,9 +2071,9 @@ def _target_payload(target_key: str, force_running_report: bool = False) -> Dict
             "total_crs": _count_from_table(unique_table, ["mapped_cr", "mapped_crs", "cr", "crid", "stability_ticket"]),
         },
         "previews": {
-            "jiras": _preview_rows_filtered(db_cfg.get("jiras_table") or "", 100),
+            "jiras": _preview_rows_filtered(target_jiras_table, 100),
             "open_jiras": _preview_rows_filtered(db_cfg.get("openjiras_table") or "", 100),
-            "open_crs": _preview_rows_filtered(unique_table, 2000, open_cr_only=True),
+            "open_crs": open_crs_preview,
             "all_crs": _preview_rows_filtered(unique_table, 150),
             "crs": _preview_rows_filtered(unique_table, 150),
                 },
@@ -2955,6 +3172,7 @@ def _wbc_build_ppt(target_key: str, tab_id: str = "", tab_ids: List[str] = None,
             kpi["current_pdt_mtbf"] = selected_build_row.get(m_key) or kpi.get("current_pdt_mtbf")
             kpi["current_meta_date"] = selected_build_row.get(d_key) or kpi.get("current_meta_date")
 
+    ppt_data = _merge_wbc_analysis_cache_into_ppt_data(ppt_data, target["key"], target=target, db_cfg=db_cfg)
     return legacy_wbc_ppt.build_ppt(ppt_data, include_cover=True, include_thankq=True)
     overview = data.get("overview_summary") or {}
     counts = data.get("counts") or {}
@@ -3676,101 +3894,607 @@ def _wbc_open_cr_details_payload(excel_path: str) -> Dict[str, Any]:
 
 # ── TEA API caller ────────────────────────────────────────────────────────────
 
-# TEA API configuration — matches the old WBC_Scrum_DB/Open_CR_Script/CR_TEA.py tool
-_TEA_API_BASE = os.environ.get("TEA_API_BASE", "https://10.213.98.5:5000")
-_TEA_API_BASE_ALT = os.environ.get("TEA_API_BASE_ALT", "https://10.213.98.5:5001")
+# TEA API configuration — defaults match the working legacy
+# C:\Dropbox\WBC_Scrum_DB\Open_CR_Script\CR_TEA.py flow plus the v1 team-aware
+# chat endpoint documented at /api-docs.
+_TEA_API_BASE = os.environ.get("TEA_API_BASE", "https://10.213.98.5:5001")
+_TEA_API_BASE_ALT = os.environ.get("TEA_API_BASE_ALT", _TEA_API_BASE)
 _TEA_API_USERNAME = os.environ.get("TEA_API_USERNAME", "alalji")
 _TEA_API_KEY = os.environ.get("TEA_API_KEY", "e72501c7-abdd-4971-942c-45ec5a84f65e")
+_TEA_API_TEAM_NAME = os.environ.get("TEA_API_TEAM_NAME", "MST")
+_TEA_API_FAILED_MESSAGE = "TEA API failed"
+
+
+def _current_tea_api_key(explicit_api_key: str = "") -> str:
+    """Use only the configured project TEA/QGenie key; never use a browser/user key."""
+    return str(_TEA_API_KEY or "").strip()
+
+
+
+def _wbc_is_tea_failure_text(text: Any) -> bool:
+    """Treat old cached TEA failures/parser errors as stale/unusable cache."""
+    clean = re.sub(r"^\[\d{4}-\d{2}-\d{2}\]\s*", "", str(text or "")).strip().lower()
+    if not clean:
+        return False
+    return (
+        clean == _TEA_API_FAILED_MESSAGE.lower()
+        or "tea api failed" in clean
+        or "could not generate a tea" in clean
+        or "ai response could not be parsed" in clean
+        or "please provide valid cr" in clean
+        or "provide a valid cr" in clean
+        or "invalid cr number" in clean
+    )
+
+
+def _wbc_clean_tea_response_for_display(text: Any) -> str:
+    """Keep useful MST TEA details and remove only the noisy Orbit preamble."""
+    clean = _clean_wbc_ai_text(text)
+    if not clean or _wbc_is_tea_failure_text(clean):
+        return ""
+    # Reject row-context bundles (old bad cached data: Title of the CR + Customer Context etc.)
+    if _wbc_looks_like_row_context_bundle(clean):
+        return ""
+    # The MST endpoint can return a valid generated TEA prefixed with:
+    # "No TEA exists in Orbit... Generating one now. Analyzing ...".
+    # Do not reject that output; strip only the noisy status sentence so the UI
+    # shows the actual generated TEA details.
+    marker = re.search(
+        r"(?is)(#{1,6}\s*AI-generated\s+TEA\b|\*\*\s*Analysis\s+Category\s*:\s*\*\*|Analysis\s+Category\s*:|Analysis\s+Details\s*:|Development\s+Team\s+Insights\s*:|Root\s+Cause\s+Analysis\s*:)",
+        clean,
+    )
+    if marker:
+        return clean[marker.start():].strip()
+    clean = re.sub(
+        r"(?is)^No\s+TEA\s+exists\s+in\s+Orbit\s+for\s+CR\s*\d+\.\s*Generating\s+one\s+now\.\s*",
+        "",
+        clean,
+    ).strip()
+    clean = re.sub(
+        r"(?is)^Analyzing\s*[—-]\s*root\s+cause,\s*taxonomy\s+test\s+cases\s+and\s+Orbit\s+TEA\.\.\.\s*",
+        "",
+        clean,
+    ).strip()
+    return clean[:12000]
+
+
+def _normalize_wbc_scenario_value(value: Any) -> str:
+    """Normalize one PDT scenario/testcase fragment for compact grid display."""
+    val = unicodedata.normalize("NFKD", str(value or ""))
+    val = re.sub(r"^\[\d{4}-\d{2}-\d{2}\]\s*", "", val)
+    val = re.sub(r"[*`#]+", "", val)
+    val = re.sub(r"\s+", " ", val).strip(" -:/|")
+    if not val:
+        return ""
+    val = re.sub(r"(?i)^No\s+Test\s*case\s*Crash\s*", "", val).strip(" -:/|")
+    val = re.sub(r"(?i)^No\s+Testcase\s*Crash\s*", "", val).strip(" -:/|")
+    label_prefix = r"(?i)^(?:(?:PDT\s*)?Scenario(?:\s*Details)?|Scenario\s*/\s*Test\s*Case\s*Name|Test\s*/\s*Scenari?o(?:\s*Name)?|Test\s*Scenari?o(?:\s*Name)?|Scenari?o\s*Name|Last\s+test\s*case|Test\s*Case\s*Name|Test\s*Case|TestCase|No\s*Testcase\s*Crash\s*Phase|Crash\s*Phase|Phase|What\s+to\s+test)\s*[:=-]\s*"
+    for _ in range(3):
+        new_val = re.sub(label_prefix, "", val).strip(" -:/|")
+        if new_val == val:
+            break
+        val = new_val
+    val = re.sub(r"\s*/\s*(?:Test\s*Case|TestCase|Phase|(?:PDT\s*)?Scenario)\s*[:=-].*$", "", val, flags=re.I).strip(" -:/|")
+    val = re.sub(r"\s*(?:Playlist|Result|Status|CR|Jira|Image Reference|Customer Context)\s*:.*$", "", val, flags=re.I).strip(" -:/|")
+    # UI should show the scenario name only, not implementation file suffixes
+    # or run-attempt metadata such as ".xml Attempt: 1".
+    val = re.sub(r"\s*\battempt\s*[:=-]?\s*\d+\b", "", val, flags=re.I).strip(" -:/|")
+    val = re.sub(r"(?i)\.xml\b", "", val).strip(" -:/|")
+    if not val or re.match(r"^(na|n/a|none|not available|no testcase\s*crash)$", val, flags=re.I):
+        return ""
+    return val
+
+
+def _wbc_scenario_dedupe_key(value: Any) -> str:
+    key = _normalize_wbc_scenario_value(value).lower()
+    key = re.sub(r"\battempt\s*[:=-]?\s*\d+\b", "", key, flags=re.I)
+    key = re.sub(r"\s+", " ", key).strip(" -:/|")
+    return key
+
+
+def _compact_wbc_scenario_values(values: List[Any], limit: int = 2) -> str:
+    """Return concise, de-duplicated PDT scenario text."""
+    chosen: List[str] = []
+    seen = set()
+    for raw in values or []:
+        text = str(raw or "")
+        if not text or _wbc_is_tea_failure_text(text):
+            continue
+        # Compact only already-provided scenario/testcase values. Do not derive
+        # PDT Scenario from a TEA/RCA narrative here.
+        text = re.sub(r"\s*/\s*(?=(?:Test\s*Case|TestCase|Phase|(?:PDT\s*)?Scenario)\s*[:=-])", "\n", text, flags=re.I)
+        for part in re.split(r"[\n\r;|]+", text):
+            val = _normalize_wbc_scenario_value(part)
+            if not val:
+                continue
+            key = _wbc_scenario_dedupe_key(val)
+            if key and key not in seen:
+                seen.add(key)
+                chosen.append(val)
+            if len(chosen) >= limit:
+                return " / ".join(chosen)[:240]
+    return " / ".join(chosen)[:240]
+
+
+def _compress_wbc_what_to_test(value: Any) -> str:
+    """Compress TEA recommendation text into a short scenario-style phrase."""
+    val = re.sub(r"\s+", " ", str(value or "")).strip(" -:/|.")
+    if not val:
+        return ""
+    val = re.sub(r"(?i)\bProtection Domain\b", "PD", val)
+    val = re.sub(r"(?i)\bmodem heap stress conditions\b", "modem heap stress", val)
+    val = re.sub(r"(?i)\s+on\s+[A-Z][A-Za-z0-9_.-]+\s+platform\b.*$", "", val)
+    val = re.sub(r"(?i)\s+with\s+[A-Z0-9_.-]+(?:\s+\w+){0,4}\s+image\.?$", "", val)
+    val = re.sub(r"\s*\([^)]*\)", "", val).strip(" -:/|.")
+    if len(val) > 120:
+        val = re.sub(r"(?i)\s+(?:using|with|so\s+that|then)\s+.*$", "", val).strip(" -:/|.")
+    words = val.split()
+    if len(words) > 14:
+        val = " ".join(words[:14])
+    return val.strip(" -:/|.")
+
+
+def _extract_wbc_test_case_recommendation_scenario(text: Any) -> str:
+    """Extract a scenario from TEA's Test Case Recommendation section.
+
+    Some working TEA responses, including CR4636966, do not provide an explicit
+    "What to test" label. They instead return a numbered test procedure under
+    "**Test Case Recommendation:**". In that case, derive one concise testcase
+    scenario from the recommendation steps instead of showing "testcase not
+    found".
+    """
+    raw = str(text or "")
+    match = re.search(
+        r"(?is)(?:\*\*|__)?\s*Test\s*Case\s*Recommendation\s*:?\s*(?:\*\*|__)?\s*(.*?)(?=\n\s*(?:\*\*|__)\s*[A-Z][^*\r\n]{0,100}(?:\*\*|__)|\Z)",
+        raw,
+    )
+    if not match:
+        return ""
+    section = match.group(1).strip()
+    if not section:
+        return ""
+    hay = section.lower()
+    if "remoteproc" in hay and ("modem.mdt" in hay or "modem" in hay) and re.search(r"authenticat|pil", hay):
+        return "Modem remoteproc boot authentication failure" + (" SError panic" if re.search(r"serror|kernel panic", hay) else "")
+    lines = [
+        re.sub(r"\s+", " ", line).strip(" -*\t")
+        for line in re.findall(r"(?m)^\s*(?:[-•]|\d+[.)])\s*(.+)$", section)
+    ]
+    if not lines:
+        lines = [p.strip() for p in re.split(r"(?<=[.!?])\s+", section) if p.strip()]
+    reject = re.compile(r"(?i)^(?:flash|boot\s+the\s+device|monitor|observe|verify|confirm|check)\b")
+    preferred = [
+        line for line in lines
+        if line and not reject.search(line) and re.search(r"(?i)\b(test|trigger|reproduce|fail|failure|crash|panic|serror|authenticate|authentication|timeout)\b", line)
+    ]
+    candidate = (preferred or lines or [""])[0]
+    candidate = re.sub(r"(?i)^(?:introduce\s+a\s+condition\s+that\s+causes|trigger|reproduce|test|validate|exercise)\s+", "", candidate).strip(" -:/|.")
+    candidate = re.sub(r"(?i)\bto\s+fail\b", "failure", candidate)
+    candidate = _normalize_wbc_scenario_value(candidate)
+    return _compress_wbc_what_to_test(candidate)[:160] if candidate else ""
 
 
 def _extract_wbc_tea_scenario(text: Any) -> str:
-    """Extract 1-2 PDT scenario/testcase names from TEA text.
+    """Extract only an explicit Test Case/Scenario field value from TEA text.
 
-    TEA output commonly contains labels such as Phase, Scenario, Test Case, or
-    Last testcase.  Prefer repeated/common values and keep the UI concise.
+    Expected format examples:
+      **Test Case Name:** REMOTEPROC_MODEM_PIL_AUTH_FAIL_XPU_SERROR_PANIC | **Objective:**
+      **Scenario/Test Case Name:** foo_bar
+      Scenario: foo_bar
+
+    Return only the value after the label and before the next markdown/bold
+    section label. If there is no explicit Test Case/Scenario label, return the
+    user-visible sentinel "testcase not found" instead of falling back to a full
+    summary/RCA sentence.
     """
     raw = re.sub(r"^\[\d{4}-\d{2}-\d{2}\]\s*", "", str(text or "")).strip()
-    if not raw:
+    if not raw or _wbc_is_tea_failure_text(raw):
         return ""
-    values: List[str] = []
-    patterns = [
-        r"(?:PDT\s*)?Scenario(?:\s*Details)?\s*[:=-]\s*([^\n\r;|]+)",
-        r"Last\s+test\s*case\s*[:=-]\s*([^\n\r;|]+)",
-        r"Test\s*Case\s*[:=-]\s*([^\n\r;|]+)",
-        r"TestCase\s*[:=-]\s*([^\n\r;|]+)",
-        r"Phase\s*[:=-]\s*([^\n\r;|]+)",
+    labels = [
+        r"Scenario\s*/\s*Test\s*Case\s*Name",
+        r"Test\s*/\s*Scenari?o(?:\s*Name)?",
+        r"Test\s*Scenari?o(?:\s*Name)?",
+        r"Scenari?o\s*Name",
+        r"Test\s*Case\s*Name",
+        r"TestCase\s*Name",
+        r"Test\s*Case",
+        r"TestCase",
+        r"No\s*Testcase\s*Crash\s*Phase",
+        r"Crash\s*Phase",
+        r"Phase",
+        r"What\s+to\s+test",
+        r"(?:PDT\s*)?Scenario(?:\s*Details)?",
     ]
-    for pat in patterns:
-        for match in re.finditer(pat, raw, flags=re.I):
-            val = re.sub(r"\s+", " ", str(match.group(1) or "")).strip(" :-")
-            val = re.sub(r"\s*(?:Playlist|Attempt|Result|Status|CR|Jira)\s*:.*$", "", val, flags=re.I).strip(" :-")
-            if val and not re.match(r"^(na|n/a|none|not available|no testcase\s*crash)$", val, flags=re.I):
-                values.append(val)
-    if not values:
-        # Fallback for common WBC wording seen in TEA narratives.
-        common = [
-            "Idle crash", "SSR", "Boot crash", "Kernel crash", "WLAN crash",
-            "IPA crash", "Modem crash", "Wakeup", "Suspend resume",
+    # TEA scenario extraction is intentionally strict: only extract values from
+    # explicit markdown-bold Scenario/TestCase fields and stop at the next bold
+    # section marker. Do not infer PDT Scenario from arbitrary RCA text here.
+    stop_next_bold = r"(?=(?:\s*\|\s*)?(?:\*\*|__)\s*[A-Za-z][^*\r\n]{0,100}(?:\*\*|__)|\Z)"
+    for label in labels:
+        patterns = [
+            rf"(?is)(?:\*\*|__)\s*{label}\s*:?\s*(?:\*\*|__)\s*:?\s*(.*?){stop_next_bold}",
+            rf"(?is)(?:^|[\n\r])\s*(?:[-•]\s*)?{label}\s*:\s*(.*?)(?=\n\s*(?:[-•]\s*)?(?:[A-Z][A-Za-z0-9 /_-]{{2,}}|How\s+to\s+trigger(?:\s+the\s+issue)?|What\s+to\s+observe(?:/verify)?)\s*:|\Z)",
         ]
-        for name in common:
-            if re.search(r"\b" + re.escape(name).replace(r"\ ", r"\s+") + r"\b", raw, flags=re.I):
-                values.append(name)
-    freq: Dict[str, int] = {}
-    display: Dict[str, str] = {}
-    for val in values:
-        key = val.lower()
-        freq[key] = freq.get(key, 0) + 1
-        display.setdefault(key, val)
-    return " / ".join(display[k] for k in sorted(freq, key=lambda k: (-freq[k], k))[:2])
+        for pattern in patterns:
+            for match in re.finditer(pattern, raw):
+                value = str(match.group(1) or "").strip()
+                value = re.sub(r"\s*(?:\||/)\s*$", "", value).strip()
+                value = re.sub(r"(?:\*\*|__)\s*$", "", value).strip()
+                value = _normalize_wbc_scenario_value(value)
+                if re.search(r"(?i)What\s+to\s+test", label):
+                    value = _compress_wbc_what_to_test(value)
+                if value:
+                    return value[:160]
+    recommendation = _extract_wbc_test_case_recommendation_scenario(raw)
+    if recommendation:
+        return recommendation[:160]
+    return "testcase not found"
 
 
-def _call_tea_api(cr_number: str) -> Dict[str, Any]:
-    """Call the TEA CR analysis API.
+def _extract_wbc_tea_scenario_with_qgenie(tea_response: Any, cr_number: Any = "") -> str:
+    """Extract Scenario Details (TEA), using QGenie as fallback.
 
-    Matches the old WBC_Scrum_DB/Open_CR_Script/CR_TEA.py tool exactly:
-      POST /api/cr-summary
-      Body: {"message": "<cr_number>", "username": "alalji", "api_key": "...", "stream": false}
-      Returns: data["content"]
+    The TEA API output is valid but not always formatted with a predictable
+    Scenario/Test Case label. First use the deterministic parser above. If it
+    cannot find the scenario, ask QGenie to extract a short scenario phrase from
+    the already-fetched TEA response. This value is used only for the TEA
+    scenario/details column, not for PDT Scenario.
+    """
+    text = _clean_wbc_ai_text(re.sub(r"^\[\d{4}-\d{2}-\d{2}\]\s*", "", str(tea_response or "")).strip())
+    if not text or _wbc_is_tea_failure_text(text) or _wbc_looks_like_row_context_bundle(text):
+        return ""
+    direct = _extract_wbc_tea_scenario(text)
+    if direct and direct != "testcase not found":
+        return direct[:160]
+    try:
+        from src.qgenie_service import (  # noqa: PLC0415
+            get_current_qgenie_client,
+            get_session_qgenie_highlights_model,
+        )
+        client = get_current_qgenie_client()
+        if not client:
+            return "testcase not found"
+        model = get_session_qgenie_highlights_model()
+        prompt = (
+            "Extract the CR scenario/testcase/crash phase from the TEA analysis below.\n"
+            "Return only one short value, no markdown, no explanation.\n"
+            "Prefer labels such as Scenario, Test Case, Test Scenario, Phase, Crash Phase, "
+            "What to test, or taxonomy test case. If the text says "
+            "'No TestcaseCrash Phase : Idle crash', return exactly 'Idle crash'.\n"
+            "Do not return RCA paragraphs, development-team-insight sentences, CR titles, "
+            "device/build names, or generic text. If no scenario can be inferred, return empty.\n\n"
+            f"CR: {cr_number}\n\nTEA analysis:\n{text[:6000]}"
+        )
+        resp = client.chat(
+            model=model,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.0,
+        )
+        try:
+            candidate = str(resp.choices[0].message.content or "").strip()
+        except Exception:
+            candidate = str(getattr(resp, "content", resp) or "").strip()
+        candidate = _clean_wbc_ai_text(candidate, one_line=True)
+        candidate = re.sub(r"^```[a-z]*|```$", "", candidate, flags=re.I).strip()
+        candidate = re.sub(r"(?i)^(scenario|test\s*case|test\s*scenario|crash\s*phase|phase)\s*[:=-]\s*", "", candidate).strip()
+        candidate = candidate.strip("\"'`“”‘’ ")
+        if not candidate or re.match(r"(?i)^(none|n/a|na|not\s+found|unknown|empty|cannot\s+(?:determine|infer)|no\s+scenario)", candidate):
+            return "testcase not found"
+        candidate = _normalize_wbc_scenario_value(candidate)
+        if not candidate:
+            return "testcase not found"
+        return candidate[:160]
+    except Exception:
+        return "testcase not found"
 
-    Tries port 5000 first (old tool default), falls back to port 5001.
+
+
+def _clean_wbc_ai_text(value: Any, one_line: bool = False) -> str:
+    """Normalize TEA/QGenie text without dropping the technical content."""
+    text = unicodedata.normalize("NFKD", str(value or ""))
+    text = text.replace("\u2011", "-").replace("\u202f", " ").strip()
+    text = re.sub(r"^```[a-z]*\n?", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"\n?```$", "", text).strip()
+    text = re.sub(r"^\s*(?:summary\s*[:\-]\s*)", "", text, flags=re.IGNORECASE).strip()
+    if one_line:
+        text = re.sub(r"\s+", " ", text).strip()
+    return text
+
+
+def _extract_wbc_summary_from_tea(tea_response: Any) -> str:
+    """Fallback QGenie text from TEA's real RCA/analysis sections."""
+    text = _clean_wbc_ai_text(tea_response)
+    if not text:
+        return ""
+    for name in ("Root Cause Analysis", "Development Team Insights", "Analysis", "RCA", "Current Status", "Summary"):
+        pattern = rf"(?is)(?:\*\*)?{re.escape(name)}(?:\*\*)?\s*:\s*(.*?)(?:\n\s*(?:\*\*)?[A-Z][A-Za-z /_-]{{3,}}(?:\*\*)?\s*:|\Z)"
+        match = re.search(pattern, text)
+        if match:
+            section = re.sub(r"\s+", " ", match.group(1)).strip(" -*\n\t")
+            if section:
+                parts = re.split(r"(?<=[.!?])\s+", section)
+                return " ".join(parts[:2]).strip()[:900]
+    clean = re.sub(r"\*\*|__|#", "", text)
+    clean = re.sub(r"\s+", " ", clean).strip()
+    parts = re.split(r"(?<=[.!?])\s+", clean)
+    return " ".join(parts[:2]).strip()[:900]
+
+
+def _summarize_wbc_tea_scenario(tea_response: Any) -> str:
+    """Return one single-line scenario summary from the TEA response.
+
+    The portal first stores the full TEA output as Scenario Details/TEA.  On top
+    of that, this helper creates the concise one-line PDT Scenario text shown in
+    the WBC grid/edit modal.  It prefers a deterministic Scenario/Test Case Name
+    extracted from TEA text and only falls back to a short TEA-derived summary.
+    """
+    text = _clean_wbc_ai_text(re.sub(r"^\[\d{4}-\d{2}-\d{2}\]\s*", "", str(tea_response or "")).strip())
+    if not text or _wbc_is_tea_failure_text(text):
+        return ""
+    direct = _extract_wbc_tea_scenario(text)
+    if direct and direct != "testcase not found":
+        return direct[:240]
+
+    return ""
+
+
+def _wbc_looks_like_row_context_bundle(text: Any) -> bool:
+    """Detect old/bad cached analysis made from CR row fields instead of TEA API.
+
+    The bad cache typically starts with "Title of the CR" and concatenates
+    Customer Context, Software Product, SR Number, Image Reference, occurrence,
+    and area/subsystem fields.  That is not TEA analysis and should not block a
+    fresh TEA API call.
+    """
+    clean = re.sub(r"\*\*|__", "", str(text or ""), flags=re.I)
+    clean = re.sub(r"^\[\d{4}-\d{2}-\d{2}\]\s*", "", clean).strip()
+    if not clean:
+        return False
+    markers = (
+        "title of the cr",
+        "customer context",
+        "customer name",
+        "sr number",
+        "software product",
+        "image reference",
+        "cr occurrence",
+        "occurrences",
+    )
+    hay = clean.lower()
+    marker_count = sum(1 for marker in markers if marker in hay)
+    # If the response contains real analysis sections, it is NOT a bundle —
+    # /api/cr-summary returns Title + Customer Context + Root Cause Analysis etc.
+    real_analysis_markers = (
+        "root cause analysis",
+        "development team insights",
+        "test case recommendation",
+        "analysis details",
+        "analysis category",
+        "mitigation",
+        "gerrit information",
+        "scenario/test case name",
+        "ai-generated tea",
+    )
+    if any(m in hay for m in real_analysis_markers):
+        return False
+    return marker_count >= 2 or ("title of the cr" in hay and len(clean) < 2500)
+
+
+def _analysis_cache_for_cr(analyses: Dict[str, Any], cr_number: Any) -> Dict[str, Any]:
+    cr_bare = re.sub(r"^CR[\s:-]*", "", str(cr_number or "").strip(), flags=re.IGNORECASE).strip()
+    if not cr_bare:
+        return {}
+    for key in (cr_bare, f"CR{cr_bare}", f"CR {cr_bare}", f"CR-{cr_bare}", cr_bare.upper()):
+        hit = analyses.get(key)
+        if isinstance(hit, dict):
+            return hit
+    return {}
+
+
+def _normalize_analysis_cache_keys(analyses: Dict[str, Any]) -> Dict[str, Any]:
+    out: Dict[str, Any] = {}
+    for raw_key, value in (analyses or {}).items():
+        cr_bare = re.sub(r"^CR[\s:-]*", "", str(raw_key or "").strip(), flags=re.IGNORECASE).strip()
+        if cr_bare and isinstance(value, dict):
+            out[cr_bare] = {**out.get(cr_bare, {}), **value}
+    return out
+
+
+def _ensure_ppt_table_col(table: Dict[str, Any], title: str, key: str) -> str:
+    columns = table.setdefault("columns", [])
+    existing = legacy_wbc_ppt.find_col_key(table, [title, key])
+    if existing:
+        return existing
+    columns.append({"title": title, "key": key})
+    return key
+
+
+def _merge_wbc_analysis_cache_into_ppt_data(data: Dict[str, Any], target_key: str, target: Dict[str, str] = None, db_cfg: Dict[str, str] = None) -> Dict[str, Any]:
+    """Merge JSON-cached TEA/QGenie analysis into the legacy PPT data contract."""
+    cache = _read_json(_open_cr_details_json_path(target_key), {})
+    analyses = _normalize_analysis_cache_keys(cache.get("analyses") or {})
+    if not analyses:
+        return data
+
+    previews = {}
+    try:
+        unique_table = (db_cfg or {}).get("unique_crs_table") or (db_cfg or {}).get("overall_crs_table") or ""
+        previews = _preview_rows_filtered(unique_table, 2000, open_cr_only=True) if unique_table else {}
+    except Exception:
+        previews = {}
+
+    for table_name in ("open_cr", "current_cr"):
+        table = data.get(table_name) or {}
+        rows = table.get("rows") or []
+        if not isinstance(table, dict) or not rows:
+            continue
+        cr_key = legacy_wbc_ppt.find_col_key(table, ["CR-ID", "CR ID", "CR", "mapped_cr", "cr_id", "unique_cr"])
+        if not cr_key:
+            continue
+        scenario_key = _ensure_ppt_table_col(table, "PDT Scenario", "pdt_scenario")
+        tea_key = _ensure_ppt_table_col(table, "TEA Assistance", "tea_assistance")
+        qg_key = _ensure_ppt_table_col(table, "Qgenie Analysis", "qgenie_analysis")
+        comment_key = _ensure_ppt_table_col(table, "PDT COMMENTS", "pdt_comments")
+        reg_key = _ensure_ppt_table_col(table, "IS REGRESSION", "is_regression")
+        for row in rows:
+            analysis = _analysis_cache_for_cr(analyses, row.get(cr_key))
+            if not analysis:
+                continue
+            tea = _clean_wbc_ai_text(analysis.get("tea"))
+            qgenie = _clean_wbc_ai_text(analysis.get("qgenie"))
+            if (
+                not str(row.get(scenario_key) or "").strip()
+                and analysis.get("pdt_scenario")
+                and analysis.get("pdt_scenario_source") == "manual"
+            ):
+                row[scenario_key] = analysis.get("pdt_scenario")
+            if tea and not str(row.get(tea_key) or "").strip():
+                row[tea_key] = tea
+            if qgenie and not str(row.get(qg_key) or "").strip():
+                row[qg_key] = qgenie
+            if analysis.get("pdt_comment") and not str(row.get(comment_key) or "").strip():
+                row[comment_key] = analysis.get("pdt_comment")
+            if analysis.get("is_regression") and not str(row.get(reg_key) or "").strip():
+                row[reg_key] = "Yes"
+
+    if not (data.get("open_cr") or {}).get("rows") and (previews.get("rows") or []):
+        columns = [{"title": str(c).replace("_", " "), "key": c} for c in (previews.get("columns") or [])]
+        data["open_cr"] = {"columns": columns, "rows": previews.get("rows") or []}
+        return _merge_wbc_analysis_cache_into_ppt_data(data, target_key, target=target, db_cfg=db_cfg)
+    return data
+
+
+def _call_tea_api(cr_number: str, api_key: str = "") -> Dict[str, Any]:
+    """Call the TEA CR analysis API using configured project credentials.
+
+    The WBC Open CR tab must not consume a user's browser/session QGenie key.
+    It uses the configured service username/key and the MST team-aware chat
+    endpoint first so TEA can return the taxonomy scenario/testcase name.  The
+    legacy /api/cr-summary endpoint remains as a defensive fallback.
+
+    If no usable response/content is received, return the user-facing
+    "TEA API failed" message instead of an empty analysis.
     """
     import requests as _req
-    cr_bare = re.sub(r"^CR", "", str(cr_number or "").strip(), flags=re.IGNORECASE)
-    body: Dict[str, Any] = {
-        "message": cr_bare,
-        "username": _TEA_API_USERNAME,
-        "api_key": _TEA_API_KEY,
-        "stream": False,
-    }
-    # Try primary URL (port 5000), then fallback (port 5001)
-    for base_url in (_TEA_API_BASE, _TEA_API_BASE_ALT):
-        try:
-            resp = _req.post(
-                f"{base_url}/api/cr-summary",
-                json=body,
-                timeout=120,
-                verify=False,
-            )
-            if not resp.ok:
-                continue
-            try:
-                data = resp.json()
-            except Exception:
-                data = {"raw_text": resp.text}
-            # Old tool uses data.get("content", "") — try that first, then fallbacks
-            analysis = ""
-            for key in ("content", "response", "answer", "message", "analysis", "summary", "text", "output", "result"):
-                val = data.get(key) if isinstance(data, dict) else None
+    cr_original = str(cr_number or "").strip()
+    cr_bare = re.sub(r"^CR", "", cr_original, flags=re.IGNORECASE).strip()
+    tea_api_key = _current_tea_api_key(api_key)
+    if not tea_api_key:
+        return {"ok": False, "error": _TEA_API_FAILED_MESSAGE, "detail": "Project TEA_API_KEY is not configured", "cr_number": cr_bare}
+
+    message_candidates = []
+    if cr_bare:
+        message_candidates.extend([f"CR{cr_bare}", cr_bare])
+    if cr_original:
+        message_candidates.append(cr_original)
+    message_candidates = list(dict.fromkeys(message_candidates))
+
+    def _extract_analysis_payload(data: Any) -> Tuple[str, Dict[str, Any]]:
+        if not isinstance(data, dict):
+            return _clean_wbc_ai_text(data)[:12000], {}
+        tea_data = data.get("tea_data") if isinstance(data.get("tea_data"), dict) else {}
+        analysis = ""
+        for key_name in ("content", "response", "answer", "message", "analysis", "summary", "text", "output", "result"):
+            val = data.get(key_name)
+            if val and str(val).strip():
+                analysis = _clean_wbc_ai_text(val)
+                break
+        if not analysis and tea_data:
+            parts = []
+            for key_name in ("AnalysisCategory", "AnalysisDetails", "MitigationDetails", "MitigationDeatils"):
+                val = tea_data.get(key_name)
                 if val and str(val).strip():
-                    analysis = str(val).strip()
-                    break
-            if not analysis:
-                analysis = str(data).strip()[:3000]
-            if analysis:
-                return {"ok": True, "analysis": analysis, "cr_number": cr_bare}
-        except Exception:
-            continue
-    return {"ok": False, "error": "TEA API unreachable on both port 5000 and 5001", "cr_number": cr_bare}
+                    parts.append(f"{key_name}: {val}")
+            analysis = _clean_wbc_ai_text("\n\n".join(parts))
+        return analysis[:12000], tea_data
+
+    last_error = ""
+    # Use the v1 chat endpoint first because it supports the required MST
+    # team_name and returns the generated Scenario/Test Case Name.  If that path
+    # only returns the portal-generated placeholder ("No TEA exists in Orbit..."),
+    # do not save it as TEA; fall through to the same /api/cr-summary endpoint
+    # used by C:\Dropbox\WBC_Scrum_DB\Open_CR_Script\CR_TEA.py.
+    for base_url in dict.fromkeys([_TEA_API_BASE, _TEA_API_BASE_ALT]):
+        for message in message_candidates:
+            body: Dict[str, Any] = {
+                "message": f"Generate TEA for {message} and provide one relevant CR scenario/testcase.",
+                "username": _TEA_API_USERNAME,
+                "api_key": tea_api_key,
+                "team_name": _TEA_API_TEAM_NAME,
+                "session_id": f"pdtbuddy-wbc-opencr-{cr_bare}-{datetime.utcnow().strftime('%Y%m%d%H%M%S%f')}",
+                "stream": False,
+            }
+            try:
+                resp = _req.post(
+                    f"{base_url}/api/v1/chat",
+                    json=body,
+                    headers={"Content-Type": "application/json"},
+                    timeout=600,
+                    verify=False,
+                )
+                if not resp.ok:
+                    last_error = f"{base_url}/api/v1/chat: HTTP {resp.status_code}"
+                    continue
+                try:
+                    data = resp.json()
+                except Exception:
+                    data = {"raw_text": resp.text}
+                analysis, tea_data = _extract_analysis_payload(data)
+                # Extract scenario from FULL response before preamble stripping
+                # because Scenario/Test Case Name can appear before Analysis Category
+                scenario_from_full = _extract_wbc_tea_scenario(analysis)
+                analysis = _wbc_clean_tea_response_for_display(analysis)
+                if analysis:
+                    return {
+                        "ok": True,
+                        "analysis": analysis,
+                        "tea_data": tea_data,
+                        "team_name": _TEA_API_TEAM_NAME,
+                        "cr_number": cr_bare,
+                        "scenario": scenario_from_full,
+                    }
+                last_error = f"{base_url}/api/v1/chat: empty content"
+            except Exception as exc:
+                last_error = f"{base_url}/api/v1/chat: {exc}"
+                continue
+
+    # Legacy fallback: one-shot CR summary endpoint from CR_TEA.py.
+    # The API docs state message must be numeric only — never send "CR" prefix.
+    # Use the configured 5001 base by default; _TEA_API_BASE_ALT is only used if
+    # explicitly overridden to a different value.
+    for base_url in dict.fromkeys([_TEA_API_BASE, _TEA_API_BASE_ALT]):
+        for message in [cr_bare]:   # numeric only per API docs
+            body = {
+                "message": message,
+                "username": _TEA_API_USERNAME,
+                "api_key": tea_api_key,
+                "team_name": _TEA_API_TEAM_NAME,
+                "stream": False,
+            }
+            try:
+                resp = _req.post(
+                    f"{base_url}/api/cr-summary",
+                    json=body,
+                    headers={"Content-Type": "application/json"},
+                    timeout=60,
+                    verify=False,
+                )
+                if not resp.ok:
+                    last_error = f"{base_url}/api/cr-summary: HTTP {resp.status_code}"
+                    continue
+                try:
+                    data = resp.json()
+                except Exception:
+                    data = {"raw_text": resp.text}
+                analysis, tea_data = _extract_analysis_payload(data)
+                scenario_from_full = _extract_wbc_tea_scenario(analysis)
+                analysis = _wbc_clean_tea_response_for_display(analysis)
+                if analysis:
+                    return {"ok": True, "analysis": analysis, "tea_data": tea_data, "team_name": _TEA_API_TEAM_NAME, "cr_number": cr_bare, "scenario": scenario_from_full}
+                last_error = f"{base_url}/api/cr-summary: empty content"
+            except Exception as exc:
+                last_error = f"{base_url}/api/cr-summary: {exc}"
+                continue
+    return {"ok": False, "error": _TEA_API_FAILED_MESSAGE, "detail": last_error, "cr_number": cr_bare}
 
 
 # ── Open CR Details endpoints ─────────────────────────────────────────────────
@@ -3791,7 +4515,19 @@ def api_wbc_open_cr_details(target_key: str):
         key = target["key"]
         cache_path = _open_cr_details_json_path(key)
         analysis_cache = _read_json(cache_path, {})
-        saved_analyses = analysis_cache.get("analyses") or {}
+        saved_analyses = _normalize_analysis_cache_keys(analysis_cache.get("analyses") or {})
+        for item in saved_analyses.values():
+            if not isinstance(item, dict):
+                continue
+            if _wbc_is_tea_failure_text(item.get("tea")) or _wbc_looks_like_row_context_bundle(item.get("tea")):
+                item.pop("tea", None)
+            tea_scenario = _extract_wbc_tea_scenario(item.get("tea") or "")
+            if tea_scenario and tea_scenario != "testcase not found":
+                item["tea_scenario"] = tea_scenario
+            elif item.get("tea_scenario") and _wbc_looks_like_row_context_bundle(item.get("tea_scenario")):
+                item.pop("tea_scenario", None)
+            if item.get("pdt_scenario") and item.get("pdt_scenario_source") != "manual":
+                item.pop("pdt_scenario", None)
         return jsonify({"ok": True, "target": target, "analyses": saved_analyses})
     except Exception as exc:
         return jsonify({"ok": False, "error": str(exc)}), 500
@@ -3834,86 +4570,134 @@ def api_wbc_open_cr_analyze(target_key: str):
         # Load existing cache
         cache_path = _open_cr_details_json_path(key)
         cache = _read_json(cache_path, {})
-        analyses = cache.get("analyses") or {}
-        cr_cache = dict(analyses.get(cr_bare) or {})
+        analyses = _normalize_analysis_cache_keys(cache.get("analyses") or {})
+        cr_cache = dict(_analysis_cache_for_cr(analyses, cr_bare) or {})
         today = date.today().isoformat()
+
+        if cr_cache.get("pdt_scenario") and cr_cache.get("pdt_scenario_source") != "manual":
+            cr_cache.pop("pdt_scenario", None)
 
         result: Dict[str, Any] = {"cr_number": cr_bare, "ok": True}
 
         # ── TEA analysis (free, external API) ────────────────────────────────
         if mode in ("tea", "both"):
             existing_tea = cr_cache.get("tea") or ""
-            if not force and existing_tea and today in existing_tea:
+            existing_tea_is_bad = _wbc_is_tea_failure_text(existing_tea) or _wbc_looks_like_row_context_bundle(existing_tea)
+            if not force and existing_tea and today in existing_tea and not existing_tea_is_bad:
                 result["tea"] = existing_tea
-                if not cr_cache.get("scenario"):
-                    cr_cache["scenario"] = _extract_wbc_tea_scenario(existing_tea)
-                result["scenario"] = cr_cache.get("scenario") or ""
+                scenario_text = _extract_wbc_tea_scenario_with_qgenie(existing_tea, cr_bare)
+                if scenario_text and scenario_text != "testcase not found":
+                    cr_cache["tea_scenario"] = scenario_text
+                result["tea_scenario"] = scenario_text
+                result["scenario"] = scenario_text
+                result["team_name"] = cr_cache.get("tea_team_name") or _TEA_API_TEAM_NAME
                 result["tea_cached"] = True
             else:
-                tea_result = _call_tea_api(cr_bare)
+                tea_result = _call_tea_api(cr_number)
                 if tea_result.get("ok") and tea_result.get("analysis"):
-                    tea_text = f"[{today}] {tea_result['analysis'][:4000]}"
-                    scenario_text = _extract_wbc_tea_scenario(tea_text)
+                    tea_text = f"[{today}] {_clean_wbc_ai_text(tea_result['analysis'])[:12000]}"
+                    # Prefer scenario extracted from full response (before preamble strip)
+                    # because Scenario/Test Case Name can appear before Analysis Category
+                    scenario_text = str(tea_result.get("scenario") or "").strip()
+                    if not scenario_text or scenario_text == "testcase not found":
+                        scenario_text = _extract_wbc_tea_scenario_with_qgenie(tea_text, cr_bare)
                     cr_cache["tea"] = tea_text
-                    cr_cache["scenario"] = scenario_text
+                    cr_cache["tea_scenario"] = "" if scenario_text == "testcase not found" else scenario_text
                     cr_cache["tea_updated"] = today
+                    cr_cache["tea_team_name"] = tea_result.get("team_name") or _TEA_API_TEAM_NAME
                     result["tea"] = tea_text
+                    result["tea_scenario"] = scenario_text
                     result["scenario"] = scenario_text
+                    result["team_name"] = cr_cache["tea_team_name"]
                     result["tea_ok"] = True
                 else:
-                    result["tea_error"] = tea_result.get("error") or "TEA API returned no analysis"
-                    result["tea"] = cr_cache.get("tea") or ""
+                    result["tea_error"] = _TEA_API_FAILED_MESSAGE
+                    result["tea_error_detail"] = tea_result.get("detail") or tea_result.get("error") or ""
+                    cr_cache["tea_error"] = result["tea_error_detail"]
+                    cr_cache["tea_updated"] = today
+                    if existing_tea and not existing_tea_is_bad:
+                        result["tea"] = existing_tea
+                    else:
+                        cr_cache.pop("tea", None)
+                        cr_cache.pop("tea_scenario", None)
+                        result["tea"] = ""
 
-        # ── QGenie analysis — uses TEA response as input (like old tool QGenie.Get_QGenie_Summary(tea_data)) ──
+        # ── QGenie analysis — legacy flow: summarize the TEA response, never just the DB row/title ──
         if mode in ("qgenie", "both"):
             existing_qg = cr_cache.get("qgenie") or ""
-            if not force and existing_qg and today in existing_qg:
+            tea_input = result.get("tea") or cr_cache.get("tea") or ""
+            tea_input_clean = _clean_wbc_ai_text(re.sub(r"^\[\d{4}-\d{2}-\d{2}\]\s*", "", str(tea_input or "")).strip())
+            tea_input_is_bad = _wbc_is_tea_failure_text(tea_input_clean) or _wbc_looks_like_row_context_bundle(tea_input_clean)
+            existing_qg_is_bad = _wbc_looks_like_row_context_bundle(existing_qg)
+            if not force and existing_qg and today in existing_qg and tea_input_clean and not tea_input_is_bad and not existing_qg_is_bad:
                 result["qgenie"] = existing_qg
                 result["qgenie_cached"] = True
             else:
-                try:
-                    from src.qgenie_service import (  # noqa: PLC0415
-                        get_current_qgenie_client,
-                        get_session_qgenie_highlights_model,
-                    )
-                    client = get_current_qgenie_client()
-                    if not client:
-                        result["qgenie_error"] = "QGenie API key not configured for this session"
-                        result["qgenie"] = cr_cache.get("qgenie") or ""
+                # If user runs only QGenie, preserve old WBC behavior by obtaining
+                # TEA first. Summarizing row context alone caused title/area-only
+                # output instead of real RCA/technical analysis.
+                if (force or not tea_input_clean or tea_input_is_bad) and mode == "qgenie":
+                    tea_result = _call_tea_api(cr_number)
+                    if tea_result.get("ok") and tea_result.get("analysis"):
+                        tea_text = f"[{today}] {_clean_wbc_ai_text(tea_result['analysis'])[:12000]}"
+                        scenario_text = str(tea_result.get("scenario") or "").strip()
+                        if not scenario_text or scenario_text == "testcase not found":
+                            scenario_text = _extract_wbc_tea_scenario_with_qgenie(tea_text, cr_bare)
+                        cr_cache["tea"] = tea_text
+                        cr_cache["tea_scenario"] = "" if scenario_text == "testcase not found" else scenario_text
+                        cr_cache["tea_updated"] = today
+                        cr_cache["tea_team_name"] = tea_result.get("team_name") or _TEA_API_TEAM_NAME
+                        result["tea"] = tea_text
+                        result["tea_scenario"] = scenario_text
+                        result["scenario"] = scenario_text
+                        result["team_name"] = cr_cache["tea_team_name"]
+                        result["tea_ok"] = True
+                        tea_input_clean = _clean_wbc_ai_text(re.sub(r"^\[\d{4}-\d{2}-\d{2}\]\s*", "", tea_text).strip())
                     else:
-                        model = get_session_qgenie_highlights_model()
-                        # Use TEA response as the main input for QGenie (old tool pattern):
-                        # QGenie.Get_QGenie_Summary(tea_data) where tea_data = CR_TEA.analyze_cr(...)
-                        # Prompt: "Summarize root cause of this CR in 1 simple sentences..."
-                        tea_input = result.get("tea") or cr_cache.get("tea") or ""
-                        # Strip the date prefix [YYYY-MM-DD] from cached TEA text
-                        tea_input_clean = re.sub(r"^\[\d{4}-\d{2}-\d{2}\]\s*", "", tea_input).strip()
-                        if tea_input_clean:
-                            # Old tool prompt (QGenie.py): "Summarize root cause of this CR in 1 simple sentences..."
-                            prompt = (
-                                "Summarize root cause of this CR in 1 simple sentences using simple technical terms.\n\n"
-                                f"Technical Data: {tea_input_clean[:3000]}"
-                            )
-                        else:
-                            # Fallback when no TEA data: use CR number + context
-                            prompt = (
-                                f"Provide a concise PDT engineering analysis for CR{cr_bare}. "
-                                "State likely impact, current status/risk, and recommended next action. "
-                                "Max 2 sentences. No markdown, no bullet points."
-                            )
-                            if context:
-                                prompt += f"\n\nContext:\n{context[:2000]}"
-                        resp = client.chat(
-                            model=model,
-                            messages=[{"role": "user", "content": prompt}],
-                            temperature=0.0,
+                        result["tea_error"] = _TEA_API_FAILED_MESSAGE
+                        result["tea_error_detail"] = tea_result.get("detail") or tea_result.get("error") or ""
+                        cr_cache["tea_error"] = result["tea_error_detail"]
+                        cr_cache["tea_updated"] = today
+                        cr_cache.pop("tea", None)
+                        cr_cache.pop("tea_scenario", None)
+                        result["tea"] = ""
+                        tea_input_clean = ""
+                        tea_input_is_bad = True
+
+                if not tea_input_clean or tea_input_is_bad:
+                    result["qgenie_error"] = _TEA_API_FAILED_MESSAGE if result.get("tea_error") else "TEA analysis unavailable; QGenie skipped to avoid CR-title/occurrence-only summary"
+                    result["qgenie"] = cr_cache.get("qgenie") or ""
+                else:
+                    try:
+                        from src.qgenie_service import (  # noqa: PLC0415
+                            get_current_qgenie_client,
+                            get_session_qgenie_highlights_model,
                         )
-                        try:
-                            text = str(resp.choices[0].message.content or "").strip()
-                        except Exception:
-                            text = str(getattr(resp, "content", resp) or "").strip()
-                        text = re.sub(r"^```[a-z]*\n?", "", text, flags=re.IGNORECASE)
-                        text = re.sub(r"\n?```$", "", text).strip()
+                        client = get_current_qgenie_client()
+                        text = ""
+                        if client:
+                            model = get_session_qgenie_highlights_model()
+                            prompt = (
+                                "Summarize root cause of this CR in 1 simple sentence using simple technical terms.\n\n"
+                                f"Technical Data: {tea_input_clean[:5000]}"
+                            )
+                            resp = client.chat(
+                                model=model,
+                                messages=[{"role": "user", "content": prompt}],
+                                temperature=0.0,
+                            )
+                            try:
+                                text = str(resp.choices[0].message.content or "").strip()
+                            except Exception:
+                                text = str(getattr(resp, "content", resp) or "").strip()
+                            text = _clean_wbc_ai_text(text, one_line=True)
+                        else:
+                            result["qgenie_warning"] = "QGenie API key not configured for this session; used TEA fallback summary"
+
+                        if not text:
+                            text = _extract_wbc_summary_from_tea(tea_input_clean)
+                            if text:
+                                result["qgenie_fallback"] = "tea_section_summary"
                         if text:
                             qg_text = f"[{today}] {text[:2000]}"
                             cr_cache["qgenie"] = qg_text
@@ -3921,11 +4705,21 @@ def api_wbc_open_cr_analyze(target_key: str):
                             result["qgenie"] = qg_text
                             result["qgenie_ok"] = True
                         else:
-                            result["qgenie_error"] = "QGenie returned empty response"
+                            result["qgenie_error"] = "QGenie returned empty response and TEA fallback had no summary"
                             result["qgenie"] = cr_cache.get("qgenie") or ""
-                except Exception as exc:
-                    result["qgenie_error"] = str(exc)
-                    result["qgenie"] = cr_cache.get("qgenie") or ""
+                    except Exception as exc:
+                        text = _extract_wbc_summary_from_tea(tea_input_clean)
+                        if text:
+                            qg_text = f"[{today}] {text[:2000]}"
+                            cr_cache["qgenie"] = qg_text
+                            cr_cache["qgenie_updated"] = today
+                            result["qgenie"] = qg_text
+                            result["qgenie_ok"] = True
+                            result["qgenie_fallback"] = "tea_section_summary"
+                            result["qgenie_warning"] = str(exc)
+                        else:
+                            result["qgenie_error"] = str(exc)
+                            result["qgenie"] = cr_cache.get("qgenie") or ""
 
         # Save updated cache (JSON only — Excel not modified)
         analyses[cr_bare] = cr_cache
@@ -3964,14 +4758,15 @@ def api_wbc_open_cr_save(target_key: str):
 
         cache_path = _open_cr_details_json_path(key)
         cache = _read_json(cache_path, {})
-        analyses = cache.get("analyses") or {}
-        cr_cache = dict(analyses.get(cr_bare) or {})
+        analyses = _normalize_analysis_cache_keys(cache.get("analyses") or {})
+        cr_cache = dict(_analysis_cache_for_cr(analyses, cr_bare) or {})
 
         if "tea" in body:
             cr_cache["tea"] = str(body.get("tea") or "").strip()
-            cr_cache["scenario"] = _extract_wbc_tea_scenario(cr_cache.get("tea") or "")
+            cr_cache["tea_scenario"] = _extract_wbc_tea_scenario_with_qgenie(cr_cache.get("tea") or "", cr_bare)
         if "scenario" in body:
-            cr_cache["scenario"] = str(body.get("scenario") or "").strip()
+            cr_cache["pdt_scenario"] = str(body.get("scenario") or "").strip()
+            cr_cache["pdt_scenario_source"] = "manual"
         if "qgenie" in body:
             cr_cache["qgenie"] = str(body.get("qgenie") or "").strip()
         if "pdt_comment" in body:

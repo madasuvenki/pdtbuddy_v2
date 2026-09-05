@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en"> 
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -365,8 +365,8 @@
             <button class="btn" onclick="downloadOpenCrsCsv()" title="Download Open CRs table as CSV"><i class="fas fa-file-csv" style="color:#16a34a"></i> CSV</button>
             <button class="btn" onclick="loadOpenCrsAnalysis()"><i class="fas fa-sync"></i> Refresh</button>
             {% if can_edit %}
-            <button id="ocdTeaBtn" class="btn" onclick="runOpenCrTeaOnly()" title="Run TEA analysis for all Open CRs — results saved to JSON cache"><i class="fas fa-flask" style="color:#0891b2"></i> Run TEA</button>
-            <button id="ocdQGenieBtn2" class="btn primary" onclick="runOpenCrQGenieOnly()" title="Run QGenie analysis for all Open CRs — results saved to JSON cache"><i class="fas fa-magic"></i> Run QGenie</button>
+            <button id="ocdTeaBtn" class="btn" onclick="openOpenCrRunModal('tea')" title="Select one CR and run TEA analysis — normal run reuses today's cache"><i class="fas fa-flask" style="color:#0891b2"></i> Run TEA</button>
+            <button id="ocdQGenieBtn2" class="btn primary" onclick="openOpenCrRunModal('qgenie')" title="Select one CR and run QGenie analysis — normal run reuses today's cache"><i class="fas fa-magic"></i> Run QGenie</button>
             <button id="ocdSaveAllBtn" class="btn green" onclick="saveAllOcdAnalyses()" title="Save all analysis results and PDT comments to JSON cache"><i class="fas fa-save"></i> Save All</button>
             {% endif %}
           </div>
@@ -380,7 +380,7 @@
           <span><i class="fas fa-table" style="color:#f97316"></i> Open CR Details <span style="font-size:10px;font-weight:700;color:#94a3b8">(Open_CR_Details sheet)</span></span>
           <div class="actions">
             <button class="btn" onclick="loadOpenCrDetails()"><i class="fas fa-sync"></i> Refresh</button>
-            {% if can_edit %}<button id="ocdQGenieBtn" class="btn primary" onclick="runOpenCrQGenie()" title="Run QGenie analysis for all CRs in Open_CR_Details — results saved to Excel workbook. CRs already analysed today are skipped."><i class="fas fa-magic"></i> Run QGenie Analysis</button>{% endif %}
+            {% if can_edit %}<button id="ocdQGenieBtn" class="btn primary" onclick="openOpenCrRunModal('qgenie')" title="Select one CR and run QGenie analysis. Normal run reuses today's cache; force run bypasses it for testing."><i class="fas fa-magic"></i> Run QGenie Analysis</button>{% endif %}
           </div>
         </div>
         <div class="body">
@@ -529,6 +529,35 @@
     <div class="modal-head"><span><i class="fas fa-pen-to-square"></i> Edit Complete MTBF Table</span><button class="btn" onclick="closeMtbfEditModal()"><i class="fas fa-times"></i></button></div>
     <div class="modal-body"><div class="tblwrap" id="mtbfEditBox"></div><div id="mtbfEditMsg" class="mini-msg"></div></div>
     <div class="modal-actions"><button class="btn" onclick="mtbfEditAddBlankRow()"><i class="fas fa-plus"></i> Blank Row</button><button class="btn" onclick="mtbfEditCopyLastRow()"><i class="fas fa-copy"></i> Copy Last Row</button><button class="btn" onclick="closeMtbfEditModal()">Cancel</button><button class="btn primary" onclick="saveMtbfEditTable()"><i class="fas fa-save"></i> Save Complete Table</button></div>
+  </div>
+</div>
+<div id="openCrRunModal" class="modal">
+  <div class="modal-box" style="width:min(640px,96vw)">
+    <div class="modal-head"><span id="openCrRunTitle"><i class="fas fa-play"></i> Run CR Analysis</span><button class="btn" onclick="closeOpenCrRunModal()"><i class="fas fa-times"></i></button></div>
+    <div class="modal-body">
+      <div class="field">
+        <label>Select Open CR(s)</label>
+        <select id="openCrRunSelect" class="input" multiple size="8" onchange="syncOpenCrRunInputFromSelect()" style="height:auto;min-height:150px"></select>
+        <div class="muted" style="font-size:11px;margin-top:4px">Use Ctrl/Shift to select multiple CRs.</div>
+      </div>
+      <div class="field" style="margin-top:12px">
+        <label>Or enter CR manually</label>
+        <input id="openCrRunInput" class="input" placeholder="Example: CR4644761, CR4625713">
+      </div>
+      <label style="display:flex;align-items:center;gap:8px;margin-top:14px;font-size:12px;font-weight:900;color:#334155">
+        <input type="checkbox" id="openCrRunAll" style="width:16px;height:16px">
+        Run all Open CRs
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;font-weight:900;color:#334155">
+        <input type="checkbox" id="openCrRunForce" style="width:16px;height:16px">
+        Force run selected/all CRs now (ignore today's cache)
+      </label>
+      <div id="openCrRunMsg" class="saved">Normal run is one time per CR per day. You can select one, multiple, or all CRs.</div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeOpenCrRunModal()">Cancel</button>
+      <button id="openCrRunSubmitBtn" class="btn primary" onclick="runSelectedOpenCrAnalysis()"><i class="fas fa-play"></i> Run CR(s)</button>
+    </div>
   </div>
 </div>
 {% endif %}
@@ -2172,16 +2201,142 @@ function _wbcFindCol(cols,names){
   return '';
 }
 
+function _wbcIsTeaFailureText(text){
+  const raw=String(text||'').replace(/^\[\d{4}-\d{2}-\d{2}\]\s*/,'').trim().toLowerCase();
+  return !!raw && (raw==='tea api failed' || raw.includes('tea api failed') || raw.includes('could not generate a tea') || raw.includes('ai response could not be parsed') || raw.includes('please provide valid cr') || raw.includes('invalid cr number'));
+}
+function _wbcLooksLikeRowContextBundle(text){
+  let clean=String(text||'').replace(/\*\*|__/g,'').replace(/^\[\d{4}-\d{2}-\d{2}\]\s*/,'').trim();
+  if(!clean)return false;
+  const hay=clean.toLowerCase();
+  const markers=['title of the cr','customer context','customer name','sr number','software product','image reference','cr occurrence','occurrences'];
+  const count=markers.filter(m=>hay.includes(m)).length;
+  return count>=2||(hay.includes('title of the cr')&&clean.length<2500);
+}
+function _wbcNormalizeScenarioValue(value){
+  let v=String(value||'').replace(/^\[\d{4}-\d{2}-\d{2}\]\s*/,'').replace(/[*_`#]+/g,'').replace(/\s+/g,' ').replace(/^[\s\-:\/|]+|[\s\-:\/|]+$/g,'');
+  if(!v)return '';
+  v=v.replace(/^No\s+Test\s*case\s*Crash\s*/i,'').replace(/^[\s\-:\/|]+|[\s\-:\/|]+$/g,'');
+  v=v.replace(/^No\s+Testcase\s*Crash\s*/i,'').replace(/^[\s\-:\/|]+|[\s\-:\/|]+$/g,'');
+  const label=/^(?:(?:PDT\s*)?Scenario(?:\s*Details)?|Scenario\s*\/\s*Test\s*Case\s*Name|Test\s*\/\s*Scenari?o(?:\s*Name)?|Test\s*Scenari?o(?:\s*Name)?|Scenari?o\s*Name|Last\s+test\s*case|Test\s*Case\s*Name|Test\s*Case|TestCase|No\s*Testcase\s*Crash\s*Phase|Crash\s*Phase|Phase|What\s+to\s+test)\s*[:=-]\s*/i;
+  for(let i=0;i<3;i++){
+    const nv=v.replace(label,'').replace(/^[\s\-:\/|]+|[\s\-:\/|]+$/g,'');
+    if(nv===v)break;
+    v=nv;
+  }
+  v=v.replace(/\s*\/\s*(?:Test\s*Case|TestCase|Phase|(?:PDT\s*)?Scenario)\s*[:=-].*$/i,'').replace(/\s*(?:Playlist|Result|Status|CR|Jira|Image Reference|Customer Context)\s*:.*$/i,'').replace(/^[\s\-:\/|]+|[\s\-:\/|]+$/g,'');
+  // Strip .xml file extension and Attempt: N metadata — show scenario name only
+  v=v.replace(/\s*\battempt\s*[:=-]?\s*\d+\b/ig,'').replace(/^[\s\-:\/|]+|[\s\-:\/|]+$/g,'');
+  v=v.replace(/\.xml\b/ig,'').replace(/^[\s\-:\/|]+|[\s\-:\/|]+$/g,'');
+  if(!v || /^(na|n\/a|none|not available|no testcasecrash|no testcase crash)$/i.test(v))return '';
+  return v;
+}
+function _wbcScenarioDedupeKey(value){
+  return _wbcNormalizeScenarioValue(value).toLowerCase().replace(/\battempt\s*[:=-]?\s*\d+\b/ig,'').replace(/\s+/g,' ').replace(/^[\s\-:\/|]+|[\s\-:\/|]+$/g,'');
+}
+function _wbcCompactScenarioValues(values){
+  const out=[],seen=new Set();
+  (values||[]).forEach(raw=>{
+    let text=String(raw||'');
+    if(!text || _wbcIsTeaFailureText(text))return;
+    text=text.replace(/\s*\/\s*(?=(?:Test\s*Case|TestCase|Phase|(?:PDT\s*)?Scenario)\s*[:=-])/ig,'\n');
+    text.split(/[\n\r;|]+/).forEach(part=>{
+      const v=_wbcNormalizeScenarioValue(part);
+      const k=_wbcScenarioDedupeKey(v);
+      if(v&&k&&!seen.has(k)){seen.add(k);out.push(v);}
+    });
+  });
+  return out.slice(0,2).join(' / ').slice(0,240);
+}
+function _wbcCompressWhatToTest(value){
+  let v=String(value||'').replace(/\s+/g,' ').replace(/^[\s\-:\/|.]+|[\s\-:\/|.]+$/g,'');
+  if(!v)return '';
+  v=v.replace(/\bProtection Domain\b/ig,'PD');
+  v=v.replace(/\bmodem heap stress conditions\b/ig,'modem heap stress');
+  v=v.replace(/\s+on\s+[A-Z][A-Za-z0-9_.-]+\s+platform\b.*$/i,'');
+  v=v.replace(/\s+with\s+[A-Z0-9_.-]+(?:\s+\w+){0,4}\s+image\.?$/i,'');
+  v=v.replace(/\s*\([^)]*\)/g,'').replace(/^[\s\-:\/|.]+|[\s\-:\/|.]+$/g,'');
+  if(v.length>120)v=v.replace(/\s+(?:using|with|so\s+that|then)\s+.*$/i,'').replace(/^[\s\-:\/|.]+|[\s\-:\/|.]+$/g,'');
+  const words=v.split(/\s+/).filter(Boolean);
+  if(words.length>14)v=words.slice(0,14).join(' ');
+  return v.replace(/^[\s\-:\/|.]+|[\s\-:\/|.]+$/g,'');
+}
+function _wbcExtractTestCaseRecommendationScenario(text){
+  const raw=String(text||'');
+  const m=raw.match(/(?:\*\*|__)?\s*Test\s*Case\s*Recommendation\s*:?\s*(?:\*\*|__)?\s*([\s\S]*?)(?=\n\s*(?:\*\*|__)\s*[A-Z][^*\r\n]{0,100}(?:\*\*|__)|$)/i);
+  if(!m)return '';
+  const section=String(m[1]||'').trim();
+  if(!section)return '';
+  const hay=section.toLowerCase();
+  if(hay.includes('remoteproc')&&(hay.includes('modem.mdt')||hay.includes('modem'))&&/(authenticat|pil)/i.test(hay)){
+    return 'Modem remoteproc boot authentication failure'+(/serror|kernel panic/i.test(hay)?' SError panic':'');
+  }
+  let lines=[...section.matchAll(/^\s*(?:[-•]|\d+[.)])\s*(.+)$/gm)].map(x=>String(x[1]||'').replace(/\s+/g,' ').replace(/^[\s\-*]+|[\s\-*]+$/g,'')).filter(Boolean);
+  if(!lines.length)lines=section.split(/(?<=[.!?])\s+/).map(x=>x.trim()).filter(Boolean);
+  const reject=/^(?:flash|boot\s+the\s+device|monitor|observe|verify|confirm|check)\b/i;
+  const preferred=lines.filter(line=>line&&!reject.test(line)&&/\b(test|trigger|reproduce|fail|failure|crash|panic|serror|authenticate|authentication|timeout)\b/i.test(line));
+  let candidate=(preferred[0]||lines[0]||'')
+    .replace(/^(?:introduce\s+a\s+condition\s+that\s+causes|trigger|reproduce|test|validate|exercise)\s+/i,'')
+    .replace(/\bto\s+fail\b/i,'failure')
+    .replace(/^[\s\-:\/|.]+|[\s\-:\/|.]+$/g,'');
+  candidate=_wbcNormalizeScenarioValue(candidate);
+  return candidate?_wbcCompressWhatToTest(candidate).slice(0,160):'';
+}
 function _wbcExtractScenarioFromTea(text){
-  const raw=String(text||'').replace(/^\[\d{4}-\d{2}-\d{2}\]\s*/,'');
-  const vals=[];
-  const pats=[/Phase\s*:\s*([^;\n\r]+)/ig,/Scenario\s*:\s*([^;\n\r]+)/ig,/Test\s*Case\s*:\s*([^;\n\r]+?)(?=\s*(?:Phase\s*:|Playlist\s*:|Attempt\s*:|$))/ig,/TestCase\s*:\s*([^;\n\r]+?)(?=\s*(?:Phase\s*:|Playlist\s*:|Attempt\s*:|$))/ig];
-  pats.forEach(re=>{let m;while((m=re.exec(raw))){const v=String(m[1]||'').replace(/\s+/g,' ').replace(/^[\s:-]+|[\s:-]+$/g,'');if(v&&!/^(na|n\/a|not available|no testcasecrash|no testcase crash)$/i.test(v))vals.push(v);}});
-  if(!vals.length&&/\bIdle\s+crash\b/i.test(raw))vals.push('Idle crash');
-  const freq={}, disp={}; vals.forEach(v=>{const k=v.toLowerCase();freq[k]=(freq[k]||0)+1;if(!disp[k])disp[k]=v;});
-  return Object.keys(freq).sort((a,b)=>freq[b]-freq[a]||a.localeCompare(b)).slice(0,2).map(k=>disp[k]).join(' / ');
+  const raw=String(text||'').replace(/^\[\d{4}-\d{2}-\d{2}\]\s*/,'').trim();
+  if(!raw || _wbcIsTeaFailureText(raw))return '';
+  const labels=[
+    'Scenario\\s*\\/\\s*Test\\s*Case\\s*Name',
+    'Test\\s*\\/\\s*Scenari?o(?:\\s*Name)?',
+    'Test\\s*Scenari?o(?:\\s*Name)?',
+    'Scenari?o\\s*Name',
+    'Test\\s*Case\\s*Name',
+    'TestCase\\s*Name',
+    'Test\\s*Case',
+    'TestCase',
+    'No\\s*Testcase\\s*Crash\\s*Phase',
+    'Crash\\s*Phase',
+    'Phase',
+    'What\\s+to\\s+test',
+    '(?:PDT\\s*)?Scenario(?:\\s*Details)?'
+  ];
+  // TEA scenario extraction is intentionally strict: extract only explicit
+  // Scenario/TestCase/What-to-test fields and stop at the next labelled section.
+  // Do not infer PDT Scenario from arbitrary RCA / Development Team Insights text.
+  const stop='(?=(?:\\s*\\|\\s*)?(?:\\*\\*|__)\\s*[A-Za-z][^*\\r\\n]{0,100}(?:\\*\\*|__)|$)';
+  for(const label of labels){
+    const patterns=[
+      new RegExp('(?:\\*\\*|__)\\s*'+label+'\\s*:?\\s*(?:\\*\\*|__)\\s*:?\\s*(.*?)'+stop,'ig'),
+      new RegExp('(?:^|[\\n\\r])\\s*(?:[-•]\\s*)?'+label+'\\s*:\\s*(.*?)(?=\\n\\s*(?:[-•]\\s*)?(?:[A-Z][A-Za-z0-9 /_-]{2,}|How\\s+to\\s+trigger(?:\\s+the\\s+issue)?|What\\s+to\\s+observe(?:/verify)?)\\s*:|$)','ig')
+    ];
+    for(const re of patterns){
+      let m;
+      while((m=re.exec(raw))){
+        let value=String(m[1]||'').trim()
+          .replace(/\s*(?:\||\/)\s*$/,'')
+          .replace(/(?:\*\*|__)\s*$/,'')
+          .trim();
+        value=_wbcNormalizeScenarioValue(value);
+        if(label.includes('What'))value=_wbcCompressWhatToTest(value);
+        if(value)return value.length>160 ? value.slice(0,160) : value;
+      }
+    }
+  }
+  const recommendation=_wbcExtractTestCaseRecommendationScenario(raw);
+  if(recommendation)return recommendation.length>160 ? recommendation.slice(0,160) : recommendation;
+  return 'testcase not found';
+}
+function _wbcTeaScenarioDisplay(analysis){
+  analysis=analysis||{};
+  const directRaw=String(analysis.scenario||analysis.pdt_scenario||'').trim();
+  return directRaw ? _wbcNormalizeScenarioValue(directRaw) : '';
 }
 
+function _wbcTeaAnalysisDisplay(text){
+  const raw=String(text||'').replace(/^\[\d{4}-\d{2}-\d{2}\]\s*/,'').trim();
+  if(!raw || _wbcIsTeaFailureText(raw) || _wbcLooksLikeRowContextBundle(raw))return '';
+  return raw;
+}
 function _wbcOpenCrRowsWithAnalysis(){
   const openCrs=(payload&&payload.previews&&payload.previews.open_crs)||{};
   const baseRows=openCrs.rows||[];
@@ -2211,6 +2366,7 @@ function _wbcOpenCrRowsWithAnalysis(){
   if(!visibleBaseCols.length)visibleBaseCols.push(...baseCols.filter(c=>!hiddenOpenCrCols.has(_normColName(c))).slice(0,10));
   const crCol=_wbcFindCol(baseCols,['CR','CR ID','CR-ID','mapped_cr','cr_id','unique_cr'])||baseCols[0]||'CR';
   const ageCol=_wbcFindCol(baseCols,['CR Age','cr_age','overall_age','Age','age_days','days_open']);
+  const scenarioSrcCol=_wbcFindCol(baseCols,['SCENARIO DETAILS','Scenario Details','scenario_details','PDT Scenario','pdt_scenario','Scenario','scenario','TestCase','Test Case','test_case']);
   const analyses=(_ocdData&&_ocdData.analyses)||{};
   const crDateCol=_wbcFindCol(baseCols,['CR Date','cr_date','Date','created_date','created','jira_date','first_seen_date']);
   const _calcCrAge=(r)=>{
@@ -2234,10 +2390,18 @@ function _wbcOpenCrRowsWithAnalysis(){
     const out={__cr_bare:crBare};
     visibleBaseCols.forEach(c=>{out[c]=r[c];});
     const teaText=analysis.tea||'';
+    const sourceScenario=_wbcTeaScenarioDisplay({scenario: scenarioSrcCol?String(r[scenarioSrcCol]||'').trim():''});
+    const manualScenario=_wbcTeaScenarioDisplay({scenario: analysis.pdt_scenario||''});
+    const cachedTeaScenario=_wbcNormalizeScenarioValue(analysis.tea_scenario||'');
+    const extractedTeaScenario=_wbcExtractScenarioFromTea(teaText);
+    const teaScenario=(cachedTeaScenario&&cachedTeaScenario!=='testcase not found')
+      ? cachedTeaScenario
+      : extractedTeaScenario;
+    const pdtScenario=[sourceScenario,manualScenario].find(v=>v)||'';
     return {...out,
-      'PDT SCENARIO': analysis.scenario||_wbcExtractScenarioFromTea(teaText),
+      'PDT SCENARIO': pdtScenario,
       'CR Age': _calcCrAge(r),
-      'SCENARIO DETAILS (TEA)': teaText,
+      'SCENARIO DETAILS (TEA)': teaScenario||'',
       'QGENIE ANALYSIS': analysis.qgenie||'',
       'PDT COMMENTS': analysis.pdt_comment||'',
       'IS REGRESSION': analysis.is_regression?'Yes':'No'
@@ -2603,6 +2767,134 @@ function renderOpenCrDetails(){
   box.innerHTML = tableHtml({columns:cols, rows:rowObjects, count:rowObjects.length});
 }
 
+let _openCrRunMode='tea';
+
+function _openCrRunRows(){
+  const data=_wbcOpenCrRowsWithAnalysis();
+  const rows=data.rows||[];
+  const seen=new Set();
+  return rows.map(r=>String(r.__cr_bare||'').replace(/^CR/i,'').trim()).filter(cr=>{
+    if(!cr||seen.has(cr))return false;
+    seen.add(cr);
+    return true;
+  });
+}
+
+function _openCrContextFor(crBare){
+  const openCrs=(payload&&payload.previews&&payload.previews.open_crs)||{};
+  const cols=openCrs.columns||[];
+  const rows=openCrs.rows||[];
+  const crColName=cols.find(c=>/^(cr|crid|mappedcr|uniquecr)$/i.test(String(c||'').toLowerCase().replace(/[\s_-]/g,''))) || cols[0];
+  const row=rows.find(r=>String(r[crColName]||'').replace(/^CR/i,'').trim()===String(crBare||'').replace(/^CR/i,'').trim());
+  return row?cols.map(c=>c+': '+(row[c]||'')).join('; ').slice(0,1200):'';
+}
+
+function openOpenCrRunModal(mode, crBare){
+  if(!active||!CAN_EDIT){alert('Internal team access required.');return;}
+  _openCrRunMode=(mode==='qgenie'||mode==='both')?mode:'tea';
+  const title=document.getElementById('openCrRunTitle');
+  if(title)title.innerHTML=(_openCrRunMode==='qgenie'?'<i class="fas fa-magic"></i> Run QGenie for CR(s)':'<i class="fas fa-flask"></i> Run TEA for CR(s)');
+  const list=_openCrRunRows();
+  const sel=document.getElementById('openCrRunSelect');
+  if(sel){
+    sel.innerHTML=list.map(cr=>`<option value="${esc(cr)}">CR${esc(cr)}</option>`).join('');
+    if(crBare){
+      const wanted=String(crBare).replace(/^CR/i,'').trim();
+      [...sel.options].forEach(o=>{o.selected=(o.value===wanted);});
+    }
+  }
+  const inp=document.getElementById('openCrRunInput');
+  if(inp)inp.value=crBare?('CR'+String(crBare).replace(/^CR/i,'').trim()):'';
+  const all=document.getElementById('openCrRunAll');
+  if(all)all.checked=false;
+  const force=document.getElementById('openCrRunForce');
+  if(force)force.checked=false;
+  setText('openCrRunMsg','Normal run is one time per CR per day. Select one, multiple, enter comma-separated CRs, or tick Run all Open CRs.');
+  document.getElementById('openCrRunModal')?.classList.add('open');
+  setTimeout(()=>{if(inp)inp.focus();},50);
+}
+
+function closeOpenCrRunModal(){
+  document.getElementById('openCrRunModal')?.classList.remove('open');
+}
+
+function syncOpenCrRunInputFromSelect(){
+  const sel=document.getElementById('openCrRunSelect');
+  const inp=document.getElementById('openCrRunInput');
+  const selected=[...(sel&&sel.selectedOptions||[])].map(o=>String(o.value||'').replace(/^CR/i,'').trim()).filter(Boolean);
+  if(inp&&selected.length)inp.value=selected.map(cr=>'CR'+cr).join(', ');
+}
+
+function _openCrRunSelectedCrs(){
+  const all=!!document.getElementById('openCrRunAll')?.checked;
+  const list=_openCrRunRows();
+  if(all)return list;
+  const sel=document.getElementById('openCrRunSelect');
+  const selected=[...(sel&&sel.selectedOptions||[])].map(o=>String(o.value||'').replace(/^CR/i,'').trim()).filter(Boolean);
+  const inp=document.getElementById('openCrRunInput');
+  const manual=String(inp&&inp.value||'').split(/[,\s;]+/).map(v=>v.replace(/^CR/i,'').trim()).filter(Boolean);
+  return [...new Set([...selected,...manual])];
+}
+
+async function _runOneOpenCrAnalysis(cr,mode,force){
+  const resp=await fetch(`${API}/target/${encodeURIComponent(active)}/open_cr_details/analyze`,{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({cr_number:cr,mode,context:_openCrContextFor(cr),force})
+  });
+  const d=await resp.json();
+  if(!resp.ok || d.ok===false)throw new Error(d.error||d.tea_error||d.qgenie_error||'Analysis failed');
+  if(!_ocdData.analyses[cr])_ocdData.analyses[cr]={};
+  if(d.tea)_ocdData.analyses[cr].tea=d.tea;
+  if(d.tea_scenario)_ocdData.analyses[cr].tea_scenario=d.tea_scenario;
+  if(d.qgenie)_ocdData.analyses[cr].qgenie=d.qgenie;
+  if(d.team_name)_ocdData.analyses[cr].tea_team_name=d.team_name;
+  return d;
+}
+
+async function runSelectedOpenCrAnalysis(){
+  if(!active||!CAN_EDIT){alert('Internal team access required.');return;}
+  const crNumbers=_openCrRunSelectedCrs();
+  if(!crNumbers.length){alert('Select, enter, or choose all CRs.');return;}
+  const force=!!document.getElementById('openCrRunForce')?.checked;
+  const mode=_openCrRunMode||'tea';
+  const label=mode==='qgenie'?'QGenie':'TEA';
+  if(crNumbers.length>1&&!confirm('Run '+label+' for '+crNumbers.length+' CRs?\n\nNormal run reuses today cache. Force run ignores cache for every selected CR.'))return;
+  const btn=document.getElementById('openCrRunSubmitBtn');
+  const old=btn?btn.innerHTML:'';
+  if(btn){btn.disabled=true;btn.innerHTML='<i class="fas fa-circle-notch fa-spin"></i> Running...';}
+  let done=0, failed=0, lastCr='';
+  _ocdShowProgress(label+' Analysis', (force?'Force running ':'Running ')+crNumbers.length+' CR(s)', 0, crNumbers.length, '');
+  try{
+    for(const cr of crNumbers){
+      lastCr=cr;
+      setText('openCrRunMsg',(force?'Force running ':'Running ')+label+' for CR'+cr+' ('+(done+1)+'/'+crNumbers.length+')...');
+      _ocdShowProgress(label+' Analysis', (force?'Force running ':'Running ')+'CR'+cr, done, crNumbers.length, cr);
+      try{
+        await _runOneOpenCrAnalysis(cr,mode,force);
+      }catch(e){
+        failed++;
+        console.warn('Open CR analysis failed for CR'+cr,e);
+      }
+      done++;
+      renderOpenCrsEnhanced();
+      renderOpenCrDetails();
+      await new Promise(r=>setTimeout(r,250));
+    }
+    _ocdShowProgress('Analysis Complete', 'Completed '+done+'/'+crNumbers.length+' CR(s)', done, crNumbers.length, lastCr);
+    _ocdHideProgress(1800);
+    setText('openCrRunMsg','Completed '+done+'/'+crNumbers.length+' CR(s)'+(failed?(' • '+failed+' failed'):'')+(force?' with force run.':' using daily cache rule.'));
+    setText('openCrsCount',((_wbcOpenCrRowsWithAnalysis().rows||[]).length)+' row(s) • completed '+done+' CR(s)');
+    _showSaveToast(label+' complete for '+done+' CR(s).');
+    if(!failed)setTimeout(closeOpenCrRunModal,700);
+  }catch(e){
+    _ocdHideProgress(0);
+    setText('openCrRunMsg','Failed: '+(e.message||e));
+  }finally{
+    if(btn){btn.disabled=false;btn.innerHTML=old;}
+  }
+}
+
 // Run QGenie/TEA analysis for all Open CRs — results saved to JSON cache (not Excel)
 async function runOpenCrQGenie(){
   if(!active||!CAN_EDIT){alert('Internal team access required.');return;}
@@ -2630,7 +2922,7 @@ async function runOpenCrQGenie(){
       const d=await resp.json();
       if(!_ocdData.analyses[cr]) _ocdData.analyses[cr]={};
       if(d.tea) _ocdData.analyses[cr].tea=d.tea;
-      if(d.scenario) _ocdData.analyses[cr].scenario=d.scenario;
+      if(d.tea_scenario) _ocdData.analyses[cr].tea_scenario=d.tea_scenario;
       if(d.qgenie) _ocdData.analyses[cr].qgenie=d.qgenie;
     }catch(e){}
     done++;
@@ -2702,7 +2994,6 @@ function renderOpenCrsEnhanced(){
     const crBare = _ocdCrBare(r, crColName);
     const analysis = analyses[crBare]||{};
     const tea = analysis.tea||'';
-    const scenario = analysis.scenario||_wbcExtractScenarioFromTea(tea);
     const qgenie = analysis.qgenie||'';
     const pdtComment = analysis.pdt_comment||'';
     const isReg = !!analysis.is_regression;
@@ -2753,7 +3044,7 @@ function openOcdEdit(crBare){
   const analysis = analyses[crBare]||{};
   document.getElementById('ocdEditCr').value = crBare;
   const teaEl=document.getElementById('ocdEditTea'); if(teaEl) teaEl.value = analysis.tea||'';
-  const scenarioEl=document.getElementById('ocdEditScenario'); if(scenarioEl) scenarioEl.value = analysis.scenario||_wbcExtractScenarioFromTea(analysis.tea||'');
+  const scenarioEl=document.getElementById('ocdEditScenario'); if(scenarioEl) scenarioEl.value = analysis.pdt_scenario||'';
   const qgEl=document.getElementById('ocdEditQgenie'); if(qgEl) qgEl.value = analysis.qgenie||'';
   document.getElementById('ocdEditComment').value = analysis.pdt_comment||'';
   document.getElementById('ocdEditRegression').checked = !!analysis.is_regression;
@@ -2785,7 +3076,7 @@ async function saveOcdEdit(){
     });
     if(!_ocdData.analyses[crBare]) _ocdData.analyses[crBare]={};
     _ocdData.analyses[crBare].tea = teaVal;
-    _ocdData.analyses[crBare].scenario = scenarioVal;
+    _ocdData.analyses[crBare].pdt_scenario = scenarioVal;
     _ocdData.analyses[crBare].qgenie = qgenieVal;
     _ocdData.analyses[crBare].pdt_comment = pdtComment;
     _ocdData.analyses[crBare].is_regression = isRegression;
@@ -2844,86 +3135,8 @@ function _ocdHideProgress(delay){
   }, delay || 0);
 }
 
-async function runOpenCrTeaOnly(){
-  if(!active||!CAN_EDIT){alert('Internal team access required.');return;}
-  const openCrs = (payload&&payload.previews&&payload.previews.open_crs)||{};
-  const cols = openCrs.columns||[];
-  const rows = openCrs.rows||[];
-  const crColName = cols.find(c=>/^(cr|cr_id|crid|mapped_cr|unique_cr)$/i.test(String(c||'').toLowerCase().replace(/[\s_-]/g,''))) || cols[0];
-  const crNumbers = [...new Set(rows.map(r=>String(r[crColName]||'').replace(/^CR/i,'').trim()).filter(Boolean))];
-  if(!crNumbers.length){alert('No CR numbers found in Open CRs data.');return;}
-  if(!confirm('Run TEA analysis for '+crNumbers.length+' CRs?\n\nResults saved to JSON cache. CRs already analysed today are skipped.'))return;
-  const btn=document.getElementById('ocdTeaBtn');
-  const old=btn?btn.innerHTML:'';
-  if(btn){btn.disabled=true;btn.innerHTML='<i class="fas fa-circle-notch fa-spin"></i> Running TEA...';}
-  setText('openCrsCount','Running TEA analysis...');
-  _ocdShowProgress('Running TEA Analysis', 'Calling TEA API for each CR...', 0, crNumbers.length, '');
-  let done=0;
-  for(const cr of crNumbers){
-    _ocdShowProgress('Running TEA Analysis', 'Analyzing CR' + cr + '...', done, crNumbers.length, cr);
-    try{
-      const resp=await fetch(`${API}/target/${encodeURIComponent(active)}/open_cr_details/analyze`,{
-        method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({cr_number:cr,mode:'tea',force:false})
-      });
-      const d=await resp.json();
-      if(!_ocdData.analyses[cr]) _ocdData.analyses[cr]={};
-      if(d.tea) _ocdData.analyses[cr].tea=d.tea;
-      if(d.scenario) _ocdData.analyses[cr].scenario=d.scenario;
-    }catch(e){}
-    done++;
-    _ocdShowProgress('Running TEA Analysis', 'Completed ' + done + ' of ' + crNumbers.length + ' CRs', done, crNumbers.length, cr);
-    setText('openCrsCount','TEA: '+done+'/'+crNumbers.length+' CRs...');
-    await new Promise(r=>setTimeout(r,300));
-  }
-  renderOpenCrsEnhanced();
-  _ocdShowProgress('TEA Analysis Complete', done + ' CRs analysed successfully', done, crNumbers.length, '');
-  _ocdHideProgress(3000);
-  setText('openCrsCount',((openCrs.count||rows.length)||0)+' row(s) • TEA complete for '+done+' CRs');
-  _showSaveToast('TEA analysis complete for '+done+' CRs. Results auto-saved to JSON cache.');
-  if(btn){btn.disabled=false;btn.innerHTML=old;}
-}
-
-async function runOpenCrQGenieOnly(){
-  if(!active||!CAN_EDIT){alert('Internal team access required.');return;}
-  const openCrs = (payload&&payload.previews&&payload.previews.open_crs)||{};
-  const cols = openCrs.columns||[];
-  const rows = openCrs.rows||[];
-  const crColName = cols.find(c=>/^(cr|cr_id|crid|mapped_cr|unique_cr)$/i.test(String(c||'').toLowerCase().replace(/[\s_-]/g,''))) || cols[0];
-  const crNumbers = [...new Set(rows.map(r=>String(r[crColName]||'').replace(/^CR/i,'').trim()).filter(Boolean))];
-  if(!crNumbers.length){alert('No CR numbers found in Open CRs data.');return;}
-  if(!confirm('Run QGenie analysis for '+crNumbers.length+' CRs?\n\nResults saved to JSON cache. CRs already analysed today are skipped.'))return;
-  const btn=document.getElementById('ocdQGenieBtn2');
-  const old=btn?btn.innerHTML:'';
-  if(btn){btn.disabled=true;btn.innerHTML='<i class="fas fa-circle-notch fa-spin"></i> Running QGenie...';}
-  setText('openCrsCount','Running QGenie analysis...');
-  _ocdShowProgress('Running QGenie Analysis', 'Calling QGenie for each CR...', 0, crNumbers.length, '');
-  let done=0;
-  for(const cr of crNumbers){
-    _ocdShowProgress('Running QGenie Analysis', 'Analyzing CR' + cr + '...', done, crNumbers.length, cr);
-    const rowIdx=rows.findIndex(r=>String(r[crColName]||'').replace(/^CR/i,'').trim()===cr);
-    const context=rowIdx>=0?cols.map(c=>c+': '+(rows[rowIdx][c]||'')).join('; ').slice(0,500):'';
-    try{
-      const resp=await fetch(`${API}/target/${encodeURIComponent(active)}/open_cr_details/analyze`,{
-        method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({cr_number:cr,mode:'qgenie',context,force:false})
-      });
-      const d=await resp.json();
-      if(!_ocdData.analyses[cr]) _ocdData.analyses[cr]={};
-      if(d.qgenie) _ocdData.analyses[cr].qgenie=d.qgenie;
-    }catch(e){}
-    done++;
-    _ocdShowProgress('Running QGenie Analysis', 'Completed ' + done + ' of ' + crNumbers.length + ' CRs', done, crNumbers.length, cr);
-    setText('openCrsCount','QGenie: '+done+'/'+crNumbers.length+' CRs...');
-    await new Promise(r=>setTimeout(r,300));
-  }
-  renderOpenCrsEnhanced();
-  _ocdShowProgress('QGenie Analysis Complete', done + ' CRs analysed successfully', done, crNumbers.length, '');
-  _ocdHideProgress(3000);
-  setText('openCrsCount',((openCrs.count||rows.length)||0)+' row(s) • QGenie complete for '+done+' CRs');
-  _showSaveToast('QGenie analysis complete for '+done+' CRs. Results auto-saved to JSON cache.');
-  if(btn){btn.disabled=false;btn.innerHTML=old;}
-}
+async function runOpenCrTeaOnly(){openOpenCrRunModal('tea');}
+async function runOpenCrQGenieOnly(){openOpenCrRunModal('qgenie');}
 
 
 async function saveAllOcdAnalyses(){

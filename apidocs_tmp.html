@@ -1,0 +1,2421 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Documentation - TEA Assistant</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap">
+    <link rel="stylesheet" href="/static/modern_styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
+    <style>
+        .api-container {
+            max-width: 1440px;
+            margin: 0 auto;
+            padding: 2rem;
+            background-color: var(--bg-body);
+            min-height: 100vh;
+        }
+
+        /* ── Two-column layout: sticky TOC sidebar + scrolling content ──
+           The TOC used to sit at the very top, so jumping to another endpoint
+           meant scrolling all the way back up. As a sticky sidebar it stays
+           visible for the whole page. */
+        .api-layout {
+            display: grid;
+            grid-template-columns: 290px minmax(0, 1fr);
+            gap: 2rem;
+            align-items: start;
+        }
+
+        .toc-sidebar {
+            position: sticky;
+            top: 1.5rem;
+            /* Its own scrollbar, so a long TOC never pushes the page height. */
+            max-height: calc(100vh - 3rem);
+            overflow-y: auto;
+            background-color: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 1.25rem 1rem;
+            box-shadow: var(--shadow-sm);
+            scrollbar-width: thin;
+        }
+        .toc-sidebar::-webkit-scrollbar { width: 6px; }
+        .toc-sidebar::-webkit-scrollbar-track { background: transparent; }
+        .toc-sidebar::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 3px;
+        }
+
+        .toc-sidebar-title {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+            color: var(--tea-color);
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin: 0 0 0.85rem 0;
+            padding: 0 0.4rem;
+        }
+
+        .toc-sidebar ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .toc-sidebar li { margin: 1px 0; }
+
+        .toc-sidebar a {
+            display: block;
+            padding: 6px 10px;
+            border-radius: 6px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.85rem;
+            line-height: 1.35;
+            border-left: 3px solid transparent;
+            transition: background-color var(--transition-fast),
+                        color var(--transition-fast),
+                        border-color var(--transition-fast);
+        }
+        .toc-sidebar a:hover {
+            background-color: rgba(108, 99, 255, 0.10);
+            color: var(--tea-color);
+        }
+        /* Set by the scroll-spy as you read down the page. */
+        .toc-sidebar a.active {
+            background-color: rgba(108, 99, 255, 0.15);
+            color: var(--tea-color);
+            border-left-color: var(--tea-color);
+            font-weight: 600;
+        }
+        /* Sub-items nested under an endpoint heading. */
+        .toc-sidebar a.toc-sub {
+            padding-left: 24px;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            opacity: 0.9;
+        }
+        .toc-sidebar .toc-divider {
+            height: 1px;
+            background: var(--border-color);
+            margin: 0.6rem 0.4rem;
+        }
+
+        .toc-collapse-btn {
+            display: none;   /* only shown on narrow screens */
+            background: none;
+            border: 1px solid var(--border-color);
+            color: var(--tea-color);
+            border-radius: 6px;
+            width: 28px;
+            height: 26px;
+            cursor: pointer;
+            font-size: 0.75rem;
+        }
+
+        /* Narrow screens: sidebar becomes a normal collapsible block on top. */
+        @media (max-width: 1024px) {
+            .api-layout { grid-template-columns: 1fr; }
+            .toc-sidebar {
+                position: static;
+                max-height: none;
+                overflow: visible;
+                margin-bottom: 1.5rem;
+            }
+            .toc-collapse-btn { display: inline-flex; align-items: center; justify-content: center; }
+            .toc-sidebar.collapsed nav { display: none; }
+        }
+        
+        .api-header {
+            text-align: center;
+            margin-bottom: 3rem;
+            padding: 2rem 0;
+            background: linear-gradient(135deg, var(--tea-color) 0%, var(--tea-color-light) 100%);
+            color: white;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-lg);
+        }
+        
+        .api-header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+        }
+        
+        .api-header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        
+        .nav-breadcrumb {
+            margin-bottom: 2rem;
+            padding: 1rem;
+            background-color: var(--bg-surface);
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
+            /* Breadcrumb on the left, theme toggle pushed to the right. */
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            flex-wrap: wrap;
+        }
+        
+        .nav-breadcrumb a {
+            color: var(--tea-color);
+            text-decoration: none;
+            font-weight: 500;
+        }
+        
+        .nav-breadcrumb a:hover {
+            text-decoration: underline;
+        }
+
+        .breadcrumb-spacer { flex: 1; }
+
+        /* ── Theme toggle ────────────────────────────────────────────────────
+           The page already honoured a saved 'theme' preference on load, but had
+           no way to change it — so a user who had never visited another page
+           was stuck with whatever their OS preferred. */
+        .theme-toggle {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background-color: var(--bg-surface-sunken);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            border-radius: var(--radius-md);
+            padding: 0.4rem 0.85rem;
+            font-family: inherit;
+            font-size: 0.82rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: color var(--transition-fast),
+                        border-color var(--transition-fast),
+                        background-color var(--transition-fast);
+        }
+        .theme-toggle:hover {
+            color: var(--tea-color);
+            border-color: var(--tea-color);
+        }
+        .theme-toggle i { font-size: 0.9rem; }
+        
+        .api-section {
+            background-color: var(--bg-surface);
+            border-radius: var(--radius-lg);
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: var(--shadow-md);
+            border: 1px solid var(--border-color);
+            /* Without this, a #anchor jump puts the heading flush against the
+               top of the viewport with no breathing room. */
+            scroll-margin-top: 1.5rem;
+        }
+        
+        .api-section h2 {
+            color: var(--tea-color);
+            font-size: 1.8rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            border-bottom: 2px solid var(--tea-color);
+            padding-bottom: 0.5rem;
+        }
+        
+        .api-section h3 {
+            color: var(--text-primary);
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin: 1.5rem 0 1rem 0;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .api-section h4 {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin: 1rem 0 0.5rem 0;
+        }
+        
+        .endpoint-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background-color: var(--tea-color);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: var(--radius-md);
+            font-family: var(--font-mono);
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+        
+        .method-post {
+            background-color: #28a745;
+        }
+        
+        .warning-box {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-left: 4px solid #f39c12;
+            padding: 1rem;
+            border-radius: var(--radius-md);
+            margin: 1rem 0;
+        }
+        
+        [data-theme="dark"] .warning-box {
+            background-color: #2d2a1f;
+            border-color: #4a3f1a;
+        }
+        
+        .warning-box h4 {
+            color: #f39c12;
+            margin: 0 0 0.5rem 0;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        /* ── Callout variants ────────────────────────────────────────────────
+           These were previously inline `style="background:#fdecea;..."`, which
+           meant they stayed light-mode pastel even with data-theme="dark" —
+           near-white panels in an otherwise dark page. As classes they get a
+           proper dark variant, and the heading colour is lightened so it stays
+           legible on the dark background. */
+        .warning-box.box-danger {
+            background-color: #fdecea;
+            border-color: #f5c6cb;
+            border-left-color: #dc3545;
+        }
+        .warning-box.box-danger h4 { color: #dc3545; }
+        [data-theme="dark"] .warning-box.box-danger {
+            background-color: #2e1a1c;
+            border-color: #5c2b30;
+        }
+        [data-theme="dark"] .warning-box.box-danger h4 { color: #f1707a; }
+
+        .warning-box.box-info {
+            background-color: #e3f2fd;
+            border-color: #bbdefb;
+            border-left-color: #1976d2;
+        }
+        .warning-box.box-info h4 { color: #1976d2; }
+        [data-theme="dark"] .warning-box.box-info {
+            background-color: #16232e;
+            border-color: #23425c;
+        }
+        [data-theme="dark"] .warning-box.box-info h4 { color: #64b5f6; }
+
+        .warning-box.box-ok {
+            background-color: #e8f5e9;
+            border-color: #c8e6c9;
+            border-left-color: #28a745;
+        }
+        .warning-box.box-ok h4 { color: #28a745; }
+        [data-theme="dark"] .warning-box.box-ok {
+            background-color: #16281b;
+            border-color: #27512f;
+        }
+        [data-theme="dark"] .warning-box.box-ok h4 { color: #5dd47c; }
+
+        /* Body text inside a callout must follow the theme, not stay dark. */
+        .warning-box p,
+        .warning-box li,
+        .warning-box td { color: var(--text-primary); }
+        
+        .access-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background-color: var(--tea-color);
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: var(--radius-md);
+            text-decoration: none;
+            font-weight: 600;
+            transition: all var(--transition-fast);
+            margin: 1rem 0;
+        }
+        
+        .access-link:hover {
+            background-color: var(--tea-color-light);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+        }
+        
+        .code-example {
+            background-color: var(--color-gray-900);
+            color: #f8f8f2;
+            padding: 1.5rem;
+            border-radius: var(--radius-md);
+            margin: 1rem 0;
+            font-family: var(--font-mono);
+            font-size: 0.9rem;
+            overflow-x: auto;
+            position: relative;
+        }
+        
+        [data-theme="light"] .code-example {
+            background-color: var(--color-gray-800);
+        }
+        
+        .copy-btn {
+            position: absolute;
+            top: 0.75rem;
+            right: 0.75rem;
+            background-color: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: none;
+            padding: 0.5rem;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: background-color var(--transition-fast);
+        }
+        
+        .copy-btn:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+        
+        .parameter-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+            background-color: var(--bg-surface);
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            box-shadow: var(--shadow-sm);
+        }
+        
+        .parameter-table th,
+        .parameter-table td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .parameter-table th {
+            background-color: var(--bg-surface-sunken);
+            font-weight: 600;
+            color: var(--tea-color);
+        }
+        
+        .parameter-table tr:last-child td {
+            border-bottom: none;
+        }
+        
+        .param-required {
+            color: var(--color-error);
+            font-weight: 600;
+        }
+        
+        .param-optional {
+            color: var(--color-success);
+            font-weight: 600;
+        }
+        
+        .response-example {
+            background-color: var(--bg-surface-sunken);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+        
+        .response-example h5 {
+            color: var(--tea-color);
+            margin: 0 0 0.5rem 0;
+            font-weight: 600;
+        }
+        
+        .status-code {
+            display: inline-block;
+            background-color: var(--color-success);
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: var(--radius-sm);
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        
+        .status-error {
+            background-color: var(--color-error);
+        }
+        
+        .toc {
+            background-color: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        .toc h3 {
+            color: var(--tea-color);
+            margin: 0 0 1rem 0;
+            font-size: 1.2rem;
+        }
+        
+        .toc ul {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .toc li {
+            margin: 0.5rem 0;
+        }
+        
+        .toc a {
+            color: var(--text-primary);
+            text-decoration: none;
+            padding: 0.25rem 0;
+            display: block;
+            transition: color var(--transition-fast);
+        }
+        
+        .toc a:hover {
+            color: var(--tea-color);
+        }
+        
+        .back-to-top {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            background-color: var(--tea-color);
+            color: white;
+            border: none;
+            border-radius: var(--radius-full);
+            width: 50px;
+            height: 50px;
+            cursor: pointer;
+            box-shadow: var(--shadow-lg);
+            transition: all var(--transition-fast);
+            opacity: 0;
+            visibility: hidden;
+        }
+        
+        .back-to-top.show {
+            opacity: 1;
+            visibility: visible;
+        }
+        
+        .back-to-top:hover {
+            background-color: var(--tea-color-light);
+            transform: translateY(-2px);
+        }
+    </style>
+</head>
+<body>
+    <div class="api-container">
+        <!-- Header -->
+        <div class="api-header">
+            <h1>
+                <i class="fas fa-code"></i>
+                API Documentation
+            </h1>
+            <p>Complete guide to using the TEA Assistant API for CR analysis and test case suggestions</p>
+        </div>
+        
+        <!-- Navigation Breadcrumb + theme toggle -->
+        <div class="nav-breadcrumb">
+            <a href="/"><i class="fas fa-home"></i> Home</a> / 
+            <a href="/about"><i class="fas fa-info-circle"></i> About</a> / 
+            <span><i class="fas fa-code"></i> API Documentation</span>
+            <span class="breadcrumb-spacer"></span>
+            <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()"
+                    title="Switch between light and dark mode"
+                    aria-label="Toggle dark mode">
+                <i class="fas fa-moon" id="themeIcon"></i>
+                <span id="themeLabel">Dark</span>
+            </button>
+        </div>
+        
+        <!-- ══════════ LAYOUT: sticky TOC sidebar + content ══════════ -->
+        <div class="api-layout">
+
+        <!-- Table of Contents — sticky sidebar so you never have to scroll
+             back to the top to jump to another endpoint. -->
+        <aside class="toc-sidebar" id="tocSidebar">
+            <h3 class="toc-sidebar-title">
+                <span><i class="fas fa-list"></i> Table of Contents</span>
+                <button class="toc-collapse-btn" id="tocCollapseBtn"
+                        onclick="toggleToc()" title="Show/hide contents"
+                        aria-label="Show or hide table of contents">
+                    <i class="fas fa-chevron-up" id="tocCollapseIcon"></i>
+                </button>
+            </h3>
+            <nav>
+                <ul>
+                    <li><a href="#prerequisites">Prerequisites &amp; Access</a></li>
+                    <li><a href="#authentication">Authentication</a></li>
+                    <li><a href="#apikey-setup">API Key Setup</a></li>
+
+                    <li><div class="toc-divider"></div></li>
+
+                    <li><a href="#team-selection"><strong>Endpoint 0</strong> — Team Selection <span style="background:linear-gradient(135deg,#6c63ff,#a371f7);color:#fff;font-size:0.55rem;font-weight:700;padding:1px 5px;border-radius:6px;vertical-align:middle;">NEW</span></a></li>
+                    <li><a href="#teams-list" class="toc-sub">GET /api/v1/teams</a></li>
+                    <li><a href="#teams-select" class="toc-sub">POST /api/v1/select-team</a></li>
+
+                    <li><div class="toc-divider"></div></li>
+
+                    <li><a href="#endpoint"><strong>Endpoint 1</strong> — CR Summary</a></li>
+                    <li><a href="#parameters" class="toc-sub">Request Parameters</a></li>
+                    <li><a href="#responses" class="toc-sub">Response Formats</a></li>
+                    <li><a href="#examples" class="toc-sub">Code Examples</a></li>
+
+                    <li><div class="toc-divider"></div></li>
+
+                    <li><a href="#chat-endpoint"><strong>Endpoint 2</strong> — Chat API <span style="background:linear-gradient(135deg,#6c63ff,#a371f7);color:#fff;font-size:0.55rem;font-weight:700;padding:1px 5px;border-radius:6px;vertical-align:middle;">NEW</span></a></li>
+                    <li><a href="#chat-parameters" class="toc-sub">Request Parameters</a></li>
+                    <li><a href="#chat-sessions" class="toc-sub">Sessions &amp; Follow-ups</a></li>
+                    <li><a href="#chat-responses" class="toc-sub">Response Formats</a></li>
+                    <li><a href="#chat-examples" class="toc-sub">Code Examples</a></li>
+
+                    <li><div class="toc-divider"></div></li>
+
+                    <li><a href="#gerrit-endpoint"><strong>Endpoint 3</strong> — Gerrit Chat <span style="background:linear-gradient(135deg,#6c63ff,#a371f7);color:#fff;font-size:0.55rem;font-weight:700;padding:1px 5px;border-radius:6px;vertical-align:middle;">NEW</span></a></li>
+
+                    <li><div class="toc-divider"></div></li>
+
+                    <li><a href="#endpoint-comparison">Which endpoint should I use?</a></li>
+                    <li><a href="#errors">Error Handling</a></li>
+                    <li><a href="#rate-limits">Rate Limits</a></li>
+                    <li><a href="/mcp-docs" style="color:var(--tea-color);"><i class="fas fa-bullseye" style="font-size:0.75rem;"></i> MCP Server Docs</a></li>
+                </ul>
+            </nav>
+        </aside>
+
+        <!-- ══════════ MAIN CONTENT ══════════ -->
+        <div class="api-content">
+
+        <!-- ══════════════ TEAM SELECTION — ENDPOINT 0 ══════════════ -->
+        <div id="team-selection" class="api-section">
+            <h2>
+                <i class="fas fa-users"></i> Endpoint 0 — Team Selection
+                <span style="background:linear-gradient(135deg,#6c63ff,#a371f7);color:#fff;font-size:0.6rem;font-weight:700;padding:2px 7px;border-radius:8px;letter-spacing:0.5px;vertical-align:middle;">NEW</span>
+            </h2>
+
+            <div class="warning-box box-danger">
+                <h4><i class="fas fa-triangle-exclamation"></i> Why the team matters — read this first</h4>
+                <p>
+                    The team decides <strong>which Axiom test-case vector database is
+                    searched</strong>. Pick the wrong team and the API does not fail — it returns
+                    <strong>confident but wrong test-case suggestions</strong>, which then feed
+                    straight into the TEA you post to Orbit.
+                </p>
+                <p style="margin-bottom:0;">
+                    That is why <code>team_name</code> is <strong>required and validated</strong> on
+                    <a href="#chat-endpoint">/api/v1/chat</a>. Only one of the
+                    <strong>1580</strong> real taxonomy teams is accepted; anything else is rejected
+                    with a <code>400</code> and a list of suggestions.
+                </p>
+            </div>
+
+            <h3><i class="fas fa-route"></i> The two-step flow</h3>
+            <ol style="margin: 1rem 0; padding-left: 2rem;">
+                <li><strong>Discover</strong> — <code>GET /api/v1/teams?search=kernel</code> to find your exact team path</li>
+                <li><strong>Select</strong> — <code>POST /api/v1/select-team</code> to save it as your default</li>
+            </ol>
+            <p>
+                Then pass that exact <code>team_name</code> on every
+                <code>/api/v1/chat</code> call. Selecting a default is convenient, but the chat
+                endpoint still requires the field explicitly — so a wrong team can never be used
+                silently, even if you never called <code>select-team</code>.
+            </p>
+
+            <!-- ── GET /api/v1/teams ── -->
+            <h3 id="teams-list"><i class="fas fa-list-ul"></i> GET <code>/api/v1/teams</code> — list valid teams</h3>
+
+            <div class="endpoint-badge" style="background-color:#17a2b8;">
+                <span>GET</span>
+                <code>/api/v1/teams</code>
+            </div>
+
+            <p>
+                Returns the valid Axiom taxonomy teams. There are ~1580, so the response is
+                <strong>searchable and paginated</strong> rather than one huge list.
+            </p>
+
+            <table class="parameter-table">
+                <thead>
+                    <tr><th>Query param</th><th>Type</th><th>Required</th><th>Description</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>search</code></td>
+                        <td>string</td>
+                        <td><span class="param-optional">Optional</span></td>
+                        <td>Case-insensitive substring filter, e.g. <code>kernel</code>. <strong>Use this</strong> — it is far easier than paging 1580 entries.</td>
+                    </tr>
+                    <tr>
+                        <td><code>username</code></td>
+                        <td>string</td>
+                        <td><span class="param-optional">Optional</span></td>
+                        <td>Marks your currently-selected team with <code>is_current: true</code> and echoes it as <code>current_team</code>.</td>
+                    </tr>
+                    <tr>
+                        <td><code>has_vector_db</code></td>
+                        <td>boolean</td>
+                        <td><span class="param-optional">Optional</span></td>
+                        <td><code>true</code> returns only teams that already have a test-case vector DB built — i.e. teams that can actually return suggestions today.</td>
+                    </tr>
+                    <tr>
+                        <td><code>limit</code></td>
+                        <td>integer</td>
+                        <td><span class="param-optional">Optional</span></td>
+                        <td>Page size. Default <code>100</code>, maximum <code>500</code>, <code>0</code> = no limit.</td>
+                    </tr>
+                    <tr>
+                        <td><code>offset</code></td>
+                        <td>integer</td>
+                        <td><span class="param-optional">Optional</span></td>
+                        <td>Pagination offset. Default <code>0</code>.</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h4>Example — find every Kernel team that has a vector DB</h4>
+            <div class="code-example">
+                <button class="copy-btn" onclick="copyToClipboard(this)">Copy</button>
+                <pre><code class="language-bash">curl -G https://tea-assistant.qualcomm.com/api/v1/teams \
+  --data-urlencode "search=platform/kernel" \
+  --data-urlencode "username=your-username" \
+  --data-urlencode "has_vector_db=true"</code></pre>
+            </div>
+
+            <div class="response-example">
+                <h5><span class="status-code">200</span> Success Response</h5>
+                <div class="code-example">
+                    <button class="copy-btn" onclick="copyToClipboard(this)">Copy</button>
+                    <pre><code class="language-json">{
+  "status": "success",
+  "total": 18,
+  "returned": 3,
+  "offset": 0,
+  "limit": 100,
+  "search": "platform/kernel",
+  "current_team": "APT/Platform/Kernel",
+  "teams": [
+    {
+      "team_name": "APT/Platform/Kernel",
+      "has_vector_db": true,
+      "is_current": true
+    },
+    {
+      "team_name": "APT/XR/Platform/Kernel",
+      "has_vector_db": true,
+      "is_current": false
+    },
+    {
+      "team_name": "APT/CSE_Test/Platform/Kernel",
+      "has_vector_db": true,
+      "is_current": false
+    }
+  ]
+}</code></pre>
+                </div>
+                <p style="margin-bottom:0;">
+                    <code>total</code> is the full match count (so you know whether to page);
+                    <code>returned</code> is how many are in this page.
+                </p>
+            </div>
+
+            <div class="warning-box">
+                <h4><i class="fas fa-database"></i> Check <code>has_vector_db</code> before you commit</h4>
+                <p style="margin-bottom:0;">
+                    A team can be perfectly valid yet have <code>has_vector_db: false</code>, meaning
+                    nobody has built its test-case database yet. Test-case suggestions will be empty
+                    until someone creates it from the web UI (database icon → Create Vector DB).
+                </p>
+            </div>
+
+            <!-- ── POST /api/v1/select-team ── -->
+            <h3 id="teams-select"><i class="fas fa-check-double"></i> POST <code>/api/v1/select-team</code> — save your default</h3>
+
+            <div class="endpoint-badge method-post">
+                <span>POST</span>
+                <code>/api/v1/select-team</code>
+            </div>
+
+            <p>
+                Validates a team and saves it as your default. Authentication is identical to the
+                chat endpoints (see <a href="#authentication">Authentication</a>).
+            </p>
+
+            <table class="parameter-table">
+                <thead>
+                    <tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>username</code></td>
+                        <td>string</td>
+                        <td><span class="param-required">Required</span></td>
+                        <td>Your Qualcomm username. Must be on the <strong>TEA-Assistant</strong> list.</td>
+                    </tr>
+                    <tr>
+                        <td><code>team_name</code></td>
+                        <td>string</td>
+                        <td><span class="param-required">Required</span></td>
+                        <td>A valid team path from <code>GET /api/v1/teams</code>, e.g. <code>APT/Platform/Kernel</code>. Case-insensitive and a leading <code>/</code> is tolerated, but the path itself must be exact.</td>
+                    </tr>
+                    <tr>
+                        <td><code>api_key</code></td>
+                        <td>string</td>
+                        <td><span class="param-optional">Optional*</span></td>
+                        <td>Your QGenie API key. Required only if you have never saved one. See <a href="#apikey-setup">API Key Setup</a>.</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h4>Request</h4>
+            <div class="code-example">
+                <button class="copy-btn" onclick="copyToClipboard(this)">Copy</button>
+                <pre><code class="language-bash">curl -X POST https://tea-assistant.qualcomm.com/api/v1/select-team \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "your-username",
+    "team_name": "APT/Platform/Kernel"
+  }'</code></pre>
+            </div>
+
+            <div class="response-example">
+                <h5><span class="status-code">200</span> Success</h5>
+                <div class="code-example">
+                    <button class="copy-btn" onclick="copyToClipboard(this)">Copy</button>
+                    <pre><code class="language-json">{
+  "status": "success",
+  "username": "your-username",
+  "team_name": "APT/Platform/Kernel",
+  "requested": null,
+  "has_vector_db": true,
+  "warning": null
+}</code></pre>
+                </div>
+                <p style="margin-bottom:0;">
+                    <code>requested</code> is non-null when your input was normalised — send
+                    <code>apt/platform/kernel</code> and you get back
+                    <code>"team_name": "APT/Platform/Kernel"</code> with
+                    <code>"requested": "apt/platform/kernel"</code>, so you can see exactly what was
+                    stored.
+                </p>
+            </div>
+
+            <div class="response-example">
+                <h5><span class="status-code">200</span> Valid team, but no vector DB yet</h5>
+                <div class="code-example">
+                    <pre><code class="language-json">{
+  "status": "success",
+  "team_name": "APT/XR/CPT/Kernel",
+  "has_vector_db": false,
+  "warning": "Team 'APT/XR/CPT/Kernel' is valid, but no test-case vector database has been created for it yet, so test-case suggestions will be empty. Create it from the TEA Assistant web UI (database icon → Create Vector DB)."
+}</code></pre>
+                </div>
+                <p><strong>Still a 200</strong> — the team is real and has been saved. The warning tells you now, rather than letting you wonder later why suggestions are empty.</p>
+            </div>
+
+            <div class="response-example">
+                <h5><span class="status-code status-error">400</span> Invalid team — with suggestions</h5>
+                <div class="code-example">
+                    <pre><code class="language-json">{
+  "error": "'APT/Kernel' is not a valid team.",
+  "hint": "Use GET /api/v1/teams?search=<text> to find the exact team path, then pass it as 'team_name'.",
+  "valid_team_count": 1580,
+  "suggestions": [
+    "APT/XR/CPT/Kernel",
+    "APT/Platform/Kernel",
+    "APT/XR/Platform/Kernel",
+    "APT/Aluminum/Platform/Kernel",
+    "APT/CSE_Test/Platform/Kernel"
+  ]
+}</code></pre>
+                </div>
+                <p style="margin-bottom:0;">
+                    Every rejection includes <code>suggestions</code>, so a typo is one copy-paste
+                    away from being fixed instead of a dead end.
+                </p>
+            </div>
+
+            <h3><i class="fas fa-circle-info"></i> What counts as a valid team</h3>
+            <ul style="margin: 1rem 0; padding-left: 2rem;">
+                <li><strong>Full path required</strong> — <code>APT/Platform/Kernel</code>, not just <code>Kernel</code>. A bare leaf is <em>rejected</em> because "Kernel" exists under many different parents, and guessing one is exactly how you get wrong test cases.</li>
+                <li><strong>Case-insensitive</strong> — <code>apt/platform/kernel</code> resolves to <code>APT/Platform/Kernel</code>.</li>
+                <li><strong>Separators are forgiving</strong> — a leading/trailing <code>/</code>, doubled <code>//</code> and backslashes are all normalised.</li>
+                <li><strong>Organisational roots are not teams</strong> — <code>APT</code> or <code>MPSS</code> alone are rejected: they have no Axiom taxonomy id, so no vector DB can exist for them.</li>
+            </ul>
+
+            <h3><i class="fab fa-python"></i> Python — discover, then select</h3>
+            <div class="code-example">
+                <button class="copy-btn" onclick="copyToClipboard(this)">Copy</button>
+                <pre><code class="language-python">import requests
+
+BASE = "https://tea-assistant.qualcomm.com"
+USER = "your-username"
+
+# 1. Find the exact team path — filter to teams that can actually
+#    return suggestions today.
+r = requests.get(f"{BASE}/api/v1/teams", params={
+    "search": "platform/kernel",
+    "username": USER,
+    "has_vector_db": "true",
+}, timeout=30)
+r.raise_for_status()
+teams = r.json()
+
+print(f"{teams['total']} matching teams:")
+for t in teams["teams"]:
+    print("  ", t["team_name"], "(current)" if t["is_current"] else "")
+
+# 2. Save the one you want as your default.
+chosen = teams["teams"][0]["team_name"]
+r = requests.post(f"{BASE}/api/v1/select-team",
+                  json={"username": USER, "team_name": chosen}, timeout=30)
+if r.status_code == 400:
+    # Never a dead end — the error carries suggestions.
+    err = r.json()
+    print("Invalid:", err["error"])
+    print("Did you mean:", err.get("suggestions"))
+else:
+    r.raise_for_status()
+    result = r.json()
+    print("Selected:", result["team_name"])
+    if result.get("warning"):
+        print("WARNING:", result["warning"])
+
+# 3. From now on pass this exact value as team_name on /api/v1/chat.</code></pre>
+            </div>
+        </div>
+
+        <!-- Prerequisites Section -->
+        <div id="prerequisites" class="api-section">
+            <h2><i class="fas fa-shield-alt"></i> Prerequisites & Access</h2>
+            
+            <div class="warning-box">
+                <h4><i class="fas fa-exclamation-triangle"></i> Access Required</h4>
+                <p>To use this API, you must be a member of the <strong>TEA-Assistant</strong> Qualcomm list. Without proper access, API requests will return a 403 Forbidden error.</p>
+            </div>
+            
+            <h3><i class="fas fa-user-plus"></i> How to Get Access</h3>
+            <p>Follow these steps to gain access to the TEA Assistant API:</p>
+            <ol style="margin: 1rem 0; padding-left: 2rem;">
+                <li>Click the link below to access the Qualcomm List Manager</li>
+                <li>Search for "TEA-Assistant" in the list directory</li>
+                <li>Request to join the list</li>
+                <li>Wait for approval from the list administrators</li>
+                <li>Once approved, you can use the API with your Qualcomm username</li>
+            </ol>
+            
+            <a href="https://lists.qualcomm.com/ListManager?match=eq&field=default&query=TEA-Assistant" target="_blank" class="access-link">
+                <i class="fas fa-external-link-alt"></i>
+                Join TEA-Assistant List
+            </a>
+        </div>
+        
+        <!-- Authentication Section -->
+        <div id="authentication" class="api-section">
+            <h2><i class="fas fa-key"></i> Authentication</h2>
+            <p>The API uses two layers of authentication: <strong>list membership</strong> (who can call the API) and <strong>QGenie API key</strong> (which LLM to use for analysis).</p>
+            
+            <h3><i class="fas fa-info-circle"></i> Authentication Flow</h3>
+            <ol style="margin: 1rem 0; padding-left: 2rem;">
+                <li>Include your Qualcomm <code>username</code> in the request JSON</li>
+                <li>The API validates your membership in the <strong>TEA-Assistant</strong> LDAP list</li>
+                <li>If not a member → <code>403 Forbidden</code></li>
+                <li>The API resolves your QGenie API key (payload → DB → error)</li>
+                <li>If no API key found → <code>400 Bad Request</code></li>
+                <li>If all checks pass, the CR is analyzed using your key and model</li>
+            </ol>
+        </div>
+
+        <!-- API Key Setup Section -->
+        <div id="apikey-setup" class="api-section">
+            <h2><i class="fas fa-cog"></i> API Key Setup</h2>
+            <p>Each user needs a <strong>QGenie API key</strong> to use this endpoint. The key is resolved in this priority order:</p>
+
+            <div style="background: var(--bg-surface-sunken); border-radius: 10px; padding: 1.5rem; margin: 1rem 0; border: 1px solid var(--border-color);">
+                <div style="display: flex; align-items: flex-start; gap: 1rem; margin-bottom: 1.2rem;">
+                    <div style="background: #17a2b8; color: white; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; font-weight: bold; flex-shrink: 0; font-size: 0.9rem;">1</div>
+                    <div>
+                        <strong>api_key in payload</strong> — Used immediately and saved to database for future calls<br>
+                        <small style="color: var(--text-secondary);">Best for first-time use or key rotation</small>
+                    </div>
+                </div>
+                <div style="display: flex; align-items: flex-start; gap: 1rem; margin-bottom: 1.2rem;">
+                    <div style="background: #28a745; color: white; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; font-weight: bold; flex-shrink: 0; font-size: 0.9rem;">2</div>
+                    <div>
+                        <strong>Previously saved key</strong> — Your key was saved on a prior call or via the web UI settings<br>
+                        <small style="color: var(--text-secondary);">🔒 Stored securely encrypted per-user — only used for your own requests, never shared</small>
+                    </div>
+                </div>
+                <div style="display: flex; align-items: flex-start; gap: 1rem;">
+                    <div style="background: #dc3545; color: white; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; font-weight: bold; flex-shrink: 0; font-size: 0.9rem;">✗</div>
+                    <div>
+                        <strong>Neither found</strong> — Returns <code>400</code> error<br>
+                        <small style="color: var(--text-secondary);">Must provide api_key in payload or set via web UI first</small>
+                    </div>
+                </div>
+            </div>
+
+            <h3><i class="fas fa-desktop"></i> Option A: Set via Web UI (Recommended)</h3>
+            <p>Log in to the TEA Assistant web interface and set your API key once — it will be saved for all future API calls:</p>
+            <ol style="margin: 1rem 0; padding-left: 2rem;">
+                <li>Go to <a href="https://10.213.98.5:5001" target="_blank">https://10.213.98.5:5001</a></li>
+                <li>Click the <strong>⚙️ gear icon</strong> in the top-right header</li>
+                <li>Enter your QGenie API key and select your preferred model</li>
+                <li>Click <strong>Save Settings</strong></li>
+                <li>Your key is now saved — API calls with your username will use it automatically</li>
+            </ol>
+
+            <h3><i class="fas fa-code"></i> Option B: Pass in Payload (First Call)</h3>
+            <p>Include <code>api_key</code> in your first request — it will be saved automatically for future calls:</p>
+            <div class="code-example">
+                <button class="copy-btn" onclick="copyToClipboard(this)">Copy</button>
+                <pre><code class="language-json">{
+  "message": "12345678",
+  "username": "your-username",
+  "api_key": "your-qgenie-api-key",
+  "stream": false
+}</code></pre>
+            </div>
+            <p>After this call, subsequent requests <strong>do not need</strong> to include <code>api_key</code> — it will be retrieved from the database automatically.</p>
+            <div class="warning-box box-ok">
+                <h4><i class="fas fa-lock"></i> Security Note</h4>
+                <p>Your API key is stored <strong>securely encrypted</strong> in the database, tied only to your username. It is never shared with other users and is only used to process your own requests.</p>
+            </div>
+
+            <h3><i class="fas fa-sync-alt"></i> Updating Your API Key</h3>
+            <p>To update your key, simply pass the new <code>api_key</code> in any request — it will overwrite the saved key in the database.</p>
+        </div>
+
+        <!-- API Endpoint Section -->
+        <div id="endpoint" class="api-section">
+            <h2><i class="fas fa-plug"></i> Endpoint 1 — CR Summary</h2>
+            
+            <div class="endpoint-badge method-post">
+                <span>POST</span>
+                <code>/api/cr-summary</code>
+            </div>
+            
+            <p>This endpoint provides comprehensive CR (Change Request) analysis including root cause analysis, test case suggestions, and related information from Orbit, Jira, and Gerrit systems.</p>
+            
+            <h3><i class="fas fa-server"></i> Base URL</h3>
+            <div class="code-example">
+                <button class="copy-btn" onclick="copyToClipboard(this)">Copy</button>
+                <code>https://tea-assistant.qualcomm.com/</code>
+            </div>
+        </div>
+        
+        <!-- Parameters Section -->
+        <div id="parameters" class="api-section">
+            <h2><i class="fas fa-cogs"></i> CR Summary — Request Parameters</h2>
+            
+            <h3><i class="fas fa-file-code"></i> Request Body (JSON)</h3>
+            <table class="parameter-table">
+                <thead>
+                    <tr>
+                        <th>Parameter</th>
+                        <th>Type</th>
+                        <th>Required</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>message</code></td>
+                        <td>string</td>
+                        <td><span class="param-required">Required</span></td>
+                        <td>The CR number to analyze (must be numeric)</td>
+                    </tr>
+                    <tr>
+                        <td><code>username</code></td>
+                        <td>string</td>
+                        <td><span class="param-required">Required</span></td>
+                        <td>Your Qualcomm username (for LDAP authentication)</td>
+                    </tr>
+                    <tr>
+                        <td><code>api_key</code></td>
+                        <td>string</td>
+                        <td><span class="param-optional">Optional*</span></td>
+                        <td>Your QGenie API key. <strong>Required on first use</strong> if not already saved. When provided, it is saved to the database for future calls. Omit if already saved via web UI or a previous call. See <a href="#apikey-setup">API Key Setup</a>.</td>
+                    </tr>
+                    <tr>
+                        <td><code>stream</code></td>
+                        <td>boolean</td>
+                        <td><span class="param-optional">Optional</span></td>
+                        <td>Enable streaming response (default: false). Set to true for real-time streaming, false for complete response</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Response Formats Section -->
+        <div id="responses" class="api-section">
+            <h2><i class="fas fa-reply"></i> CR Summary — Response Formats</h2>
+            
+            <h3><i class="fas fa-stream"></i> Non-Streaming Response (stream: false)</h3>
+            <p>Returns a complete JSON response with all analysis data:</p>
+            
+            <div class="response-example">
+                <h5><span class="status-code">200</span> Success Response</h5>
+                <div class="code-example">
+                    <button class="copy-btn" onclick="copyToClipboard(this)">Copy</button>
+                    <pre><code class="language-json">{
+  "content": "Complete CR analysis including root cause analysis, test case recommendations, and related information...",
+  "status": "success"
+}</code></pre>
+                </div>
+            </div>
+            
+            <h3><i class="fas fa-water"></i> Streaming Response (stream: true)</h3>
+            <p>Returns a Server-Sent Events (SSE) stream for real-time response:</p>
+            
+            <div class="response-example">
+                <h5><span class="status-code">200</span> Streaming Response</h5>
+                <div class="code-example">
+                    <button class="copy-btn" onclick="copyToClipboard(this)">Copy</button>
+                    <pre><code>Content-Type: text/event-stream
+
+data: {"content": "A"}
+data: {"content": "n"}
+data: {"content": "a"}
+data: {"content": "l"}
+data: {"content": "y"}
+data: {"content": "z"}
+data: {"content": "i"}
+data: {"content": "n"}
+data: {"content": "g"}
+...
+data: {"content": "[DONE]"}</code></pre>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Code Examples Section -->
+        <div id="examples" class="api-section">
+            <h2><i class="fas fa-code"></i> CR Summary — Code Examples</h2>
+            
+            <h3><i class="fas fa-terminal"></i> cURL Examples</h3>
+            
+            <h4>First Call (with api_key — saves it for future use)</h4>
+            <div class="code-example">
+                <button class="copy-btn" onclick="copyToClipboard(this)">Copy</button>
+                <pre><code class="language-bash">curl -X POST https://tea-assistant.qualcomm.com/api/cr-summary \
+  -H "Content-Type: application/json" \
+  -k \
+  -d '{
+    "message": "12345678",
+    "username": "your-username",
+    "api_key": "your-qgenie-api-key",
+    "stream": false
+  }'</code></pre>
+            </div>
+
+            <h4>Subsequent Calls (api_key already saved — omit it)</h4>
+            <div class="code-example">
+                <button class="copy-btn" onclick="copyToClipboard(this)">Copy</button>
+                <pre><code class="language-bash">curl -X POST https://tea-assistant.qualcomm.com/api/cr-summary \
+  -H "Content-Type: application/json" \
+  -k \
+  -d '{
+    "message": "12345678",
+    "username": "your-username",
+    "stream": false
+  }'</code></pre>
+            </div>
+            
+            <h4>Streaming Request</h4>
+            <div class="code-example">
+                <button class="copy-btn" onclick="copyToClipboard(this)">Copy</button>
+                <pre><code class="language-bash">curl -X POST https://tea-assistant.qualcomm.com/api/cr-summary \
+  -H "Content-Type: application/json" \
+  -k \
+  -d '{
+    "message": "12345678",
+    "username": "your-username",
+    "stream": true
+  }' \
+  --no-buffer</code></pre>
+            </div>
+            
+            <h3><i class="fab fa-js"></i> JavaScript Examples</h3>
+            
+            <h4>Non-Streaming with Fetch API</h4>
+            <div class="code-example">
+                <button class="copy-btn" onclick="copyToClipboard(this)">Copy</button>
+                <pre><code class="language-javascript">async function analyzeCR(crNumber, username) {
+  try {
+    const response = await fetch('/api/cr-summary', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        message: crNumber,
+        username: username,
+        stream: false
+      })
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    console.log('Analysis:', data.content);
+    return data;
+  } catch (error) {
+    console.error('Error:', error);
+  }
+}</code></pre>
+            </div>
+            
+            <h4>Streaming with EventSource</h4>
+            <div class="code-example">
+                <button class="copy-btn" onclick="copyToClipboard(this)">Copy</button>
+                <pre><code class="language-javascript">function streamCRAnalysis(crNumber, username) {
+  // First make the POST request to start streaming
+  fetch('/api/cr-summary', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      message: crNumber,
+      username: username,
+      stream: true
+    })
+  }).then(response => {
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    
+    function readStream() {
+      reader.read().then(({ done, value }) => {
+        if (done) {
+          console.log('Stream complete');
+          return;
+        }
+        
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n');
+        
+        lines.forEach(line => {
+          if (line.startsWith('data: ')) {
+            const data = JSON.parse(line.slice(6));
+            if (data.content === '[DONE]') {
+              console.log('Analysis complete');
+            } else {
+              process.stdout.write(data.content);
+            }
+          }
+        });
+        
+        readStream();
+      });
+    }
+    
+    readStream();
+  });
+}</code></pre>
+            </div>
+            
+            <h3><i class="fab fa-python"></i> Python Example</h3>
+            <div class="code-example">
+                <button class="copy-btn" onclick="copyToClipboard(this)">Copy</button>
+                <pre><code class="language-python">import requests
+import json
+
+def analyze_cr(cr_number, username, stream=False):
+    url = "https://tea-assistant.qualcomm.com/api/cr-summary"
+    
+    payload = {
+        "message": str(cr_number),
+        "username": username,
+        "stream": stream
+    }
+    
+    headers = {
+        "Content-Type": "application/json"
+    }
+    
+    if stream:
+        # Streaming request
+        response = requests.post(url, json=payload, headers=headers, stream=True)
+        
+        if response.status_code == 200:
+            for line in response.iter_lines():
+                if line:
+                    line = line.decode('utf-8')
+                    if line.startswith('data: '):
+                        data = json.loads(line[6:])
+                        if data.get('content') == '[DONE]':
+                            break
+                        print(data.get('content', ''), end='')
+        else:
+            print(f"Error: {response.status_code}")
+    else:
+        # Non-streaming request
+        response = requests.post(url, json=payload, headers=headers)
+        
+        if response.status_code == 200:
+            data = response.json()
+            print("Analysis:", data['content'])
+            return data
+        else:
+            print(f"Error: {response.status_code}")
+            return None
+
+# First call — provide api_key (saved automatically for future calls)
+result = analyze_cr(12345678, "your-username", api_key="your-qgenie-api-key")
+
+# Subsequent calls — api_key is optional (retrieved from database)
+result = analyze_cr(12345678, "your-username")</code></pre>
+            </div>
+        </div>
+        
+        <!-- ══════════════ CHAT API — ENDPOINT 2 ══════════════ -->
+        <div id="chat-endpoint" class="api-section">
+            <h2>
+                <i class="fas fa-comments"></i> Endpoint 2 — Chat API (Multi-Turn)
+                <span style="background:linear-gradient(135deg,#6c63ff,#a371f7);color:#fff;font-size:0.6rem;font-weight:700;padding:2px 7px;border-radius:8px;letter-spacing:0.5px;vertical-align:middle;">NEW</span>
+            </h2>
+
+            <div class="endpoint-badge method-post">
+                <span>POST</span>
+                <code>/api/v1/chat</code>
+            </div>
+
+            <p>
+                The full <strong>conversational</strong> TEA Assistant, exposed as an API. This is the
+                <em>same engine</em> that powers the web chat UI — identical turn planning, root cause
+                analysis, TEA generation and entity memory. Only the authentication differs.
+            </p>
+
+            <h3><i class="fas fa-star"></i> What you can do with it</h3>
+            <ul style="margin: 1rem 0; padding-left: 2rem;">
+                <li><strong>Analyse a CR or SR</strong> — send the number, get a full root cause analysis</li>
+                <li><strong>Ask follow-up questions</strong> — "what is the jira for this?", "show me the gerrit change"</li>
+                <li><strong>Get test-case suggestions</strong> from your team's Axiom vector database</li>
+                <li><strong>Generate a TEA</strong> — category, analysis details and mitigation details</li>
+                <li><strong>Confirm with "yes"</strong> — the assistant remembers the question it asked</li>
+                <li><strong>Switch CRs mid-conversation</strong> — it detects this and asks how to proceed</li>
+            </ul>
+
+            <h3><i class="fas fa-server"></i> Base URL</h3>
+            <div class="code-example">
+                <button class="copy-btn" onclick="copyToClipboard(this)">Copy</button>
+                <code>https://tea-assistant.qualcomm.com</code>
+            </div>
+
+            <div class="warning-box box-info">
+                <h4><i class="fas fa-shield-alt"></i> Same authentication as CR Summary</h4>
+                <p style="margin-bottom:0;">
+                    This endpoint uses exactly the same two checks described in
+                    <a href="#authentication">Authentication</a> and <a href="#apikey-setup">API Key Setup</a>:
+                    <strong>TEA-Assistant list membership</strong> (→ <code>403</code> if not a member) and a
+                    <strong>QGenie API key</strong> (→ <code>400</code> if none found). A key you already saved
+                    via the web UI or a previous <code>/api/cr-summary</code> call works here too.
+                </p>
+            </div>
+        </div>
+
+        <!-- Chat API — Parameters -->
+        <div id="chat-parameters" class="api-section">
+            <h2><i class="fas fa-cogs"></i> Chat API — Request Parameters</h2>
+
+            <h3><i class="fas fa-file-code"></i> Request Body (JSON)</h3>
+            <table class="parameter-table">
+                <thead>
+                    <tr>
+                        <th>Parameter</th>
+                        <th>Type</th>
+                        <th>Required</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>username</code></td>
+                        <td>string</td>
+                        <td><span class="param-required">Required</span></td>
+                        <td>Your Qualcomm username. Must be a member of the <strong>TEA-Assistant</strong> list.</td>
+                    </tr>
+                    <tr>
+                        <td><code>message</code></td>
+                        <td>string</td>
+                        <td><span class="param-required">Required</span></td>
+                        <td>Your message for this turn. Can be a CR number (<code>"3148333"</code>), a natural-language request (<code>"analyse CR 3148333"</code>), a follow-up question (<code>"what is the jira?"</code>) or a confirmation (<code>"yes"</code>).</td>
+                    </tr>
+                    <tr>
+                        <td><code>session_id</code></td>
+                        <td>string</td>
+                        <td><span class="param-optional">Optional*</span></td>
+                        <td><strong>Send the SAME value on every turn to enable follow-up questions.</strong> Any string works — a UUID, a ticket id, <code>"jenkins-job-42"</code>. If omitted, a throwaway id is generated and the conversation has <strong>no memory</strong>. See <a href="#chat-sessions">Sessions &amp; Follow-ups</a>.</td>
+                    </tr>
+                    <tr>
+                        <td><code>api_key</code></td>
+                        <td>string</td>
+                        <td><span class="param-optional">Optional*</span></td>
+                        <td>Your QGenie API key. <strong>Required on first use</strong> if you have never saved one; it is then persisted for future calls. See <a href="#apikey-setup">API Key Setup</a>.</td>
+                    </tr>
+                    <tr>
+                        <td><code>team_name</code></td>
+                        <td>string</td>
+                        <td><span class="param-required">Required</span></td>
+                        <td>
+                            Axiom taxonomy team used for test-case lookup, e.g.
+                            <code>APT/Platform/Kernel</code>. <strong>Must be a valid team</strong> —
+                            invalid values are rejected with a <code>400</code> and suggestions.
+                            Find yours with <a href="#teams-list">GET /api/v1/teams</a>.
+                            <br><br>
+                            <strong>Why required?</strong> The team selects which vector DB is
+                            searched, so a wrong team returns confident but <em>wrong</em> test
+                            cases. Making it explicit means that can never happen silently.
+                            The canonical form is also saved as your default.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><code>inputType</code></td>
+                        <td>string</td>
+                        <td><span class="param-optional">Optional</span></td>
+                        <td><code>"cr"</code> (default) or <code>"sr"</code> — how to interpret a bare number.</td>
+                    </tr>
+                    <tr>
+                        <td><code>stream</code></td>
+                        <td>boolean</td>
+                        <td><span class="param-optional">Optional</span></td>
+                        <td><code>true</code> (default) returns an SSE stream. <code>false</code> returns one complete JSON body — recommended for scripts and automation.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Chat API — Sessions -->
+        <div id="chat-sessions" class="api-section">
+            <h2><i class="fas fa-history"></i> Chat API — Sessions &amp; Follow-ups</h2>
+
+            <p>
+                Conversation state is keyed on <code>username</code> + <code>session_id</code> in Redis —
+                <strong>not</strong> on a browser cookie. That is what makes multi-turn conversations work
+                for an API client, and why it works correctly across all server replicas.
+            </p>
+
+            <div class="warning-box">
+                <h4><i class="fas fa-exclamation-triangle"></i> You must supply and re-use your own session_id</h4>
+                <p style="margin-bottom:0;">
+                    If you <strong>omit</strong> <code>session_id</code>, every request is an isolated cold start —
+                    the assistant will not remember the CR you were discussing, so
+                    <em>"what is the jira for this?"</em> cannot be answered. Generate one id per conversation
+                    and send it with every turn.
+                </p>
+            </div>
+
+            <h3><i class="fas fa-brain"></i> What is remembered between turns</h3>
+            <table class="parameter-table">
+                <thead>
+                    <tr><th>Capability</th><th>Meaning</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Entity memory</strong></td>
+                        <td>The current CR/SR is remembered, so "this CR", "the jira", "the gerrit change" all resolve.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Conversation history</strong></td>
+                        <td>Previous turns are included as context, and are also saved to your History sidebar in the web UI.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Pending confirmations</strong></td>
+                        <td>When the assistant asks <em>"Do you want to post this TEA?"</em>, a bare <code>"yes"</code> on the next turn is understood as the answer.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>CR-switch detection</strong></td>
+                        <td>Mention a different CR and it asks whether to start fresh or switch this conversation over.</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3><i class="fas fa-clock"></i> How long a session lasts</h3>
+            <ul style="margin: 1rem 0; padding-left: 2rem;">
+                <li><strong>7 days</strong> of sliding expiry in Redis — the timer resets on every use, so an active conversation never expires mid-use</li>
+                <li>After that, the conversation is <strong>rehydrated from PostgreSQL</strong> and live Orbit data is re-fetched — so an old <code>session_id</code> still works</li>
+                <li><code>session_id</code> is scoped per <code>username</code>, so two users can both use <code>"session-1"</code> without collision</li>
+            </ul>
+        </div>
+
+        <!-- Chat API — Responses -->
+        <div id="chat-responses" class="api-section">
+            <h2><i class="fas fa-reply"></i> Chat API — Response Formats</h2>
+
+            <h3><i class="fas fa-stream"></i> Non-Streaming Response (stream: false)</h3>
+            <p>Recommended for scripts. Returns one complete JSON document:</p>
+
+            <div class="response-example">
+                <h5><span class="status-code">200</span> Success Response</h5>
+                <div class="code-example">
+                    <button class="copy-btn" onclick="copyToClipboard(this)">Copy</button>
+                    <pre><code class="language-json">{
+  "status": "success",
+  "session_id": "my-session-1",
+  "content": "## Root Cause Analysis\n\nThe issue occurs because...",
+  "warning": null,
+  "actions": [],
+  "tea_data": null,
+  "choices": null
+}</code></pre>
+                </div>
+            </div>
+
+            <table class="parameter-table">
+                <thead>
+                    <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>content</code></td><td>string</td><td>The assistant's full answer as Markdown.</td></tr>
+                    <tr><td><code>session_id</code></td><td>string</td><td>Echo of the session id — re-send this on the next turn.</td></tr>
+                    <tr><td><code>warning</code></td><td>string | null</td><td>Set when the conversation context had to be trimmed.</td></tr>
+                    <tr><td><code>tea_data</code></td><td>object | null</td><td>Present after a TEA is generated: <code>AnalysisCategory</code>, <code>AnalysisDetails</code>, <code>MitigationDetails</code>, <code>cr_number</code>.</td></tr>
+                    <tr><td><code>actions</code></td><td>array</td><td>UI hints emitted by the engine, e.g. <code>open_tea_modal</code>, <code>entity_switched</code>. Informational for API callers.</td></tr>
+                    <tr><td><code>choices</code></td><td>array | null</td><td>Present when the assistant offers options, e.g. <code>["new chat", "continue here"]</code>.</td></tr>
+                </tbody>
+            </table>
+
+            <h3><i class="fas fa-water"></i> Streaming Response (stream: true)</h3>
+            <p>Server-Sent Events, identical to what the web UI consumes:</p>
+
+            <div class="response-example">
+                <h5><span class="status-code">200</span> Streaming Response</h5>
+                <div class="code-example">
+                    <button class="copy-btn" onclick="copyToClipboard(this)">Copy</button>
+                    <pre><code>Content-Type: text/event-stream
+
+data: {"content": "## Root Cause"}
+data: {"content": " Analysis"}
+...
+data: {"tea_data": {"AnalysisCategory": "Coverage Hole", "cr_number": "3148333"}}
+data: {"content": "[DONE]"}</code></pre>
+                </div>
+                <p style="margin-bottom:0;">
+                    Frame types: <code>content</code> (text chunk), <code>warning</code>,
+                    <code>tea_data</code> (structured TEA), <code>action</code>, <code>choices</code>.
+                    The stream always ends with <code>{"content": "[DONE]"}</code>.
+                </p>
+            </div>
+        </div>
+
+        <!-- Chat API — Examples -->
+        <div id="chat-examples" class="api-section">
+            <h2><i class="fas fa-code"></i> Chat API — Code Examples</h2>
+
+            <h3><i class="fas fa-terminal"></i> A complete multi-turn conversation (cURL)</h3>
+            <p>
+                Note how <strong><code>session_id</code> and <code>team_name</code> stay the
+                same</strong> across all four calls — the session id is what makes turns 2, 3 and 4
+                understand what "this" refers to, and <code>team_name</code> is required on every
+                call.
+            </p>
+
+            <h4>Step 0 — find your team (once)</h4>
+            <div class="code-example">
+                <button class="copy-btn" onclick="copyToClipboard(this)">Copy</button>
+                <pre><code class="language-bash">curl -G https://tea-assistant.qualcomm.com/api/v1/teams \
+  --data-urlencode "search=platform/kernel" \
+  --data-urlencode "username=your-username"</code></pre>
+            </div>
+
+            <h4>Turn 1 — send the CR number (returns the root cause analysis)</h4>
+            <div class="code-example">
+                <button class="copy-btn" onclick="copyToClipboard(this)">Copy</button>
+                <pre><code class="language-bash">curl -X POST https://tea-assistant.qualcomm.com/api/v1/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "your-username",
+    "api_key": "your-qgenie-api-key",
+    "session_id": "my-session-1",
+    "team_name": "APT/Platform/Kernel",
+    "message": "3148333",
+    "stream": false
+  }'</code></pre>
+            </div>
+
+            <h4>Turn 2 — a follow-up question (no CR number needed)</h4>
+            <div class="code-example">
+                <button class="copy-btn" onclick="copyToClipboard(this)">Copy</button>
+                <pre><code class="language-bash">curl -X POST https://tea-assistant.qualcomm.com/api/v1/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "your-username",
+    "session_id": "my-session-1",
+    "team_name": "APT/Platform/Kernel",
+    "message": "what is the jira for this?",
+    "stream": false
+  }'</code></pre>
+            </div>
+
+            <h4>Turn 3 — generate a TEA for the same CR</h4>
+            <div class="code-example">
+                <button class="copy-btn" onclick="copyToClipboard(this)">Copy</button>
+                <pre><code class="language-bash">curl -X POST https://tea-assistant.qualcomm.com/api/v1/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "your-username",
+    "session_id": "my-session-1",
+    "team_name": "APT/Platform/Kernel",
+    "message": "generate TEA for this CR",
+    "stream": false
+  }'</code></pre>
+            </div>
+
+            <h4>Turn 4 — confirm with a bare "yes"</h4>
+            <div class="code-example">
+                <button class="copy-btn" onclick="copyToClipboard(this)">Copy</button>
+                <pre><code class="language-bash">curl -X POST https://tea-assistant.qualcomm.com/api/v1/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "your-username",
+    "session_id": "my-session-1",
+    "team_name": "APT/Platform/Kernel",
+    "message": "yes",
+    "stream": false
+  }'</code></pre>
+            </div>
+
+            <h4>Streaming variant</h4>
+            <div class="code-example">
+                <button class="copy-btn" onclick="copyToClipboard(this)">Copy</button>
+                <pre><code class="language-bash">curl -N -X POST https://tea-assistant.qualcomm.com/api/v1/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "your-username",
+    "session_id": "my-session-1",
+    "team_name": "APT/Platform/Kernel",
+    "message": "3148333",
+    "stream": true
+  }'</code></pre>
+            </div>
+
+            <h3><i class="fab fa-python"></i> Python — a reusable conversation client</h3>
+            <div class="code-example">
+                <button class="copy-btn" onclick="copyToClipboard(this)">Copy</button>
+                <pre><code class="language-python">import uuid
+import requests
+
+BASE_URL = "https://tea-assistant.qualcomm.com"
+
+
+class TeaChat:
+    """
+    A multi-turn TEA Assistant conversation.
+
+    One TeaChat instance == one conversation. The session_id is generated once
+    and re-used for every message, which is what gives you follow-up memory.
+    """
+
+    def __init__(self, username, team_name, api_key=None, session_id=None):
+        self.username = username
+        # REQUIRED on every request — the team selects which vector DB is
+        # searched, so it is never inferred.
+        self.team_name = team_name
+        self.api_key = api_key
+        # Generate ONCE and keep it — this is the conversation's identity.
+        self.session_id = session_id or f"py-{uuid.uuid4()}"
+
+    def send(self, message, timeout=600):
+        payload = {
+            "username": self.username,
+            "team_name": self.team_name,     # required every turn
+            "session_id": self.session_id,
+            "message": message,
+            "stream": False,
+        }
+        # api_key only needs to be sent until it is saved server-side.
+        if self.api_key:
+            payload["api_key"] = self.api_key
+
+        r = requests.post(f"{BASE_URL}/api/v1/chat", json=payload, timeout=timeout)
+        if r.status_code == 400:
+            err = r.json()
+            # An invalid team always comes back with suggestions.
+            if err.get("suggestions"):
+                raise ValueError(f"{err['error']} Did you mean: {err['suggestions']}")
+            raise ValueError(err.get("error", r.text))
+        r.raise_for_status()
+        return r.json()
+
+
+# ── Usage ────────────────────────────────────────────────────────────────────
+chat = TeaChat(
+    username="your-username",
+    team_name="APT/Platform/Kernel",     # from GET /api/v1/teams
+    api_key="your-qgenie-api-key",       # needed only on the first ever call
+)
+
+# Turn 1 — root cause analysis
+print(chat.send("3148333")["content"])
+
+# Turn 2 — follow-up; "this" resolves because the session is the same
+print(chat.send("what is the jira for this?")["content"])
+
+# Turn 3 — TEA generation
+result = chat.send("generate TEA for this CR")
+print(result["content"])
+if result.get("tea_data"):
+    print("Category:", result["tea_data"].get("AnalysisCategory"))
+
+# Turn 4 — confirm the pending question
+print(chat.send("yes")["content"])</code></pre>
+            </div>
+
+            <h3><i class="fab fa-python"></i> Python — consuming the SSE stream</h3>
+            <div class="code-example">
+                <button class="copy-btn" onclick="copyToClipboard(this)">Copy</button>
+                <pre><code class="language-python">import json
+import requests
+
+def stream_chat(username, session_id, message, api_key=None):
+    payload = {
+        "username": username,
+        "session_id": session_id,
+        "message": message,
+        "stream": True,
+    }
+    if api_key:
+        payload["api_key"] = api_key
+
+    with requests.post(
+        "https://tea-assistant.qualcomm.com/api/v1/chat",
+        json=payload, stream=True, timeout=600
+    ) as r:
+        r.raise_for_status()
+        for line in r.iter_lines():
+            if not line:
+                continue
+            line = line.decode("utf-8")
+            if not line.startswith("data: "):
+                continue
+            event = json.loads(line[6:])
+
+            if event.get("content") == "[DONE]":
+                break
+            if event.get("content"):
+                print(event["content"], end="", flush=True)
+            if event.get("tea_data"):
+                print("\n\n[TEA]", event["tea_data"])
+
+
+stream_chat("your-username", "my-session-1", "3148333",
+            api_key="your-qgenie-api-key")</code></pre>
+            </div>
+
+            <h3><i class="fab fa-js"></i> JavaScript — non-streaming</h3>
+            <div class="code-example">
+                <button class="copy-btn" onclick="copyToClipboard(this)">Copy</button>
+                <pre><code class="language-javascript">// Keep ONE sessionId for the whole conversation.
+const sessionId = `js-${crypto.randomUUID()}`;
+
+async function sendChat(message, { username, apiKey, teamName } = {}) {
+  const body = {
+    username,
+    session_id: sessionId,   // same id every turn -> follow-ups work
+    message,
+    stream: false
+  };
+  if (apiKey)   body.api_key   = apiKey;
+  if (teamName) body.team_name = teamName;
+
+  const res = await fetch('https://tea-assistant.qualcomm.com/api/v1/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+// Multi-turn usage
+const opts = { username: 'your-username', apiKey: 'your-qgenie-api-key',
+               teamName: 'APT/Platform/Kernel' };
+
+const turn1 = await sendChat('3148333', opts);
+console.log(turn1.content);
+
+const turn2 = await sendChat('what is the jira for this?', opts);
+console.log(turn2.content);</code></pre>
+            </div>
+
+            <div class="warning-box">
+                <h4><i class="fas fa-hourglass-half"></i> Set a generous client timeout</h4>
+                <p style="margin-bottom:0;">
+                    Root cause analysis and TEA generation invoke an LLM and can run for
+                    <strong>a minute or more</strong>. The server allows up to 600 seconds, so set your
+                    HTTP client timeout to <code>600</code> to avoid a client-side timeout on a request
+                    that would otherwise have succeeded.
+                </p>
+            </div>
+        </div>
+
+        <!-- ══════════════ GERRIT CHAT API — ENDPOINT 3 ══════════════ -->
+        <div id="gerrit-endpoint" class="api-section">
+            <h2>
+                <i class="fas fa-code-branch"></i> Endpoint 3 — Gerrit Chat API
+                <span style="background:linear-gradient(135deg,#6c63ff,#a371f7);color:#fff;font-size:0.6rem;font-weight:700;padding:2px 7px;border-radius:8px;letter-spacing:0.5px;vertical-align:middle;">NEW</span>
+            </h2>
+
+            <div class="endpoint-badge method-post">
+                <span>POST</span>
+                <code>/api/v1/gerrit-chat</code>
+            </div>
+
+            <p>
+                The <strong>Gerrit code-review assistant</strong>, exposed as an API. Send a Gerrit change
+                number and it fetches the live code diff and commit message, then explains the purpose,
+                the key changes, and the risk/impact. Follow-up questions work exactly like the Chat API.
+            </p>
+
+            <div class="warning-box box-info">
+                <h4><i class="fas fa-info-circle"></i> Why this is a separate endpoint</h4>
+                <p style="margin-bottom:0;">
+                    Gerrit chat is a <strong>different assistant</strong>, not a mode of the TEA one. It uses a
+                    different system prompt (code-review expert rather than TEA analyst) and writes to a
+                    <strong>separate conversation history</strong>. Merging it into <code>/api/v1/chat</code> would
+                    put Gerrit reviews into your TEA history and distort the dashboard CR counts — so it gets
+                    its own URL while sharing the identical authentication.
+                </p>
+            </div>
+
+            <h3><i class="fas fa-star"></i> What you can do with it</h3>
+            <ul style="margin: 1rem 0; padding-left: 2rem;">
+                <li><strong>Summarise a code change</strong> — send the Gerrit change number</li>
+                <li><strong>Understand the purpose</strong> — what problem the change is solving</li>
+                <li><strong>Review key changes</strong> — the significant edits in the diff</li>
+                <li><strong>Assess risk &amp; impact</strong> — what could regress</li>
+                <li><strong>Ask follow-ups</strong> — "is this change risky?", "which files changed?", "any concerns with error handling?"</li>
+            </ul>
+
+            <div class="warning-box box-ok">
+                <h4><i class="fas fa-circle-check"></i> No <code>team_name</code> needed here</h4>
+                <p style="margin-bottom:0;">
+                    Unlike <a href="#chat-endpoint">/api/v1/chat</a>, this endpoint does <strong>not</strong>
+                    require <code>team_name</code> — it only reads the Gerrit code diff and never
+                    searches the Axiom test-case vector database, so there is no team-specific data
+                    involved.
+                </p>
+            </div>
+
+            <h3><i class="fas fa-file-code"></i> Request Body (JSON)</h3>
+            <table class="parameter-table">
+                <thead>
+                    <tr>
+                        <th>Parameter</th>
+                        <th>Type</th>
+                        <th>Required</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>username</code></td>
+                        <td>string</td>
+                        <td><span class="param-required">Required</span></td>
+                        <td>Your Qualcomm username. Must be a member of the <strong>TEA-Assistant</strong> list.</td>
+                    </tr>
+                    <tr>
+                        <td><code>message</code></td>
+                        <td>string</td>
+                        <td><span class="param-required">Required</span></td>
+                        <td>A Gerrit change number (<code>"3456789"</code>) to analyse, or a follow-up question about the change already in this session.</td>
+                    </tr>
+                    <tr>
+                        <td><code>session_id</code></td>
+                        <td>string</td>
+                        <td><span class="param-optional">Optional*</span></td>
+                        <td><strong>Send the SAME value on every turn to enable follow-up questions.</strong> Omitted → a throwaway id, so no memory. Same semantics as the Chat API — see <a href="#chat-sessions">Sessions &amp; Follow-ups</a>.</td>
+                    </tr>
+                    <tr>
+                        <td><code>api_key</code></td>
+                        <td>string</td>
+                        <td><span class="param-optional">Optional*</span></td>
+                        <td>Your QGenie API key. <strong>Required on first use</strong> if you have never saved one. See <a href="#apikey-setup">API Key Setup</a>.</td>
+                    </tr>
+                    <tr>
+                        <td><code>stream</code></td>
+                        <td>boolean</td>
+                        <td><span class="param-optional">Optional</span></td>
+                        <td><code>true</code> (default) returns an SSE stream. <code>false</code> returns one complete JSON body.</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <p style="margin-top:1rem;">
+                <strong>Response format</strong> is identical to the Chat API — see
+                <a href="#chat-responses">Chat API — Response Formats</a>. The <code>tea_data</code> and
+                <code>choices</code> fields are always <code>null</code> here, since Gerrit chat does not
+                generate TEA or offer switch choices.
+            </p>
+
+            <h3><i class="fas fa-terminal"></i> A complete Gerrit review conversation (cURL)</h3>
+
+            <h4>Turn 1 — send the Gerrit change number</h4>
+            <div class="code-example">
+                <button class="copy-btn" onclick="copyToClipboard(this)">Copy</button>
+                <pre><code class="language-bash">curl -X POST https://tea-assistant.qualcomm.com/api/v1/gerrit-chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "your-username",
+    "api_key": "your-qgenie-api-key",
+    "session_id": "gerrit-review-1",
+    "message": "3456789",
+    "stream": false
+  }'</code></pre>
+            </div>
+
+            <h4>Turn 2 — follow-up on the same change</h4>
+            <div class="code-example">
+                <button class="copy-btn" onclick="copyToClipboard(this)">Copy</button>
+                <pre><code class="language-bash">curl -X POST https://tea-assistant.qualcomm.com/api/v1/gerrit-chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "your-username",
+    "session_id": "gerrit-review-1",
+    "message": "is this change risky? which files are affected?",
+    "stream": false
+  }'</code></pre>
+            </div>
+
+            <h3><i class="fab fa-python"></i> Python — Gerrit review client</h3>
+            <div class="code-example">
+                <button class="copy-btn" onclick="copyToClipboard(this)">Copy</button>
+                <pre><code class="language-python">import uuid
+import requests
+
+BASE_URL = "https://tea-assistant.qualcomm.com"
+
+
+class GerritChat:
+    """
+    A multi-turn Gerrit code-review conversation.
+
+    Identical pattern to TeaChat — one instance == one conversation, and the
+    session_id is generated once so follow-up questions keep the diff context.
+    """
+
+    def __init__(self, username, api_key=None, session_id=None):
+        self.username = username
+        self.api_key = api_key
+        self.session_id = session_id or f"gerrit-{uuid.uuid4()}"
+
+    def send(self, message, timeout=600):
+        payload = {
+            "username": self.username,
+            "session_id": self.session_id,
+            "message": message,
+            "stream": False,
+        }
+        if self.api_key:
+            payload["api_key"] = self.api_key
+
+        r = requests.post(f"{BASE_URL}/api/v1/gerrit-chat",
+                          json=payload, timeout=timeout)
+        r.raise_for_status()
+        return r.json()
+
+
+# ── Usage ────────────────────────────────────────────────────────────────────
+review = GerritChat(username="your-username",
+                    api_key="your-qgenie-api-key")   # first call only
+
+# Turn 1 — summarise the change
+print(review.send("3456789")["content"])
+
+# Turn 2 — follow-up; the diff is still in context
+print(review.send("what is the risk of this change?")["content"])</code></pre>
+            </div>
+
+            <div class="warning-box">
+                <h4><i class="fas fa-history"></i> Separate conversation history</h4>
+                <p style="margin-bottom:0;">
+                    Gerrit conversations are saved to the <strong>Gerrit History</strong> sidebar in the web UI,
+                    not the TEA one. A <code>session_id</code> used with <code>/api/v1/gerrit-chat</code> is
+                    tracked independently from one used with <code>/api/v1/chat</code>, so re-using the same
+                    string across both endpoints will <em>not</em> share context.
+                </p>
+            </div>
+        </div>
+
+        <!-- ══════════════ ENDPOINT COMPARISON ══════════════ -->
+        <div id="endpoint-comparison" class="api-section">
+            <h2><i class="fas fa-directions"></i> Which endpoint should I use?</h2>
+
+            <table class="parameter-table">
+                <thead>
+                    <tr>
+                        <th>I want to…</th>
+                        <th>Use</th>
+                        <th>Multi-turn?</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Get a one-shot CR analysis, no conversation</td>
+                        <td><code>POST /api/cr-summary</code></td>
+                        <td>No</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Find my team</strong> / set a default</td>
+                        <td><code>GET /api/v1/teams</code> · <code>POST /api/v1/select-team</code></td>
+                        <td>n/a</td>
+                    </tr>
+                    <tr>
+                        <td>Analyse a <strong>CR</strong>, ask follow-ups, generate a TEA</td>
+                        <td><code>POST /api/v1/chat</code> <em>(needs <code>team_name</code>)</em></td>
+                        <td><strong>Yes</strong></td>
+                    </tr>
+                    <tr>
+                        <td>Analyse an <strong>SR</strong> (customer service request)</td>
+                        <td><code>POST /api/v1/chat</code> with <code>"inputType": "sr"</code></td>
+                        <td><strong>Yes</strong></td>
+                    </tr>
+                    <tr>
+                        <td>Review a <strong>Gerrit</strong> code change</td>
+                        <td><code>POST /api/v1/gerrit-chat</code></td>
+                        <td><strong>Yes</strong></td>
+                    </tr>
+                    <tr>
+                        <td>Use TEA Assistant from an AI coding agent</td>
+                        <td><a href="/mcp-docs">MCP Server</a> — 10 tools</td>
+                        <td><strong>Yes</strong></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3><i class="fas fa-headset"></i> Analysing an SR instead of a CR</h3>
+            <p>
+                The Chat API handles <strong>SRs (customer service requests)</strong> as well as CRs — just set
+                <code>inputType</code> to <code>"sr"</code> so a bare number is read as an SR:
+            </p>
+            <div class="code-example">
+                <button class="copy-btn" onclick="copyToClipboard(this)">Copy</button>
+                <pre><code class="language-bash">curl -X POST https://tea-assistant.qualcomm.com/api/v1/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "your-username",
+    "session_id": "sr-session-1",
+    "message": "5012345",
+    "inputType": "sr",
+    "stream": false
+  }'</code></pre>
+            </div>
+            <p style="margin-bottom:0;">
+                You can also just name it in natural language — <em>"analyse SR 5012345"</em> — and it is
+                detected automatically regardless of the <code>inputType</code> setting. Follow-up questions
+                then work the same way as for a CR.
+            </p>
+        </div>
+
+        <!-- Error Handling Section -->
+        <div id="errors" class="api-section">
+            <h2><i class="fas fa-exclamation-triangle"></i> Error Handling</h2>
+            
+            <h3><i class="fas fa-list"></i> Common Error Responses</h3>
+            
+            <div class="response-example">
+                <h5><span class="status-code status-error">400</span> Bad Request</h5>
+                <div class="code-example">
+                    <pre><code class="language-json">{
+  "error": "Message cannot be empty."
+}</code></pre>
+                </div>
+                <p><strong>Cause:</strong> Missing or empty message parameter</p>
+            </div>
+            
+            <div class="response-example">
+                <h5><span class="status-code status-error">400</span> API Key Not Found</h5>
+                <div class="code-example">
+                    <pre><code class="language-json">{
+  "error": "API key not found. Please provide 'api_key' in the request payload, or set it via the TEA Assistant web UI first."
+}</code></pre>
+                </div>
+                <p><strong>Cause:</strong> No <code>api_key</code> was provided in the payload and no key is saved in the database for this username. See <a href="#apikey-setup">API Key Setup</a>.</p>
+            </div>
+
+            <div class="response-example">
+                <h5><span class="status-code status-error">403</span> Forbidden</h5>
+                <div class="code-example">
+                    <pre><code class="language-json">{
+  "error": "Access denied. You are not authorized to use this api."
+}</code></pre>
+                </div>
+                <p><strong>Cause:</strong> User is not a member of the TEA-Assistant list</p>
+            </div>
+            
+            <div class="response-example">
+                <h5><span class="status-code status-error">500</span> Internal Server Error</h5>
+                <div class="code-example">
+                    <pre><code class="language-json">{
+  "error": "An error occurred."
+}</code></pre>
+                </div>
+                <p><strong>Cause:</strong> Server-side processing error</p>
+            </div>
+
+            <h3><i class="fas fa-comments"></i> Chat API Specific Errors <code>/api/v1/chat</code> and <code>/api/v1/gerrit-chat</code></h3>
+            <p>Both v1 chat endpoints share the same authentication, so they return the same errors.</p>
+
+            <div class="response-example">
+                <h5><span class="status-code status-error">400</span> Missing username</h5>
+                <div class="code-example">
+                    <pre><code class="language-json">{
+  "error": "'username' is required."
+}</code></pre>
+                </div>
+                <p><strong>Cause:</strong> The <code>username</code> field was omitted or empty.</p>
+            </div>
+
+            <div class="response-example">
+                <h5><span class="status-code status-error">400</span> Empty message</h5>
+                <div class="code-example">
+                    <pre><code class="language-json">{
+  "error": "'message' cannot be empty."
+}</code></pre>
+                </div>
+                <p><strong>Cause:</strong> The <code>message</code> field was omitted or empty.</p>
+            </div>
+
+            <div class="response-example">
+                <h5><span class="status-code status-error">400</span> API Key Not Found</h5>
+                <div class="code-example">
+                    <pre><code class="language-json">{
+  "error": "API key not found. Provide 'api_key' in the request body, or set it once via the TEA Assistant web UI."
+}</code></pre>
+                </div>
+                <p><strong>Cause:</strong> No <code>api_key</code> in the payload and none saved for this username. See <a href="#apikey-setup">API Key Setup</a>.</p>
+            </div>
+
+            <div class="response-example">
+                <h5><span class="status-code status-error">400</span> Missing team_name <code>/api/v1/chat</code> only</h5>
+                <div class="code-example">
+                    <pre><code class="language-json">{
+  "error": "'team_name' is required.",
+  "hint": "The team selects which Axiom vector DB is searched for test cases, so it must be explicit — a wrong team returns wrong suggestions. Use GET /api/v1/teams to list valid teams, or POST /api/v1/select-team to set a default.",
+  "valid_team_count": 1580
+}</code></pre>
+                </div>
+                <p><strong>Cause:</strong> <code>team_name</code> was omitted. See <a href="#team-selection">Endpoint 0 — Team Selection</a>. Not required by <code>/api/v1/gerrit-chat</code>, which never uses the vector DB.</p>
+            </div>
+
+            <div class="response-example">
+                <h5><span class="status-code status-error">400</span> Invalid team_name — with suggestions</h5>
+                <div class="code-example">
+                    <pre><code class="language-json">{
+  "error": "'APT/Kernel' is not a valid team.",
+  "hint": "Use GET /api/v1/teams?search=<text> to find the exact team path, then pass it as 'team_name'.",
+  "valid_team_count": 1580,
+  "suggestions": ["APT/Platform/Kernel", "APT/XR/Platform/Kernel", "APT/XR/CPT/Kernel"]
+}</code></pre>
+                </div>
+                <p><strong>Cause:</strong> The team is not one of the 1580 valid taxonomy paths. Copy a value from <code>suggestions</code>, or search with <a href="#teams-list">GET /api/v1/teams</a>. Remember a bare leaf like <code>Kernel</code> is rejected as ambiguous.</p>
+            </div>
+
+            <div class="response-example">
+                <h5><span class="status-code status-error">403</span> Forbidden</h5>
+                <div class="code-example">
+                    <pre><code class="language-json">{
+  "error": "Access denied. You are not authorized to use this API. Request access to the 'TEA-Assistant' Qualcomm list."
+}</code></pre>
+                </div>
+                <p><strong>Cause:</strong> Not a member of the TEA-Assistant list. See <a href="#prerequisites">Prerequisites &amp; Access</a>.</p>
+            </div>
+
+            <div class="response-example">
+                <h5><span class="status-code status-error">503</span> Membership Check Unavailable</h5>
+                <div class="code-example">
+                    <pre><code class="language-json">{
+  "error": "Could not verify list membership. Try again later."
+}</code></pre>
+                </div>
+                <p><strong>Cause:</strong> The LDAP list lookup failed transiently. Retry with backoff.</p>
+            </div>
+
+            <h4><i class="fas fa-question-circle"></i> Conversation issues that are not HTTP errors</h4>
+            <p>These return <code>200</code> with an explanatory <code>content</code> message rather than an error status:</p>
+            <table class="parameter-table">
+                <thead>
+                    <tr><th>Symptom</th><th>Cause &amp; fix</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Follow-up questions are not understood</td>
+                        <td>You did not re-use the same <code>session_id</code>. Generate one per conversation and send it on every turn — see <a href="#chat-sessions">Sessions &amp; Follow-ups</a>.</td>
+                    </tr>
+                    <tr>
+                        <td>"Please give me a CR number first"</td>
+                        <td>This session has no CR yet. Send the CR number before asking for TEA or test cases.</td>
+                    </tr>
+                    <tr>
+                        <td>"I could not find CR &lt;number&gt;"</td>
+                        <td>The CR does not exist in Orbit, or is not accessible. Check the number — it must be digits only.</td>
+                    </tr>
+                    <tr>
+                        <td>"Gerrit change &lt;number&gt; could not be found"</td>
+                        <td><code>/api/v1/gerrit-chat</code> only: the change id does not exist or the diff is not retrievable. Verify the numeric Gerrit change id.</td>
+                    </tr>
+                    <tr>
+                        <td>"No relevant testcase found since vector db not created"</td>
+                        <td>No vector DB exists for that team. Create it from the web UI (database icon → Create Vector DB) and verify your <code>team_name</code> spelling.</td>
+                    </tr>
+                    <tr>
+                        <td>"RATE_LIMIT_EXCEEDED"</td>
+                        <td>Your QGenie quota was hit. Retry later, or switch model in the web UI settings.</td>
+                    </tr>
+                    <tr>
+                        <td>Client-side timeout</td>
+                        <td>Your HTTP timeout is too low for an LLM call. Raise it to <code>600</code> seconds.</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3><i class="fas fa-lightbulb"></i> Error Handling Best Practices</h3>
+            <ul style="margin: 1rem 0; padding-left: 2rem;">
+                <li>Always check the HTTP status code before processing the response</li>
+                <li>Implement proper error handling for network timeouts</li>
+                <li>For streaming requests, handle connection drops gracefully</li>
+                <li>Log errors for debugging purposes</li>
+                <li>Provide user-friendly error messages in your application</li>
+            </ul>
+        </div>
+        
+        <!-- Rate Limits Section -->
+        <div id="rate-limits" class="api-section">
+            <h2><i class="fas fa-tachometer-alt"></i> Rate Limits & Usage Guidelines</h2>
+            
+            <h3><i class="fas fa-clock"></i> Current Limits</h3>
+            <ul style="margin: 1rem 0; padding-left: 2rem;">
+                <li>No explicit rate limits are currently enforced</li>
+                <li>Please use the API responsibly to ensure availability for all users</li>
+                <li>For bulk processing, consider using the batch processing features available in the web interface</li>
+            </ul>
+            
+            <h3><i class="fas fa-best-practices"></i> Best Practices</h3>
+            <ul style="margin: 1rem 0; padding-left: 2rem;">
+                <li>Cache responses when possible to reduce API calls</li>
+                <li>Use non-streaming mode for automated scripts</li>
+                <li>Use streaming mode for interactive applications</li>
+                <li>Implement exponential backoff for retry logic</li>
+                <li>Monitor your usage to avoid overwhelming the system</li>
+            </ul>
+        </div>
+        
+        <!-- Additional Information -->
+        <div class="api-section">
+            <h2><i class="fas fa-info-circle"></i> Additional Information</h2>
+            
+            <h3><i class="fas fa-database"></i> Data Sources</h3>
+            <p>The API integrates data from multiple Qualcomm systems:</p>
+            <ul style="margin: 1rem 0; padding-left: 2rem;">
+                <li><strong>Orbit:</strong> CR details, TEA records, customer information</li>
+                <li><strong>Jira:</strong> Associated bug reports and tracking</li>
+                <li><strong>Gerrit:</strong> Code change information and commit details</li>
+                <li><strong>Axiom:</strong> Test case suggestions from taxonomy</li>
+            </ul>
+            
+            <h3><i class="fas fa-question-circle"></i> Support</h3>
+            <p>For API support, questions, or feature requests:</p>
+            <ul style="margin: 1rem 0; padding-left: 2rem;">
+                <li>Contact: <a href="mailto:iaminul@qualcomm.com">iaminul@qualcomm.com</a> </a></li>
+                <li>Submit tickets through the <a href="/#help-link">Help</a> section in the web interface</li>
+                <li>Check the <a href="https://confluence.qualcomm.com/confluence/display/APTPlatform/TEA+Assistant">Confluence documentation</a> for detailed guides</li>
+            </ul>
+        </div>
+
+        </div><!-- /.api-content -->
+        </div><!-- /.api-layout -->
+    </div>
+    
+    <!-- Back to Top Button -->
+    <button class="back-to-top" id="backToTop" onclick="scrollToTop()">
+        <i class="fas fa-arrow-up"></i>
+    </button>
+    
+    <script>
+        // Copy to clipboard functionality
+        function copyToClipboard(button) {
+            const codeBlock = button.nextElementSibling;
+            const text = codeBlock.textContent;
+            
+            navigator.clipboard.writeText(text).then(() => {
+                const originalText = button.textContent;
+                button.textContent = 'Copied!';
+                button.style.backgroundColor = 'rgba(40, 167, 69, 0.3)';
+                
+                setTimeout(() => {
+                    button.textContent = originalText;
+                    button.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+                }, 2000);
+            }).catch(err => {
+                console.error('Failed to copy text: ', err);
+            });
+        }
+        
+        // Back to top functionality
+        function scrollToTop() {
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
+        }
+        
+        // Show/hide back to top button
+        window.addEventListener('scroll', () => {
+            const backToTop = document.getElementById('backToTop');
+            if (window.pageYOffset > 300) {
+                backToTop.classList.add('show');
+            } else {
+                backToTop.classList.remove('show');
+            }
+        });
+        
+        // ── Theme: light / dark ─────────────────────────────────────────────
+        // The saved value uses the SAME localStorage key ('theme') as the main
+        // app and the MCP docs page, so switching here follows you everywhere.
+        function applyTheme(theme) {
+            document.documentElement.setAttribute('data-theme', theme);
+            const icon  = document.getElementById('themeIcon');
+            const label = document.getElementById('themeLabel');
+            // The button advertises what you will GET, not the current state.
+            if (icon)  icon.className = theme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+            if (label) label.textContent = theme === 'dark' ? 'Light' : 'Dark';
+        }
+
+        function toggleTheme() {
+            const current = document.documentElement.getAttribute('data-theme') || 'light';
+            const next = current === 'dark' ? 'light' : 'dark';
+            localStorage.setItem('theme', next);
+            applyTheme(next);
+        }
+
+        // Resolve the theme as early as possible to avoid a flash of the wrong
+        // one: saved preference first, then the OS setting.
+        (function initTheme() {
+            const saved = localStorage.getItem('theme');
+            if (saved === 'light' || saved === 'dark') {
+                applyTheme(saved);
+            } else {
+                applyTheme(
+                    window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+                );
+            }
+        })();
+        
+        // Smooth scrolling for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                    // Keep the URL shareable/back-button friendly without the
+                    // instant jump that a default anchor click would cause.
+                    history.replaceState(null, '', this.getAttribute('href'));
+                }
+            });
+        });
+
+        // ── TOC sidebar: collapse toggle (narrow screens only) ──────────────
+        function toggleToc() {
+            const sidebar = document.getElementById('tocSidebar');
+            const icon    = document.getElementById('tocCollapseIcon');
+            const collapsed = sidebar.classList.toggle('collapsed');
+            icon.className = collapsed ? 'fas fa-chevron-down' : 'fas fa-chevron-up';
+        }
+
+        // ── TOC sidebar: scroll-spy ─────────────────────────────────────────
+        // Highlights the entry for whichever section is currently in view, so
+        // the reader always knows where they are in a long page.
+        (function initScrollSpy() {
+            const links = Array.from(
+                document.querySelectorAll('.toc-sidebar a[href^="#"]')
+            );
+            if (!links.length) return;
+
+            // Map each TOC link to its target section element.
+            const targets = links
+                .map(link => ({ link, el: document.querySelector(link.getAttribute('href')) }))
+                .filter(item => item.el);
+
+            function setActive(link) {
+                links.forEach(l => l.classList.remove('active'));
+                if (!link) return;
+                link.classList.add('active');
+
+                // Keep the active entry visible inside the sidebar's own
+                // scroll area — otherwise it can end up out of sight on a
+                // long TOC.
+                const sidebar = document.getElementById('tocSidebar');
+                if (sidebar && sidebar.scrollHeight > sidebar.clientHeight) {
+                    const lr = link.getBoundingClientRect();
+                    const sr = sidebar.getBoundingClientRect();
+                    if (lr.top < sr.top || lr.bottom > sr.bottom) {
+                        link.scrollIntoView({ block: 'nearest' });
+                    }
+                }
+            }
+
+            function onScroll() {
+                // The section whose top is closest to (but still above) a line
+                // ~25% down the viewport is the one being read.
+                const line = window.innerHeight * 0.25;
+                let current = targets[0];
+                for (const item of targets) {
+                    if (item.el.getBoundingClientRect().top <= line) {
+                        current = item;
+                    } else {
+                        break;
+                    }
+                }
+                // At the very bottom of the page, force the last entry — the
+                // final short section may never cross the 25% line.
+                if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 40) {
+                    current = targets[targets.length - 1];
+                }
+                setActive(current ? current.link : null);
+            }
+
+            // rAF-throttled: the scroll handler must stay cheap.
+            let queued = false;
+            window.addEventListener('scroll', () => {
+                if (queued) return;
+                queued = true;
+                requestAnimationFrame(() => { onScroll(); queued = false; });
+            }, { passive: true });
+
+            window.addEventListener('resize', onScroll, { passive: true });
+            onScroll();   // set the initial highlight on load
+        })();
+    </script>
+</body>
+</html>

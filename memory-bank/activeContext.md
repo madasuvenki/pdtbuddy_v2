@@ -2,6 +2,39 @@
 
 ## Current Work Focus
 
+### WBC Live View TEA/QGenie Analysis Parity — Complete (2026-09-05)
+
+**User request addressed:** On `/wbc/live_view_status`, WBC Open CR TEA Assistance and QGenie Analysis should show the proper legacy-style technical analysis instead of weak summaries based only on CR title, occurrence, and area.
+
+**Root cause / findings:**
+- The Open CRs grid was using full TEA text as “Scenario Details (TEA)”, while the legacy WBC workbook’s Scenario Details column is intended to show concise scenario/testcase information.
+- PDT Scenario should come from the configured target JIRAs table `scenario` column, matched by CR / mapped CR, not from the full TEA/QGenie paragraph.
+- PPT export calls `wbc_legacy_ppt_adapter.build_ppt(...)`; without merging PDT Buddy's JSON analysis cache into that legacy data contract, Open/Analysis CR slides could miss the current TEA/QGenie/PDT fields.
+
+**Changes made:**
+- `wbc_live_view_stats_routes.py`
+  - Updated TEA defaults/request shape to match the working old `C:\Dropbox\WBC_Scrum_DB\Open_CR_Script\CR_TEA.py` flow (`https://10.213.98.5:5001/api/cr-summary`, username `alalji`, `Content-Type: application/json`, `verify=False`, `timeout=60`) while preserving environment-variable overrides and keeping port `5001` only as fallback.
+  - Added `_clean_wbc_ai_text()` to preserve and normalize full TEA/QGenie technical text.
+  - Added `_extract_wbc_summary_from_tea()` fallback so QGenie output is still derived from real TEA RCA/analysis sections if the QGenie client is unavailable or returns empty.
+  - Added CR-key normalization helpers so cached analysis works with bare numeric CR IDs and `CR...`-prefixed IDs.
+  - Updated Open CR analysis GET/SAVE/ANALYZE paths to normalize cache keys consistently.
+  - Updated Analyze flow so `mode=qgenie` obtains TEA first when needed, and QGenie summarizes TEA technical data rather than DB row context. If TEA is unavailable, QGenie is skipped instead of creating a title/occurrence-only summary.
+  - Added `_wbc_looks_like_row_context_bundle()` and cache checks so bad same-day entries made from CR row fields are treated as invalid and do not block a fresh TEA/QGenie run.
+  - Added target-JIRAs scenario extraction helpers (`_wbc_jiras_scenario_map()`, `_wbc_extract_testcase_from_jira_scenario()`, `_wbc_apply_pdt_scenarios_to_open_cr_preview()`).
+  - `_target_payload()` now builds Open CR preview rows from the configured unique/overall CR table, then annotates `PDT Scenario` and `SCENARIO DETAILS` from the configured target JIRAs table (`jiras_table` / `target_table`) by matching CR / mapped CR keys.
+  - Scenario extraction keeps the most common unique 1-2 testcase/scenario values per CR and collapses repeated common fragments, handling WBC strings like `... ; Playlist : ... ; TestCase : ... Attempt: 1` and UI duplicates like `No TestcaseCrash Phase : Idle crash / Idle crash`.
+  - Increased stored TEA text cap from 4k to 12k characters to retain meaningful technical sections.
+  - Added `_merge_wbc_analysis_cache_into_ppt_data()` and call it before legacy PPT build, injecting cached PDT Scenario, TEA Assistance, QGenie Analysis, PDT Comments, and regression flag into `open_cr`/`current_cr` PPT input rows.
+- `templates/wbc_live_view_stats.html`
+  - Added `_wbcTeaScenarioDisplay()` and improved scenario extraction so Open CRs shows concise PDT Scenario / Scenario Details (TEA) text from the DB scenario column or TEA scenario/testcase extraction.
+  - Prevents full TEA row-context bundles from rendering in the Open CRs grid when they contain markers like `Title of the CR`, `Customer Context`, `Image Reference`, `Software Product`, or `CR Occurrence`.
+  - Updated the QGenie-only button response handling to also retain returned TEA/scenario fields when the backend has to fetch TEA before summarizing.
+
+**Validation:**
+- `py -3 -m py_compile wbc_live_view_stats_routes.py wbc_legacy_ppt_adapter.py` executed successfully after the target-JIRAs scenario extraction, legacy `CR_TEA.py` TEA alignment, and scenario de-duplication patches.
+- `py -3 -c "import pathlib,jinja2; text=pathlib.Path('templates/wbc_live_view_stats.html').read_text(encoding='utf-8'); jinja2.Environment().parse(text); print('WBC_TEMPLATE_JINJA_OK')"` returned `WBC_TEMPLATE_JINJA_OK`.
+- Note: bare `python` on this machine points to an older interpreter that fails on modern type hints; project validation should use `py -3`.
+
 ### WBC Live View Outlook Compose Mail Format — Complete (2026-09-05)
 
 **User request addressed:** On `/wbc/live_view_status`, Compose Mail should create an Outlook desktop draft (not web/mailto fallback) for the current running build report, with CR Details matching the provided mail format and including CR occurrence/age/status/SI/area/subsystem/functionality fields.

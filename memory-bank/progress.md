@@ -1,4 +1,4 @@
-# Progress: PDTBuddy
+ in our cod# Progress: PDTBuddy
 
 ## What Works (Confirmed from Codebase)
 
@@ -48,6 +48,7 @@
 - ✅ Model selection from QGENIE_HIGHLIGHTS_MODEL_OPTIONS
 
 ### Feature Modules
+- ✅ WBC Live View TEA/QGenie Open CR analysis now follows the old WBC portal pipeline: TEA technical response first using the legacy `C:\Dropbox\WBC_Scrum_DB\Open_CR_Script\CR_TEA.py` request defaults (`https://10.213.98.5:5001/api/cr-summary`, username `alalji`, JSON content type, 60s timeout), QGenie summary from TEA text only, TEA-derived fallback summaries when QGenie is unavailable, normalized CR cache keys, target-JIRAs `scenario` extraction for common unique 1-2 PDT Scenario/TestCase values per CR/mapped CR with duplicate/common fragment cleanup, and PPT export merges cached TEA/QGenie/PDT fields before calling `wbc_legacy_ppt_adapter.py`.
 - ✅ WBC Live View Compose Mail now creates an Outlook desktop draft for the current running build report using `ms-outlook://compose` only, with a report-style body and CR Details columns for CR-ID, occurrence, title, area, subsystem, functionality, date, SI, status, and age.
 - ✅ WBC Live View PPT download now uses the old `C:\Dropbox\WBC_Scrum_DB\WBC_Report.py` teams-ready slide sequence/details via `wbc_legacy_ppt_adapter.py`: optional cover, selected-meta status slide, MTBF trend slide, Open/Analysis CR slides with QGenie/TEA-derived analysis fields, and optional ThankQ slide.
 - ✅ Live Status Core Slides external view now supports direct latest generated PPTX download from `/api/core_deck/download_latest_pptx?target=<target>` without regenerating or modifying slide content.
