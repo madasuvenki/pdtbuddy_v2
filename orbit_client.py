@@ -27,6 +27,7 @@ import logging
 logger = logging.getLogger(__name__)
 import sys
 import json
+import re
 import time
 import subprocess
 import traceback
@@ -67,18 +68,65 @@ ORBIT_API_BASE      = "https://" + ORBIT_SERVER + "/api/changerequest"
 ORBIT_QUERY_API_BASE = "https://" + ORBIT_SERVER + "/api"
 
 
-def _get_orbit_server() -> str:
+def _coerce_orbit_server(orbit_server: str = None) -> str:
+    """Return a known Orbit host for a region/endpoint override.
+
+    Accepted values include region aliases (qipl/hyd/hyderabad/india, sd,
+    ch/china) or one of the configured Orbit endpoint host names. Arbitrary
+    hosts are intentionally ignored so API callers cannot redirect internal
+    Orbit requests to an untrusted destination.
+    """
+    value = str(orbit_server or "").strip()
+    if not value:
+        return ""
+    value = re.sub(r"^https?://", "", value, flags=re.I).split("/", 1)[0].strip().lower()
+    compact = re.sub(r"[^a-z0-9]+", "", value)
+    aliases = {
+        "qipl": ORBIT_SERVER_QIPL,
+        "hyd": ORBIT_SERVER_QIPL,
+        "hyderabad": ORBIT_SERVER_QIPL,
+        "india": ORBIT_SERVER_QIPL,
+        "in": ORBIT_SERVER_QIPL,
+        "sd": ORBIT_SERVER_SD,
+        "sandiego": ORBIT_SERVER_SD,
+        "california": ORBIT_SERVER_SD,
+        "usa": ORBIT_SERVER_SD,
+        "us": ORBIT_SERVER_SD,
+        "ch": ORBIT_SERVER_CH,
+        "china": ORBIT_SERVER_CH,
+        "chn": ORBIT_SERVER_CH,
+        "shanghai": ORBIT_SERVER_CH,
+        "beijing": ORBIT_SERVER_CH,
+        "shenzhen": ORBIT_SERVER_CH,
+    }
+    if compact in aliases:
+        return aliases[compact]
+    allowed = {
+        ORBIT_SERVER_QIPL.lower(): ORBIT_SERVER_QIPL,
+        ORBIT_SERVER_SD.lower(): ORBIT_SERVER_SD,
+        ORBIT_SERVER_CH.lower(): ORBIT_SERVER_CH,
+    }
+    return allowed.get(value, "")
+
+
+def _get_orbit_server(orbit_server: str = None) -> str:
     """
     Return the correct Orbit server for the current user.
 
     Priority:
+      0. Explicit per-call endpoint/region override, used by API/background
+         worker threads where Flask session context is not available.
       1. Flask session['orbit_endpoint'] - set at login by app._set_orbit_session()
          using real LDAP location / browser timezone / IP first, LDAP group as
          final fallback. This is the authoritative per-user endpoint.
       2. LDAP group membership (used only if session is unavailable, e.g. a
          background task with no request context).
       3. orbit-hyd.qualcomm.com (default).
-        """
+    """
+    override = _coerce_orbit_server(orbit_server)
+    if override:
+        return override
+
     try:
         from flask import has_request_context, session as _flask_session
         if has_request_context():
@@ -114,12 +162,12 @@ def _get_orbit_server() -> str:
     return ORBIT_SERVER_QIPL
 
 
-def _get_orbit_api_base() -> str:
-    return "https://" + _get_orbit_server() + "/api/changerequest"
+def _get_orbit_api_base(orbit_server: str = None) -> str:
+    return "https://" + _get_orbit_server(orbit_server) + "/api/changerequest"
 
 
-def _get_orbit_query_api_base() -> str:
-    return "https://" + _get_orbit_server() + "/api"
+def _get_orbit_query_api_base(orbit_server: str = None) -> str:
+    return "https://" + _get_orbit_server(orbit_server) + "/api"
 
 
 def _orbit_request_with_auth(method: str, url: str, timeout, json_payload=None,
@@ -366,8 +414,8 @@ def _make_orbit_headers(server: str = None) -> dict:
 
 # - Orbit query/run fallback -
 
-def _orbit_query_run(cr_numbers: list, fields: list, page_size: int = 5000) -> list:
-    """Run the Orbit SD query API for one or more CRs and return result rows."""
+def _orbit_query_run(cr_numbers: list, fields: list, page_size: int = 5000, orbit_server: str = None) -> list:
+    """Run the Orbit query API for one or more CRs and return result rows."""
     cr_list = []
     seen = set()
     for cr in cr_numbers or []:
@@ -391,7 +439,7 @@ def _orbit_query_run(cr_numbers: list, fields: list, page_size: int = 5000) -> l
         "Page": 1,
         "PageSize": page_size,
     }
-    url  = f"{_get_orbit_query_api_base()}/query/run"
+    url  = f"{_get_orbit_query_api_base(orbit_server)}/query/run"
     resp = _orbit_post_with_auth(url, payload, ORBIT_QUERY_TIMEOUT)
     resp.raise_for_status()
     data = resp.json()
@@ -415,8 +463,8 @@ def _query_bool(value) -> bool:
     return str(value or '').strip().lower() in ('true', '1', 'yes', 'y')
 
 
-def _fetch_via_orbit_query(cr_number: str) -> dict:
-    """Fallback CR fetch using Orbit SD /api/query/run when direct Orbit REST is slow/unavailable."""
+def _fetch_via_orbit_query(cr_number: str, orbit_server: str = None) -> dict:
+    """Fallback CR fetch using Orbit /api/query/run when direct Orbit REST is slow/unavailable."""
     cr = _normalize_cr(cr_number)    
     try:
         # NOTE: "Type" and "ParentId" are NOT valid query/run projection columns
@@ -457,14 +505,14 @@ def _fetch_via_orbit_query(cr_number: str) -> dict:
             {"Name": "ChangeRequestParticipant.IsPrimary"},
         ]
 
-        core_rows = _orbit_query_run([cr], core_fields, page_size=100)
+        core_rows = _orbit_query_run([cr], core_fields, page_size=100, orbit_server=orbit_server)
         if not core_rows:
             return {"found": False, "cr_number": cr}
         core = core_rows[0]
 
         sirs = []
         try:
-            for row in _orbit_query_run([cr], sir_fields, page_size=5000):
+            for row in _orbit_query_run([cr], sir_fields, page_size=5000, orbit_server=orbit_server):
                 sirs.append({
                     'SoftwareImageName': _query_value(row, 'ChangeRequestIntegration.SoftwareImageName'),
                     'Name': _query_value(row, 'ChangeRequestIntegration.SoftwareImageName'),
@@ -477,7 +525,7 @@ def _fetch_via_orbit_query(cr_number: str) -> dict:
 
         participants = []
         try:
-            for row in _orbit_query_run([cr], participant_fields, page_size=1000):
+            for row in _orbit_query_run([cr], participant_fields, page_size=1000, orbit_server=orbit_server):
                 participants.append({
                     'AreaName': _query_value(row, 'ChangeRequestParticipant.Area'),
                     'SubsystemName': _query_value(row, 'ChangeRequestParticipant.Subsystem'),
@@ -525,7 +573,7 @@ def _fetch_via_orbit_query(cr_number: str) -> dict:
 
 # - Direct Orbit REST fetch -
 
-def _fetch_via_orbit_direct(cr_number: str) -> dict:
+def _fetch_via_orbit_direct(cr_number: str, orbit_server: str = None) -> dict:
     """
     Fetch CR details + SoftwareImageReleases directly from Orbit REST API.
     Uses Kerberos auth (same as Python2 orbit.py).
@@ -534,8 +582,8 @@ def _fetch_via_orbit_direct(cr_number: str) -> dict:
       GET /api/changerequest/{cr}/integrations - SIRs (software images)
         Returns normalised dict with SoftwareImageReleases populated.
     """
-    cr_url   = f"{_get_orbit_api_base()}/{cr_number}/"
-    sirs_url = f"{_get_orbit_api_base()}/{cr_number}/integrations"
+    cr_url   = f"{_get_orbit_api_base(orbit_server)}/{cr_number}/"
+    sirs_url = f"{_get_orbit_api_base(orbit_server)}/{cr_number}/integrations"
 
     try:
         # Fetch CR details - follows redirects (e.g. orbit-hyd -> orbit -> orbit-sd)
@@ -607,10 +655,10 @@ def _fetch_via_orbit_direct(cr_number: str) -> dict:
 
     except requests.exceptions.Timeout as e:
         logger.warning(f"[orbit_direct] CR{cr_number} timed out, trying query/run fallback: {e}")
-        return _fetch_via_orbit_query(cr_number)
+        return _fetch_via_orbit_query(cr_number, orbit_server=orbit_server)
     except Exception as e:
         logger.warning(f"[orbit_direct] CR{cr_number} fetch error: {e}")
-        fallback = _fetch_via_orbit_query(cr_number)
+        fallback = _fetch_via_orbit_query(cr_number, orbit_server=orbit_server)
         if fallback.get("found"):
             return fallback
         return {"found": False, "error": str(e)}
@@ -843,7 +891,7 @@ def _fetch_linked_via_mcp(cr_number: str) -> list:
 
 # - Public API -
 
-def fetch_cr_notes(cr_number: str) -> str:
+def fetch_cr_notes(cr_number: str, orbit_server: str = None) -> str:
     """
     Fetch the Notes tab text for a CR from Orbit.
     Endpoint: GET /api/changerequest/{cr}/notes
@@ -851,7 +899,7 @@ def fetch_cr_notes(cr_number: str) -> str:
     """
     cr = _normalize_cr(cr_number)
     try:
-        url = f"{_get_orbit_api_base()}/{cr}/notes"
+        url = f"{_get_orbit_api_base(orbit_server)}/{cr}/notes"
         resp = _orbit_request_with_auth('GET', url, ORBIT_DIRECT_TIMEOUT)
         if resp.status_code == 200:
             data = resp.json()
@@ -866,7 +914,7 @@ def fetch_cr_notes(cr_number: str) -> str:
         return ''
 
 
-def fetch_cr_software_images(cr_number) -> list:
+def fetch_cr_software_images(cr_number, orbit_server: str = None) -> list:
     """Fetch Software Image integrations for a CR directly from Orbit.
 
     Returns a list of Software Image Release dicts. Each item may include
@@ -875,7 +923,7 @@ def fetch_cr_software_images(cr_number) -> list:
     """
     cr = _normalize_cr(cr_number)
     try:
-        url = f"{_get_orbit_api_base()}/{cr}/integrations"
+        url = f"{_get_orbit_api_base(orbit_server)}/{cr}/integrations"
         resp = _orbit_request_with_auth('GET', url, ORBIT_DIRECT_TIMEOUT)
 
         if resp.status_code != 200:
@@ -892,7 +940,7 @@ def fetch_cr_software_images(cr_number) -> list:
         return []
 
 
-def fetch_cr(cr_number, use_cache: bool = True) -> dict:
+def fetch_cr(cr_number, use_cache: bool = True, orbit_server: str = None) -> dict:
     """
     Fetch CR details from Orbit.
 
@@ -939,8 +987,15 @@ def fetch_cr(cr_number, use_cache: bool = True) -> dict:
             logger.debug(f"[orbit_client] DB lookup failed for CR{cr}: {_dbe}")
 
     # ── In-memory cache ──────────────────────────────────────────────────────
+    cache_key = cr
+    if orbit_server:
+        try:
+            cache_key = f"{_get_orbit_server(orbit_server)}:{cr}"
+        except Exception:
+            cache_key = f"{orbit_server}:{cr}"
+
     if use_cache:
-        cached = _cache_get(cr)
+        cached = _cache_get(cache_key)
         if cached:
             logger.info(f"[orbit_client] Cache hit for CR{cr}")
             return cached
@@ -948,7 +1003,7 @@ def fetch_cr(cr_number, use_cache: bool = True) -> dict:
     # ── Fetch from Orbit ─────────────────────────────────────────────────────
     if ORBIT_CR_SOURCE == "ORBIT_DIRECT":
         # Primary: direct Orbit REST (full CR + SIRs via Kerberos)
-        data = _fetch_via_orbit_direct(cr)
+        data = _fetch_via_orbit_direct(cr, orbit_server=orbit_server)
         # Fallback 1: MCP if direct fails
         if not data.get("found") and _MCP_AVAILABLE:
             logger.info(f"[orbit_client] Direct failed for CR{cr}, trying MCP fallback")
@@ -977,7 +1032,7 @@ def fetch_cr(cr_number, use_cache: bool = True) -> dict:
 
     # ── In-memory cache ──────────────────────────────────────────────────────
     if use_cache and data.get("found"):
-        _cache_set(cr, data)
+        _cache_set(cache_key, data)
 
     return data
 

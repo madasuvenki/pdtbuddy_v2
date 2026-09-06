@@ -2146,6 +2146,9 @@ def api_wbc_hide_target(target_key: str):
 def api_wbc_remove_target(target_key: str):
     if not _can_edit():
         return jsonify({"ok": False, "error": "Access denied"}), 403
+    payload = request.get_json(force=True, silent=True) or {}
+    if not bool(payload.get("confirm")):
+        return jsonify({"ok": False, "error": "Confirmation required before removing a WBC target."}), 400
     key = _slug(target_key)
     cfg = _load_config()
     targets = cfg.get("targets") or {}

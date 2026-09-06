@@ -1248,6 +1248,20 @@ def _image_matches(candidate, jira_images):
     return False
 
 
+def _is_placeholder_cr_status(value):
+    """True for stale/empty CR status values that should be refreshed from Orbit."""
+    raw = str(value or '').strip()
+    compact = re.sub(r'[\s_-]+', '', raw.upper())
+    return compact in {'', 'NA', 'N/A', 'NONE', 'NULL', 'NOSTATUS', 'UNKNOWN', 'TBD'} or raw in {'--', '-'}
+
+
+def _is_placeholder_cr_si(value):
+    """True for stale/empty SIR values that should be refreshed from Orbit."""
+    raw = str(value or '').strip()
+    compact = re.sub(r'[\s_-]+', '', raw.upper())
+    return compact in {'', 'NA', 'N/A', 'NONE', 'NULL', 'NOSIR', 'NOSI', 'NOIMAGE', 'NOSOFTWAREIMAGE'} or raw in {'--', '-'}
+
+
 
 def _build_cr_to_jira_images(issues_dicts, explicit_software_images=None):
     """
@@ -1301,12 +1315,15 @@ def _build_cr_to_jira_images(issues_dicts, explicit_software_images=None):
 # ORBIT CR ENRICHMENT  - Direct Orbit REST API (Kerberos SSPI) / MCP fallback
 # =============================================================================
 
-def fetch_cr_info_from_orbit(cr_numbers, issues_dicts=None, progress=None, progress_offset=0, progress_total=None, explicit_software_images=None):
+def fetch_cr_info_from_orbit(cr_numbers, issues_dicts=None, progress=None, progress_offset=0, progress_total=None, explicit_software_images=None, orbit_server=None):
     """
         Batch fetch CR info using orbit_client.fetch_cr() (pure Python 3).
     orbit_client uses ORBIT_DIRECT (Kerberos SSPI via ctypes) first,
     falls back to OneView MCP for basic info.
 
+
+    orbit_server: optional per-call Orbit endpoint/region override used by
+        API/background callers where Flask session is not available.
 
     Returns dict: { 'CR1234567': { cr_number, cr_title, cr_date, cr_status,
                                    cr_si, cr_area, cr_subsystem, cr_function,
@@ -1329,10 +1346,69 @@ def fetch_cr_info_from_orbit(cr_numbers, issues_dicts=None, progress=None, progr
     cr_to_jira_images = _build_cr_to_jira_images(issues_dicts, explicit_software_images=explicit_software_images)
     num_list = list(set(cr.replace('CR', '').strip() for cr in cr_numbers if cr))
 
+    def _has_orbit_payload(data):
+        """True only when Orbit returned meaningful CR details.
+
+        Do not accept placeholder/cache rows that only say found=True or only
+        carry the CR number. Valid Orbit details should have at least one
+        descriptive field such as title/status/priority/participants/SIR rows.
+        """
+        if not isinstance(data, dict) or not data:
+            return False
+        return any(data.get(k) for k in (
+            "Title", "title", "cr_title",
+            "Status", "status", "cr_status",
+            "Priority", "priority", "cr_priority",
+            "CreatedOn", "CreatedDate", "cr_date",
+            "Participants", "participants",
+            "SoftwareImageReleases", "integrations", "Integrations",
+        ))
+
+    def _fetch_cr_data(cr_num):
+        """Fetch CR data, falling back across known Orbit regions if needed."""
+        candidates = []
+        seen = set()
+
+        def add_candidate(value):
+            value = str(value or "").strip()
+            if not value:
+                return
+            try:
+                resolved = oc._get_orbit_server(value)
+            except Exception:
+                resolved = value
+            key = str(resolved or value).strip().lower()
+            if key and key not in seen:
+                seen.add(key)
+                candidates.append((value, resolved or value))
+
+        add_candidate(orbit_server)
+        for region in ("qipl", "sd", "ch"):
+            add_candidate(region)
+
+        last_data = None
+        for candidate, resolved in candidates:
+            try:
+                data = oc.fetch_cr(cr_num, orbit_server=candidate)
+                last_data = data
+                if not _has_orbit_payload(data) and hasattr(oc, "_fetch_via_orbit_direct"):
+                    # Bypass persistent/in-memory placeholder cache rows that
+                    # may contain found=True but no actual CR details.
+                    data = oc._fetch_via_orbit_direct(cr_num, orbit_server=candidate)
+                    last_data = data
+                if _has_orbit_payload(data):
+                    data = dict(data)
+                    data["_orbit_server_used"] = resolved
+                    return data
+                logger.info("[orbit] CR%s not found/empty via %s", cr_num, resolved)
+            except Exception as exc:
+                logger.warning("[orbit] CR%s fetch failed via %s: %s", cr_num, resolved, exc)
+        return last_data or {}
+
     def _fetch_one(cr_num):
         try:
-            data = oc.fetch_cr(cr_num)
-            if not data:
+            data = _fetch_cr_data(cr_num)
+            if not _has_orbit_payload(data):
                 return cr_num, None
 
             def _g(*keys):
@@ -1345,6 +1421,7 @@ def fetch_cr_info_from_orbit(cr_numbers, issues_dicts=None, progress=None, progr
 
             cr_key = 'CR' + cr_num
             jira_images = cr_to_jira_images.get(cr_key, set())
+            has_explicit_images_for_match = bool(explicit_software_images and jira_images)
             sirs = (data.get('SoftwareImageReleases')
                     or data.get('integrations')
                     or data.get('Integrations') or [])
@@ -1380,27 +1457,31 @@ def fetch_cr_info_from_orbit(cr_numbers, issues_dicts=None, progress=None, progr
                     ).strip()
                     return raw.split(' ')[0][:10] if raw else ''
 
-                # Sort: matching SI first, then by status priority
+                matching_sirs = [sir for sir in sirs if _image_matches(_sir_image(sir), jira_images)]
 
-                best = sorted(
-                    sirs,
-                    key=lambda x: (
-                        0 if _image_matches(_sir_image(x), jira_images) else 1,
-                        SI_PRIORITY.get(_sir_status(x).upper().replace(' ', ''), 99)
-                    )
-                )
-                matched_sir  = best[0]
-                best_si      = _sir_image(matched_sir)
-                best_status  = _sir_status(matched_sir)
-                best_built   = _sir_built(matched_sir)
-                best_ready   = _sir_ready(matched_sir)
-                image_matched = _image_matches(best_si, jira_images)
-
-
-                if image_matched:
-                    pass
+                # When /api/build_report/run receives Build Info/software-image
+                # .txt content, that uploaded list is authoritative for Orbit
+                # SIR status matching. Do not show status/date from an unrelated
+                # SIR simply because the CR has another software-image release.
+                if matching_sirs:
+                    candidate_sirs = matching_sirs
+                    image_matched = True
+                elif has_explicit_images_for_match:
+                    candidate_sirs = []
                 else:
-                    pass  # No SI matched - still use best SIR for status/date
+                    candidate_sirs = list(sirs)
+
+                if candidate_sirs:
+                    best = sorted(
+                        candidate_sirs,
+                        key=lambda x: SI_PRIORITY.get(_sir_status(x).upper().replace(' ', ''), 99)
+                    )
+                    matched_sir  = best[0]
+                    best_si      = _sir_image(matched_sir)
+                    best_status  = _sir_status(matched_sir)
+                    best_built   = _sir_built(matched_sir)
+                    best_ready   = _sir_ready(matched_sir)
+                    image_matched = image_matched or _image_matches(best_si, jira_images)
             else:
                 pass  # no SIRs at all
 
@@ -1424,7 +1505,7 @@ def fetch_cr_info_from_orbit(cr_numbers, issues_dicts=None, progress=None, progr
                         # Fetch CR Notes from Orbit /notes endpoint
             cr_notes = ''
             try:
-                cr_notes = oc.fetch_cr_notes(cr_num)
+                cr_notes = oc.fetch_cr_notes(cr_num, orbit_server=data.get('_orbit_server_used') or orbit_server)
             except Exception:
                 pass
 
@@ -1448,6 +1529,8 @@ def fetch_cr_info_from_orbit(cr_numbers, issues_dicts=None, progress=None, progr
                 'image_matched': image_matched,
                 'cr_notes'     : cr_notes,
                 'source'       : 'orbit',
+                'orbit_source' : _g('source'),
+                'orbit_server' : data.get('_orbit_server_used') or orbit_server or '',
             }
 
         except Exception as e:
@@ -1760,6 +1843,10 @@ def lookup_cr_info_from_db(cr_numbers, target_name, issues_dicts=None, explicit_
     # build image list per mapped CR from the explicit Build Info .txt/browser
     # upload when supplied, otherwise from each JIRA Build Info table
     cr_to_jira_images = _build_cr_to_jira_images(issues_dicts, explicit_software_images=explicit_software_images)
+    has_explicit_software_images = bool([
+        img for img in (explicit_software_images or [])
+        if str(img or '').strip()
+    ])
 
     try:
         # import here to avoid circular deps when running as standalone script
@@ -1910,6 +1997,20 @@ def lookup_cr_info_from_db(cr_numbers, target_name, issues_dicts=None, explicit_
                 'source'       : 'unique_crs',
             }
 
+            if has_explicit_software_images:
+                matched_images = cr_to_jira_images.get(canonical_key, set())
+                needs_orbit_refresh = (
+                    _is_placeholder_cr_status(info.get('cr_status'))
+                    or _is_placeholder_cr_si(info.get('cr_si'))
+                    or (bool(matched_images) and not image_matched)
+                )
+                if needs_orbit_refresh:
+                    # Caller supplied Build Info/software-image .txt values, so
+                    # stale DB rows such as status=NA or SI=NoSIR must not block
+                    # live Orbit lookup.  Treat this CR as missing so Orbit can
+                    # select the SIR/status that matches the uploaded image list.
+                    continue
+
 
             # Store under canonical mapped CR and under every raw alias found in DB.
             # This lets a JIRA that directly references a duplicate CR still resolve to
@@ -1944,7 +2045,7 @@ def lookup_cr_info_from_db(cr_numbers, target_name, issues_dicts=None, explicit_
 
 def run_consolidated_report(build_ids, filter_id, traverse=True, enrich_orbit=True,
                             target_name=None, progress=None, custom_jql=None,
-                            explicit_software_images=None):
+                            explicit_software_images=None, orbit_server=None):
     """
     Full pipeline. Returns the complete report dict.
     progress: optional ProgressTracker for live SSE updates.
@@ -1952,6 +2053,8 @@ def run_consolidated_report(build_ids, filter_id, traverse=True, enrich_orbit=Tr
     explicit_software_images: optional list from /build_report Build Info .txt/browser
         file. When present, these images override Jira per-ticket software_components
         only for CR Software Image Release status matching.
+    orbit_server: optional Orbit endpoint/region override passed through to
+        orbit_client for API/background calls (for example: qipl, sd, ch).
     """
     t0 = time.time()
 
@@ -1990,6 +2093,7 @@ def run_consolidated_report(build_ids, filter_id, traverse=True, enrich_orbit=Tr
                 'target_name' : target_name,
                 'custom_jql'  : custom_jql or None,
                 'explicit_software_images': list(explicit_software_images or []),
+                'orbit_server': orbit_server or None,
             },
             'limit_exhausted' : True,
             'limit'           : le.limit,
@@ -2056,6 +2160,7 @@ def run_consolidated_report(build_ids, filter_id, traverse=True, enrich_orbit=Tr
                 progress_offset=len(cr_info_map),
                 progress_total=len(all_crs),
                 explicit_software_images=explicit_software_images,
+                orbit_server=orbit_server,
             )
             cr_info_map.update(orbit_map)
 
@@ -2074,6 +2179,7 @@ def run_consolidated_report(build_ids, filter_id, traverse=True, enrich_orbit=Tr
                 parent_crs,
                 issues_dicts=issues_dicts,
                 explicit_software_images=explicit_software_images,
+                orbit_server=orbit_server,
             )
             cr_info_map.update(parent_map or {})
 
@@ -2163,6 +2269,7 @@ def run_consolidated_report(build_ids, filter_id, traverse=True, enrich_orbit=Tr
                         "target_name"     : target_name,
             "custom_jql"      : custom_jql or None,
             "qwinbug_stats"   : qwinbug_stats,
+            "orbit_server"    : orbit_server or None,
         },
         "summary"            : summary,
         "cr_index"           : cr_info_map,

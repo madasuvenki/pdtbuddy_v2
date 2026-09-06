@@ -111,6 +111,9 @@
     .topbar .project-label{min-height:34px;align-items:center}
     #targetList.list{display:flex;flex:1 1 620px;flex-wrap:wrap;align-items:center;gap:7px;overflow:visible!important;padding:0;min-width:280px}
     #targetList .item{flex:0 0 auto;margin:0;padding:7px 11px}
+    #targetList .wbc-target-item{position:relative;padding-right:35px!important;display:inline-flex;align-items:center;gap:6px;min-height:34px}
+    #targetList .wbc-target-remove{position:absolute;top:5px;right:6px;width:21px;height:21px;border-radius:7px;border:1px solid rgba(220,38,38,.26);background:rgba(254,226,226,.80);color:#dc2626;font-size:11px;line-height:1;cursor:pointer;display:grid;place-items:center;padding:0}
+    #targetList .wbc-target-remove:hover{background:#fee2e2!important;border-color:#ef4444!important;color:#991b1b!important;transform:none}
     .topbar-actions{flex:0 0 auto;align-self:flex-start}
     @media(max-width:1100px){div[id="targetList"].list{order:3;flex-basis:100%;padding-top:8px}.topbar-actions{margin-left:auto!important}}
     @media(max-width:1180px){.ov-row1{grid-template-columns:repeat(2,1fr)}.ov-row2{grid-template-columns:repeat(3,1fr)}}
@@ -514,6 +517,23 @@
     <div class="modal-actions"><button class="btn" onclick="closeVisibilityModal()">Cancel</button><button class="btn primary" onclick="saveVisibility()"><i class="fas fa-save"></i> Save Visibility</button></div>
   </div>
 </div>
+<div id="removeTargetModal" class="modal">
+  <div class="modal-box" style="width:min(520px,96vw)">
+    <div class="modal-head"><span><i class="fas fa-trash" style="color:#dc2626"></i> Remove WBC Target</span><button class="btn" onclick="closeRemoveTargetModal()"><i class="fas fa-times"></i></button></div>
+    <div class="modal-body">
+      <div class="field">
+        <label>Select target to remove from Active Projects</label>
+        <select id="removeTargetSelect" class="input"></select>
+      </div>
+      <div style="margin-top:12px;padding:12px 14px;border:1px solid #fecaca;background:#fff1f2;border-radius:12px">
+        <div style="font-size:12px;font-weight:1000;color:#991b1b;margin-bottom:4px"><i class="fas fa-exclamation-triangle"></i> Confirm remove</div>
+        <div class="muted" style="font-size:11px;line-height:1.45">This removes the target from the top Active Projects list, clears its WBC config/cache, and hides it for all viewers. Source Excel files and database tables are not deleted.</div>
+      </div>
+      <div id="removeTargetMsg" class="saved"></div>
+    </div>
+    <div class="modal-actions"><button class="btn" onclick="closeRemoveTargetModal()">Cancel</button><button class="btn primary" onclick="doRemoveWbcTarget()" style="background:linear-gradient(135deg,#dc2626,#f97316)!important"><i class="fas fa-trash"></i> Remove Target</button></div>
+  </div>
+</div>
 <div id="mtbfAddModal" class="modal">
   <div class="modal-box">
     <div class="modal-head"><span><i class="fas fa-plus"></i> Add MTBF Build</span><button class="btn" onclick="closeMtbfAddModal()"><i class="fas fa-times"></i></button></div>
@@ -617,7 +637,53 @@ function switchTab(tab){
 async function loadTargets(){const d=await getJson(`${API}/targets`);targets=d.targets||[];allTargets=d.all_targets||targets;config=d.config||{targets:{}};renderQuickSelect();renderList();if(!active&&targets[0])selectTarget(targets[0].key);if(CAN_EDIT)loadTables();}
 function cfgFor(k){return (config.targets||{})[k]||{};}
 function renderQuickSelect(){const sel=document.getElementById('quickTarget');if(!sel)return;sel.innerHTML='<option value="">Select...</option>'+targets.map(t=>`<option value="${esc(t.key)}">${esc(t.label)}</option>`).join('');if(active)sel.value=active;}
-function renderList(){const q=(document.getElementById('search')?.value||'').toLowerCase();const rows=targets.filter(t=>!q||JSON.stringify(t).toLowerCase().includes(q));document.getElementById('targetList').innerHTML=rows.length?rows.map(t=>`<button class="item ${t.key===active?'active':''}" onclick="selectTarget('${esc(t.key)}')"><b>${esc(t.label)}</b></button>`).join(''):'<div class="empty" style="padding:6px;color:#94a3b8">No WBC workbooks found.</div>';}
+function renderList(){
+  const q=(document.getElementById('search')?.value||'').toLowerCase();
+  const rows=targets.filter(t=>!q||JSON.stringify(t).toLowerCase().includes(q));
+  document.getElementById('targetList').innerHTML=rows.length?rows.map(t=>{
+    const removeBtn=CAN_EDIT?`<button class="wbc-target-remove" title="Remove ${esc(t.label||t.key)}" data-key="${esc(t.key)}" data-label="${esc(t.label||t.key)}" onclick="event.stopPropagation();openRemoveTargetModal(this.dataset.key,this.dataset.label)" aria-label="Remove ${esc(t.label||t.key)}"><i class="fas fa-minus"></i></button>`:'';
+    return `<div role="button" tabindex="0" class="item wbc-target-item ${t.key===active?'active':''}" data-key="${esc(t.key)}" onclick="selectTarget(this.dataset.key)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();selectTarget(this.dataset.key)}"><b>${esc(t.label)}</b>${removeBtn}</div>`;
+  }).join(''):'<div class="empty" style="padding:6px;color:#94a3b8">No WBC workbooks found.</div>';
+}
+function openRemoveTargetModal(k,label){
+  if(!CAN_EDIT)return;
+  const m=document.getElementById('removeTargetModal'); if(!m)return;
+  const sel=document.getElementById('removeTargetSelect');
+  if(sel){
+    sel.innerHTML=(targets||[]).map(t=>`<option value="${esc(t.key)}" ${String(t.key)===String(k)?'selected':''}>${esc(t.label||t.key)}</option>`).join('');
+  }
+  m.dataset.target=k||'';
+  const msg=document.getElementById('removeTargetMsg');
+  if(msg)msg.textContent='';
+  m.style.display='flex';
+}
+function closeRemoveTargetModal(){const m=document.getElementById('removeTargetModal');if(m)m.style.display='none';}
+async function doRemoveWbcTarget(){
+  if(!CAN_EDIT)return;
+  const m=document.getElementById('removeTargetModal'); if(!m)return;
+  const sel=document.getElementById('removeTargetSelect');
+  const key=(sel&&sel.value)||m.dataset.target||'';
+  const target=(targets||[]).find(t=>String(t.key)===String(key))||{};
+  const label=target.label||target.key||key;
+  const msg=document.getElementById('removeTargetMsg');
+  if(!key){if(msg)msg.textContent='Select a target to remove.';return;}
+  if(!confirm('Remove "'+label+'" from WBC Active Projects?\n\nThis hides the target for all viewers and clears WBC config/cache. Source files and DB tables are not deleted.'))return;
+  if(msg)msg.innerHTML='<i class="fas fa-circle-notch fa-spin"></i> Removing '+esc(label)+'...';
+  try{
+    const wasActive=String(active)===String(key);
+    await postJson(`${API}/target/${encodeURIComponent(key)}/remove`,{confirm:true});
+    closeRemoveTargetModal();
+    if(wasActive){active='';payload=null;}
+    await loadTargets();
+    if(!targets.length){
+      active='';payload=null;renderList();setText('title','WBC Live View Stats');setText('subtitle','No active WBC targets.');
+    }else if(wasActive&&!active&&targets[0]){
+      await selectTarget(targets[0].key);
+    }
+  }catch(e){
+    if(msg)msg.innerHTML='<span style="color:#dc2626">'+esc(e.message||e)+'</span>';
+  }
+}
 async function selectTarget(k){
   _wbcShowTabLoading('overview');
   active=k;

@@ -112,8 +112,8 @@ def _atomic_write(path: str, data: Any) -> None:
         json.dump(data, handle, ensure_ascii=False, indent=2)
     try:
         os.replace(tmp, path)
-    except PermissionError:
-        logger.warning("Atomic replace denied for %s; falling back to direct write", path, exc_info=True)
+    except PermissionError as exc:
+        logger.info("Atomic replace denied for %s (%s); falling back to direct write", path, exc)
         with open(path, "w", encoding="utf-8") as handle:
             json.dump(data, handle, ensure_ascii=False, indent=2)
         try:

@@ -2,6 +2,100 @@
 
 ## Current Work Focus
 
+### Build Report API Orbit Region/Session Handling — Complete (2026-09-06)
+
+**User request addressed:** Clarified and hardened `/api/build_report/run` when another/background tool sends software images as a parameter. The endpoint now preserves the existing flow where passed Build Info/software-image values are used only for Orbit CR Software Image Release matching, and it can also choose the correct Orbit regional endpoint when the API call has no browser login session.
+
+**How the process works now:**
+1. External/background tool calls `POST /api/build_report/run` with an API token plus `filter_id`, `custom_jql`, or `builds`.
+2. Tool can pass software images as either:
+   - `software_images`: array/string of already extracted image names.
+   - `software_images_txt` / `build_info_txt` / related text aliases: raw saved/browser Build Info `.txt` content.
+   - Multipart file aliases: `build_info_file`, `software_images_file`, `txt_file`.
+3. `jiraquery_api_routes.py` extracts/de-dupes images and forwards them as `explicit_software_images` into `run_consolidated_report()`.
+4. The report engine still uses JIRA filter/JQL/builds for issue selection. The passed images do **not** rewrite the JIRA query.
+5. During Orbit CR enrichment, `scripts/fetch_consolidated_report.py` uses the explicit images first when selecting the matching Orbit SIR/status/date for each CR.
+6. Orbit endpoint selection is now robust for API/background calls:
+   - Browser calls default to `session['orbit_endpoint']` set at login by `_set_orbit_session()`.
+   - Token/background calls can pass `orbit_region`, `region`, `orbit_server`, or `orbit_endpoint`.
+   - Accepted region aliases include `qipl`/`hyd`, `sd`, and `ch`; arbitrary hosts are rejected by `orbit_client._coerce_orbit_server()`.
+
+**Changes made:**
+- `jiraquery_api_routes.py`
+  - Imports Flask `session`.
+  - `/api/build_report/run` accepts `orbit_region`, `region`, `orbit_server`, and `orbit_endpoint`.
+  - Falls back to `session['orbit_endpoint']` for logged-in browser calls.
+  - Passes the resolved Orbit endpoint/region to `run_consolidated_report(..., orbit_server=...)`.
+  - Includes `orbit_server` in the API response.
+- `scripts/fetch_consolidated_report.py`
+  - `run_consolidated_report()` accepts `orbit_server` and includes it in report metadata.
+  - `fetch_cr_info_from_orbit()` accepts `orbit_server` and passes it to `orbit_client.fetch_cr()` and `orbit_client.fetch_cr_notes()`.
+  - Parent CR enrichment also receives the same Orbit endpoint override.
+- `orbit_client.py`
+  - Added `_coerce_orbit_server()` for safe region/endpoint normalization.
+  - `_get_orbit_server()` now prioritizes explicit per-call override before Flask session/group/default.
+  - Direct/query Orbit base URL helpers and CR/note fetchers accept `orbit_server`.
+  - In-memory CR cache keys include the endpoint when an override is used, preventing cross-region cache bleed.
+
+**Follow-up fixes:**
+- Resolved runtime warning `[build_report/run] filter resolve failed ... No module named 'fetch_consolidated_report'`.
+  - Root cause: the saved-filter resolution block imported `fetch_consolidated_report.connect_jira` before adding the project `scripts/` directory to `sys.path`; the later report-run import path setup happened too late.
+  - Fix: `jiraquery_api_routes.py` now inserts `<project>/scripts` into `sys.path` before importing `connect_jira` during filter resolution.
+- Resolved blank Orbit CR detail rows such as `CR4566503` showing empty title/status/area/SI/date fields.
+  - Root cause: `fetch_cr_info_from_orbit()` treated any non-empty `orbit_client.fetch_cr()` response as usable, including placeholder/error responses like `{"found": False, ...}`.
+  - Follow-up root cause: cached/persistent placeholder rows could also contain `found=True` but no meaningful CR title/status/SIR/participant fields, so `found=True` alone cannot be trusted.
+  - Fix: `scripts/fetch_consolidated_report.py` now requires real Orbit payload fields before creating CR info rows, so found-false/error-only/placeholder-cache responses are not converted into blank `cr_index` entries.
+  - If placeholder cache data is detected, Orbit enrichment bypasses cache by calling direct Orbit fetch for each candidate region.
+  - API/background calls now also try known Orbit regions in sequence: explicit request/session endpoint first, then `qipl`, `sd`, and `ch`, and record `orbit_source` / `orbit_server` on successful CR info.
+- Added active logged-user Orbit endpoint resolution for `/api/build_report/run`.
+  - Root cause: the route only reused `session['orbit_endpoint']` when already present; if the Build Report API request lacked/stale session endpoint data, it did not re-run the login geolocation/LDAP/IP/browser-timezone logic from the Flask logged-in user.
+  - Fix: `jiraquery_api_routes.py` now resolves Orbit endpoint by explicit request/header first, then existing Flask session, then current `flask_login.current_user` / session user id through `app._set_orbit_session(username)`.
+  - API-token/background tools can pass `user_id`, `username`, `userid`, `ntid`, `X-PDTBuddy-User`, or `X-User-Id` so the same `_set_orbit_session()` logic can choose QIPL/SD/CH for that caller.
+  - If no request/session/user endpoint is available, token/background calls explicitly default to QIPL/HYD (`ORBIT_ENDPOINT_QIPL` / `orbit-hyd.qualcomm.com`) instead of returning a blank endpoint.
+  - Response now includes `orbit_server_reason` and `orbit_session` debug metadata (`group`, `reason`, `location_text`, `browser_timezone`, `client_ip`) to confirm which routing path was used.
+- Added input diagnostics for external tool Build Info/software-image parameters.
+  - `jiraquery_api_routes.py` now returns `input_details` with `raw_software_images_count`, `build_info_text_supplied`, `build_info_files`, `build_info_images_extracted`, and `final_software_images_count`.
+  - External tools using `curl -F "build_info_file=@BuildInfo.txt"` can verify the uploaded path/content was received through `input_details.build_info_files`, `build_info_images`, `build_info_image_count`, and final `software_images`.
+  - External tools passing comma-separated `software_images` can verify via `input_details.raw_software_images_count` and final `software_images`.
+  - External tools passing raw `software_images_txt` can verify via `input_details.build_info_text_supplied`, `build_info_images`, and final `software_images`.
+
+**Validation:**
+- `py -3 -m py_compile orbit_client.py jiraquery_api_routes.py scripts/fetch_consolidated_report.py` executed successfully.
+- Import/signature check confirmed:
+  - `jiraquery_api_routes` imports successfully.
+  - `fetch_consolidated_report.connect_jira` is available after `scripts` path insertion.
+  - `_get_orbit_server('sd') -> orbit-sd.qualcomm.com`
+  - `_get_orbit_server('ch') -> orbit-ch.qualcomm.com`
+  - `fetch_cr(..., orbit_server=None)`
+  - `fetch_cr_info_from_orbit(..., orbit_server=None)`
+  - `run_consolidated_report(..., orbit_server=None)`
+
+### Build Report API Build Info .txt Parameter Parity — Complete (2026-09-06)
+
+**User request addressed:** `/api/build_report/run` is used by another tool and needs a parameter that accepts the same saved/browser Build Info `.txt` software-image content used by the `/build_report` standalone page. The API should extract software images from that text/file and use them for the same Orbit CR/SIR status matching flow.
+
+**Changes made:**
+- `jiraquery_api_routes.py`
+  - Added `_dedupe_case_insensitive()` helper so mixed explicit/pre-extracted images and parsed Build Info images are de-duplicated while preserving first spelling.
+  - Extended `/api/build_report/run` JSON/form/query support with additional aliases:
+    - Raw Build Info / software-image text: `build_info_txt_content`, `software_images_txt`, `software_images_file_text`, `software_images_file_content`, `txt_file_content`.
+    - Pre-extracted image arrays/strings: `software_image_list`, `software_image_names`.
+  - Extended multipart upload support with aliases: `software_images_file`, `software_images_txt_file`, `txt_file`.
+  - Existing `build_info_text`, `build_info`, `build_info_txt`, `build_info_file`, `build_info_file_text`, `build_info_file_content`, `software_images`, and `explicit_software_images` remain supported.
+  - Extracted images continue to flow into `run_consolidated_report(..., explicit_software_images=...)`, which drives CR Software Image Release selection/status matching without changing JIRA filtering/build search.
+  - API response now returns `software_images`, `build_info_images`, and `build_info_image_count` for transparency.
+- `templates/public_build_report_api.html`
+  - Documented `software_images_txt` and multipart aliases for external tools.
+  - Added a dedicated "What to share with another tool" section explaining endpoint, token header, required Jira scope, and the recommended `software_images_txt` parameter.
+  - Added a minimum JSON payload example and an alternate `software_images` array payload example for tools that already extract image names.
+  - Added Build Info `.txt` examples for both multipart upload and direct JSON content.
+  - Added `/api/build_report/run` to Quick Reference.
+
+**Validation:**
+- `py -3 -m py_compile jiraquery_api_routes.py scripts\fetch_consolidated_report.py` passed.
+- Flask test-client validation with a stubbed report engine confirmed `software_images_txt` is parsed into `["AOP.HO.6.0-00123-NORD_E-1", "AUDIO.XR.LA.11.1"]` and forwarded as `explicit_software_images`.
+- `templates/public_build_report_api.html` Jinja parse passed.
+
 ### WBC Live View TEA/QGenie Analysis Parity — Complete (2026-09-05)
 
 **User request addressed:** On `/wbc/live_view_status`, WBC Open CR TEA Assistance and QGenie Analysis should show the proper legacy-style technical analysis instead of weak summaries based only on CR title, occurrence, and area.

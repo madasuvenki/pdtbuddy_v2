@@ -270,15 +270,68 @@
         <tr><td><code>custom_jql</code></td><td>string</td><td><span class="req">required*</span></td><td>Direct JIRA JQL string</td></tr>
         <tr><td><code>builds</code></td><td>string</td><td><span class="req">required*</span></td><td>Comma-separated build IDs</td></tr>
         <tr><td><code>target</code></td><td>string</td><td><span class="opt">optional</span></td><td>Target name for context (e.g. <code>"ALDABRA"</code>)</td></tr>
+        <tr><td><code>build_info_text</code></td><td>string</td><td><span class="opt">optional</span></td><td>Saved/copied Jira Build Info <code>.txt</code> or HTML content. The API extracts software images exactly like the standalone page and uses them only for Orbit CR/SIR status matching.</td></tr>
+        <tr><td><code>software_images_txt</code></td><td>string</td><td><span class="opt">optional</span></td><td>Alias for passing raw <code>.txt</code> software-image content from another tool. Values are extracted/de-duped and then used for CR Software Image Release status selection.</td></tr>
+        <tr><td><code>build_info_file</code></td><td>multipart file</td><td><span class="opt">optional</span></td><td>Upload a saved Jira Build Info <code>.txt</code>/<code>.html</code> file instead of embedding text in JSON. Max 8 MB. Multipart aliases: <code>software_images_file</code>, <code>software_images_txt_file</code>, <code>txt_file</code>.</td></tr>
+        <tr><td><code>software_images</code></td><td>string or array</td><td><span class="opt">optional</span></td><td>Pre-extracted Build Info software images. This remains supported for tools that already extract the image list themselves. Aliases: <code>explicit_software_images</code>, <code>software_image_list</code>, <code>software_image_names</code>.</td></tr>
         <tr><td><code>traverse</code></td><td>boolean</td><td><span class="opt">optional</span></td><td>Follow linked JIRAs (default: <code>true</code>)</td></tr>
         <tr><td><code>orbit</code></td><td>boolean</td><td><span class="opt">optional</span></td><td>Enrich with Orbit CR data (default: <code>true</code>)</td></tr>
       </table>
       <p><em>* At least one of <code>filter_id</code>, <code>custom_jql</code>, or <code>builds</code> is required.</em></p>
 
+      <div class="alert info">
+        <strong>What to share with another tool:</strong><br>
+        Use <code>POST /api/build_report/run</code> with the API token header
+        <code>X-PDTBuddy-API-Token</code>. Send the Jira scope using
+        <code>filter_id</code> or <code>custom_jql</code>, then send the saved/browser
+        Build Info <code>.txt</code> content in <code>software_images_txt</code>.
+        PDT Buddy extracts software images from that text and applies them only to
+        Orbit CR/SIR status matching, same as the standalone Build Report page.
+      </div>
+
+      <h3>Recommended Payload for API Tools</h3>
+      <table>
+        <tr><th>Purpose</th><th>Field to Send</th><th>Example</th></tr>
+        <tr><td>Authentication</td><td><code>X-PDTBuddy-API-Token</code> header</td><td><code>YOUR_TOKEN</code></td></tr>
+        <tr><td>Jira filter/report scope</td><td><code>filter_id</code></td><td><code>76997</code></td></tr>
+        <tr><td>Direct JQL alternative</td><td><code>custom_jql</code></td><td><code>project = QSTABILITY AND summary ~ "Build..."</code></td></tr>
+        <tr><td>Build Info .txt content</td><td><code>software_images_txt</code></td><td><code>AOP.HO.6.0&#10;AUDIO.XR.LA.11.1</code></td></tr>
+        <tr><td>Optional target context</td><td><code>target</code></td><td><code>ALDABRA</code></td></tr>
+      </table>
+
+      <h3>Minimum JSON Example for Another Tool</h3>
+      <pre><code>POST http://&lt;host&gt;/api/build_report/run
+Headers:
+  Content-Type: application/json
+  X-PDTBuddy-API-Token: YOUR_TOKEN
+
+Body:
+{
+  "filter_id": "76997",
+  "target": "ALDABRA",
+  "software_images_txt": "AOP.HO.6.0\nAUDIO.XR.LA.11.1\nADSP.VT.5.4.5-00243-ALDABRA-1"
+}</code></pre>
+
+      <p>
+        If the other tool already extracted the software images, it can send
+        <code>software_images</code> as an array instead:
+      </p>
+      <pre><code>{
+  "filter_id": "76997",
+  "target": "ALDABRA",
+  "software_images": [
+    "AOP.HO.6.0",
+    "AUDIO.XR.LA.11.1",
+    "ADSP.VT.5.4.5-00243-ALDABRA-1"
+  ]
+}</code></pre>
+
       <h3>Response (200)</h3>
       <pre><code>{
   <span class="hl-key">"ok"</span>: <span class="hl-kw">true</span>,
   <span class="hl-key">"filter_id"</span>: <span class="hl-str">"76997"</span>,
+  <span class="hl-key">"software_images"</span>: [<span class="hl-str">"AOP.HO.5.3-00198-NORD_E-1_keep-gfx-gmxc-nom"</span>],
+  <span class="hl-key">"build_info_image_count"</span>: <span class="hl-num">1</span>,
   <span class="hl-key">"meta"</span>: { <span class="hl-key">"jql"</span>: <span class="hl-str">"..."</span>, <span class="hl-key">"build_ids"</span>: [...] },
   <span class="hl-key">"summary"</span>: { <span class="hl-key">"total_jiras"</span>: <span class="hl-num">42</span>, <span class="hl-key">"with_cr"</span>: <span class="hl-num">28</span> },
   <span class="hl-key">"hierarchical_report"</span>: [ <span class="hl-cmt">/* CR-grouped JIRA rows */</span> ],
@@ -291,7 +344,8 @@
         <button class="tab-btn active" onclick="switchTab(this,'run1a')">curl (filter ID)</button>
         <button class="tab-btn" onclick="switchTab(this,'run1b')">curl (JQL)</button>
         <button class="tab-btn" onclick="switchTab(this,'run1c')">Python</button>
-        <button class="tab-btn" onclick="switchTab(this,'run1d')">Browser session</button>
+        <button class="tab-btn" onclick="switchTab(this,'run1d')">Build Info .txt</button>
+        <button class="tab-btn" onclick="switchTab(this,'run1e')">Browser session</button>
       </div>
       <div class="tab-content active" id="run1a">
         <div class="copy-wrap">
@@ -334,6 +388,24 @@ report = resp.json()
       </div>
       <div class="tab-content" id="run1d">
         <div class="copy-wrap">
+          <pre><code><span class="hl-cmt"># Option A: upload the same saved Jira Build Info .txt/html used by the standalone page.
+# Extracted images are used for Orbit CR/SIR status matching, not to replace JQL.</span>
+curl -s -X POST http://&lt;host&gt;/api/build_report/run \
+  -H "X-PDTBuddy-API-Token: YOUR_TOKEN" \
+  -F "filter_id=76997" \
+  -F "target=ALDABRA" \
+  -F "build_info_file=@BuildInfo.txt"
+
+<span class="hl-cmt"># Option B: send the .txt content directly in JSON from another API tool.</span>
+curl -s -X POST http://&lt;host&gt;/api/build_report/run \
+  -H "Content-Type: application/json" \
+  -H "X-PDTBuddy-API-Token: YOUR_TOKEN" \
+  -d '{"filter_id":"76997","target":"ALDABRA","software_images_txt":"AOP.HO.6.0\nAUDIO.XR.LA.11.1"}'</code></pre>
+          <button class="copy-btn" onclick="copyPre(this)">copy</button>
+        </div>
+      </div>
+      <div class="tab-content" id="run1e">
+        <div class="copy-wrap">
           <pre><code><span class="hl-cmt"># Logged-in users can call from the browser console (no token needed)</span>
 <span class="hl-kw">const</span> resp = <span class="hl-kw">await</span> fetch(<span class="hl-str">'/api/build_report/run'</span>, {
   method: <span class="hl-str">'POST'</span>,
@@ -374,6 +446,7 @@ console.log(report.summary);</code></pre>
         <tr><td><code>force</code></td><td>boolean</td><td><span class="opt">optional</span></td><td>Bypass cache and re-run (default: <code>false</code>)</td></tr>
         <tr><td><code>cache_ttl_minutes</code></td><td>number</td><td><span class="opt">optional</span></td><td>Cache TTL in minutes (default: 30)</td></tr>
         <tr><td><code>include_axiom_metrics</code></td><td>boolean</td><td><span class="opt">optional</span></td><td>Include Axiom stability metrics (default: <code>false</code>)</td></tr>
+        <tr><td><code>software_images</code></td><td>string or array</td><td><span class="opt">optional</span></td><td>Pre-extracted software images used only for Orbit CR/SIR status matching, matching the standalone page behavior.</td></tr>
       </table>
       <p><em>* Either <code>builds</code> or <code>custom_jql</code> is required.</em></p>
 
@@ -609,6 +682,7 @@ data: {"stage":"done","done":50,"total":50,"pct":100,"message":"Report complete.
   <h2>Quick Reference</h2>
   <table>
     <tr><th>Endpoint</th><th>Method</th><th>Auth</th><th>Description</th></tr>
+    <tr><td><code>/api/build_report/run</code></td><td>GET/POST</td><td>Token or Session</td><td>Run synchronous Build Report; accepts <code>software_images_txt</code>/<code>build_info_file</code> for CR/SIR status matching</td></tr>
     <tr><td><code>/api/consolidated_report</code></td><td>POST</td><td>Token or Session</td><td>Start async report job</td></tr>
     <tr><td><code>/api/consolidated_report/result/&lt;job_id&gt;</code></td><td>GET</td><td>Token or Session</td><td>Fetch completed result</td></tr>
     <tr><td><code>/api/consolidated_report/progress/&lt;job_id&gt;</code></td><td>GET</td><td>Token or Session</td><td>SSE progress stream</td></tr>
