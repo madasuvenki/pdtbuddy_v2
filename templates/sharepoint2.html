@@ -573,6 +573,7 @@ var SP2_ALLOWED_WEEKS=JSON.parse('{{ week_ranges|tojson|safe }}').map(function(w
 var _allBuilds=[], _allConsolidate=[], _allDevUtil=[], _allUniqueDevices=[];
 var _consLoaded=false, _devLoaded=false, _udLoaded=false, _adLoaded=false;
 var _sp2BuList=[];
+var _sp2CsvTotalCrashes=0;
 
 function g(id){return document.getElementById(id)}
 function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];})}
@@ -688,6 +689,7 @@ window.sp2Load=function(force){
   fetch(url,{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){
     _allBuilds=d.builds||[];
     _sp2BuList=d.bu_list||[];
+    _sp2CsvTotalCrashes=num(d.total_crashes_csv);
     _renderBuildKpis(d);
     _populateBuildFilters();
     sp2FilterBuilds();
@@ -703,7 +705,8 @@ function _renderBuildKpis(d){
   var builds=d.builds||[];
   var targets=new Set(builds.map(function(b){return b.target;}));
   var totalHrs=builds.reduce(function(s,b){return s+num(b.hours);},0);
-  var totalCrashes=builds.reduce(function(s,b){return s+num(b.crashes);},0);
+  var buildRowCrashes=builds.reduce(function(s,b){return s+num(b.crashes);},0);
+  var totalCrashes=num(d.total_crashes_csv)>0?num(d.total_crashes_csv):buildRowCrashes;
   var mtbf=totalCrashes>0?(totalHrs/totalCrashes):0;
   function set(id,v){var el=g(id);if(el)el.textContent=v;}
   set('kpiTargets',targets.size);
@@ -911,10 +914,11 @@ function _sp2RecalcKpis(){
     totalHrs+=parseFloat(tr.dataset.hours||0);
     totalCrashes+=parseFloat(tr.dataset.crashes||0);
   });
-  var mtbf=totalCrashes>0?(totalHrs/totalCrashes):0;
+  var displayCrashes=_sp2CsvTotalCrashes>0?_sp2CsvTotalCrashes:totalCrashes;
+  var mtbf=displayCrashes>0?(totalHrs/displayCrashes):0;
   function set(id,v){var el=g(id);if(el)el.textContent=v;}
   set('kpiHours',fmtH(totalHrs));
-  set('kpiCrashes',fmt(totalCrashes));
+  set('kpiCrashes',fmt(displayCrashes));
   set('kpiMtbf',mtbf>0?fmt(mtbf,1):'-');
 }
 
@@ -1066,10 +1070,11 @@ function _sp2RecalcKpisFiltered(){
     totalHrs+=parseFloat(tr.dataset.hours||0);
     totalCrashes+=parseFloat(tr.dataset.crashes||0);
   });
-  var mtbf=totalCrashes>0?(totalHrs/totalCrashes):0;
+  var displayCrashes=_sp2CsvTotalCrashes>0?_sp2CsvTotalCrashes:totalCrashes;
+  var mtbf=displayCrashes>0?(totalHrs/displayCrashes):0;
   function set(id,v){var el=g(id);if(el)el.textContent=v;}
   set('kpiHours',fmtH(totalHrs));
-  set('kpiCrashes',fmt(totalCrashes));
+  set('kpiCrashes',fmt(displayCrashes));
   set('kpiMtbf',mtbf>0?fmt(mtbf,1):'-');
 }
 

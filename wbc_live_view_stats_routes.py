@@ -280,6 +280,34 @@ def _wbc_extract_build_id_from_jql(value: Any) -> str:
     return next((q for q in quoted if re.search(r"\d{3,6}", q) and re.search(r"[A-Za-z]", q)), "")
 
 
+def _wbc_ppt_meta_id(value: Any, project: str = "") -> str:
+    """Return the meta key shown in WBC PPT slides and used for optional merge.
+
+    Saved JQL names sometimes only contain "Meta-35".  For WBC reports that
+    should still display/merge as the PL-qualified meta, e.g.
+    "Amboseli.LE.2.0-00035", when the project label is available.
+    """
+    text = _build_tail(value)
+    full = re.search(r"\b([A-Z][A-Z0-9_.]*\.LE\.[0-9.]+-[0-9]{3,6})\b", text, flags=re.I)
+    if full:
+        return full.group(1).upper()
+    full = re.search(r"\b([A-Z][A-Z0-9_.-]+-[0-9]{3,6})\b", text, flags=re.I)
+    if full and re.search(r"[A-Z]", full.group(1), flags=re.I):
+        return full.group(1).upper()
+    short = (
+        re.search(r"\b(?:META|BUILD)[-_ ]?0*([0-9]{2,6})\b", text, flags=re.I)
+        or re.search(r"[-_ ]0*([0-9]{2,6})(?:\b|[-_.])", text, flags=re.I)
+    )
+    if short:
+        digits = short.group(1)
+        meta_no = digits.zfill(max(5, len(digits)))
+        prefix = str(project or "").strip()
+        if prefix and re.search(r"\.LE\.", prefix, flags=re.I):
+            return f"{prefix}-{meta_no}".upper()
+        return f"META-{meta_no}".upper()
+    return str(text or value or "").strip().upper()
+
+
 
 
 
@@ -919,6 +947,9 @@ def _preview_rows_filtered(fq_table: str, limit: int = 100, open_cr_only: bool =
                 "cr_age", "CR Age", "overall_age", "age", "age_days", "days_open",
                 "jira_date__last_instance", "Jira Date -last instance",
                 "last_instance", "updated", "jira_date", "created", "created_date",
+                "Priority", "CR Priority", "priority", "cr_priority",
+                "pdt_priority", "PdtPriority", "PDTPriority", "cr_pdt_priority",
+                "Severity", "severity",
             ]
             for name in preferred_open_cr_cols:
                 col = _first_col(cols, [name])
@@ -1155,6 +1186,77 @@ def _wbc_apply_pdt_scenarios_to_open_cr_preview(preview: Dict[str, Any], jiras_t
     return preview
 
 
+_PRIORITY_ALIASES = [
+    "Priority", "CR Priority", "priority", "cr_priority",
+    "pdt_priority", "PdtPriority", "PDTPriority", "cr_pdt_priority",
+    "Severity", "severity",
+]
+
+
+def _wbc_orbit_cr_key(value: Any) -> str:
+    text = str(value or "").strip().upper()
+    match = re.search(r"\b(?:CR[-\s]?)?(\d{5,9})\b", text, flags=re.I)
+    return f"CR{match.group(1)}" if match else ""
+
+
+def _wbc_fill_open_cr_priority_from_orbit(preview: Dict[str, Any]) -> Dict[str, Any]:
+    """Fill missing Open/Analysis CR priority from Orbit's Priority field.
+
+    The Unique CR table remains the primary source; Orbit is used only when the
+    configured DB table lacks a populated priority/severity column for a CR.
+    """
+    preview = preview if isinstance(preview, dict) else {}
+    rows = preview.get("rows") or []
+    cols = list(preview.get("columns") or [])
+    if not rows:
+        return preview
+    cr_col = _first_col(cols, ["mapped_cr", "mapped_crs", "CR", "CR-ID", "CR ID", "cr", "cr_id", "crid", "unique_cr", "cr_number"])
+    if not cr_col:
+        return preview
+    priority_col = _first_col(cols, _PRIORITY_ALIASES)
+    missing_crs: List[str] = []
+    for row in rows:
+        current_priority = row.get(priority_col) if priority_col else ""
+        if str(current_priority or "").strip():
+            continue
+        cr_key = _wbc_orbit_cr_key(row.get(cr_col))
+        if cr_key:
+            missing_crs.append(cr_key)
+    missing_crs = list(dict.fromkeys(missing_crs))
+    if not missing_crs:
+        if priority_col and priority_col != "Priority":
+            for row in rows:
+                if row.get("Priority") in (None, "") and row.get(priority_col) not in (None, ""):
+                    row["Priority"] = row.get(priority_col)
+            if "Priority" not in cols:
+                cols.append("Priority")
+        preview["columns"] = cols
+        preview["rows"] = rows
+        return preview
+    try:
+        from orbit_client import bulk_query_cr_orbit_details
+        details = bulk_query_cr_orbit_details(missing_crs, batch_size=100) or {}
+    except Exception:
+        details = {}
+    if "Priority" not in cols:
+        cols.append("Priority")
+    for row in rows:
+        current_priority = row.get(priority_col) if priority_col else row.get("Priority")
+        if str(current_priority or "").strip():
+            row["Priority"] = current_priority
+            continue
+        cr_key = _wbc_orbit_cr_key(row.get(cr_col))
+        if not cr_key:
+            continue
+        info = details.get(cr_key) or details.get(cr_key[2:]) or {}
+        priority = info.get("priority") or info.get("Priority") or info.get("cr_priority") or ""
+        if priority not in (None, ""):
+            row["Priority"] = priority
+    preview["columns"] = cols
+    preview["rows"] = rows
+    return preview
+
+
 def _build_tail(value: Any) -> str:
     return str(value or "").strip().replace("/", "\\").split("\\")[-1]
 
@@ -1382,7 +1484,7 @@ def _wbc_unique_cr_lookup(unique_table: str, cr_values: List[str]) -> Dict[str, 
                 "CR Date": _wbc_cell_value(row, cols, ["CR Date", "cr_date", "created", "created_date", "date"]),
                 "CR SI": _wbc_cell_value(row, cols, ["CR SI", "CR Image", "cr_image", "image", "Image", "software_image", "Software Image", "image_reference", "Image Reference", "si_last_seen", "SI Last Seen", "cr_si", "si"]),
                 "CR Age": _wbc_cell_value(row, cols, ["CR Age", "cr_age", "overall_age", "age", "age_days", "days_open"]),
-                "Priority": _wbc_cell_value(row, cols, ["Priority", "priority", "cr_priority"]),
+                "Priority": _wbc_cell_value(row, cols, _PRIORITY_ALIASES),
                 "CR Assignee": _wbc_cell_value(row, cols, ["CR Assignee", "assignee", "cr_assignee"]),
             }
             for key in keys:
@@ -2036,10 +2138,10 @@ def _target_payload(target_key: str, force_running_report: bool = False) -> Dict
 
     unique_table = db_cfg.get("unique_crs_table") or db_cfg.get("overall_crs_table") or ""
     target_jiras_table = db_cfg.get("jiras_table") or db_cfg.get("target_table") or ""
-    open_crs_preview = _wbc_apply_pdt_scenarios_to_open_cr_preview(
+    open_crs_preview = _wbc_fill_open_cr_priority_from_orbit(_wbc_apply_pdt_scenarios_to_open_cr_preview(
         _preview_rows_filtered(unique_table, 2000, open_cr_only=True),
         target_jiras_table,
-    )
+    ))
     build_summary = _build_summary_from_jiras(target_jiras_table, db_cfg.get("openjiras_table") or "")
     # Current Running Builds is driven by the saved JQL cards in the UI.
     # Do not use Axiom for WBC dashboard summary/current-meta values.
@@ -2234,6 +2336,8 @@ def api_wbc_saved_jql_tabs(target_key: str):
         row["filter_error"] = err
         row["build_id"] = _wbc_extract_build_id_from_jql(resolved_jql or row.get("jql") or row.get("name")) or row.get("name") or ""
         row.update(_wbc_saved_jql_cache_meta(cached))
+        if _can_edit() and cached:
+            row["cached_rows"] = (cached.get("rows") or cached.get("flat_rows") or [])[:300]
         tabs.append(row if _can_edit() else _wbc_external_saved_jql_row(row))
     return jsonify({"ok": True, "target": target, "domain": saved_domain, "tabs": tabs})
 
@@ -2697,7 +2801,7 @@ def api_wbc_mtbf_save_table(target_key: str):
 # PPT EXPORT - same design as WBC_Report.py build_ppt()
 # ---------------------------------------------------------------------------
 
-def _wbc_build_ppt(target_key: str, tab_id: str = "", tab_ids: List[str] = None, build_ids: List[str] = None):
+def _wbc_build_ppt(target_key: str, tab_id: str = "", tab_ids: List[str] = None, build_ids: List[str] = None, merge_meta: bool = True):
     """Generate a PowerPoint for the given WBC target from the same data used by the UI.
 
     If tab_id/tab_ids is provided, the selected Current Running Build/Saved-JQL
@@ -3013,7 +3117,10 @@ def _wbc_build_ppt(target_key: str, tab_id: str = "", tab_ids: List[str] = None,
         raise ValueError(data.get("error") or f"WBC target not found: {target_key}")
 
     project = target.get("label") or target.get("name") or target_key
-    old_excel = _old_wbc_excel_ppt_data(target, db_cfg)
+    # Important: keep only the old WBC PPT layout, not the old workbook data.
+    # The legacy workbook can be stale and was causing downloads to show the
+    # previous/old PPT content even when the browser preview had fresh DB rows.
+    old_excel = {}
     chart_rows = (data.get("excel") or {}).get("chart_rows") or []
     overview_for_ppt = data.get("overview_summary") or {}
     counts_for_ppt = data.get("counts") or {}
@@ -3073,6 +3180,29 @@ def _wbc_build_ppt(target_key: str, tab_id: str = "", tab_ids: List[str] = None,
     ppt_data["summary"]["summary_text"] = overview_for_ppt.get("overview") or overview_for_ppt.get("summary_title") or ""
     ppt_data["summary"]["status_text"] = overview_for_ppt.get("pdt_status") or overview_for_ppt.get("next_steps") or ""
 
+    # The preview modal is rendered from the live target payload, not directly
+    # from the old Excel workbook.  When a legacy workbook exists, clear/replace
+    # its stale current/open tables with the same DB-backed preview tables first;
+    # selected meta cached rows below can then overwrite current_cr/current_jira.
+    def _portal_preview_table(name: str) -> Dict[str, Any]:
+        preview = ((data.get("previews") or {}).get(name) or {})
+        return {
+            "columns": [
+                col if isinstance(col, dict) else {"title": str(col).replace("_", " "), "key": str(col)}
+                for col in (preview.get("columns") or [])
+            ],
+            "rows": preview.get("rows") or [],
+        }
+
+    portal_open_cr = _portal_preview_table("open_crs")
+    if portal_open_cr.get("rows"):
+        ppt_data["open_cr"] = portal_open_cr
+        ppt_data["current_cr"] = portal_open_cr
+        ppt_data.setdefault("computed_kpis", {})["overall_open_crs"] = len(portal_open_cr.get("rows") or [])
+    portal_open_jira = _portal_preview_table("open_jiras")
+    if portal_open_jira.get("rows"):
+        ppt_data["current_jira"] = portal_open_jira
+
     # Apply PPT meta/build selections before handing off to the legacy WBC PPT
     # renderer.  Earlier this function returned here unconditionally, so the
     # selected meta UI only changed the query string while the downloaded deck
@@ -3083,37 +3213,55 @@ def _wbc_build_ppt(target_key: str, tab_id: str = "", tab_ids: List[str] = None,
         selected_tab_ids = [str(tab_id).strip()]
     selected_build_ids = [str(x or "").strip() for x in (build_ids or []) if str(x or "").strip()]
 
+    def _same_meta(a, b):
+        aa = str(a or "").strip().lower()
+        bb = str(b or "").strip().lower()
+        return bool(aa and bb and (aa == bb or aa in bb or bb in aa))
+
+    def _selection_meta_key(value):
+        return _wbc_ppt_meta_id(value, project) if merge_meta else str(value or "").strip()
+
+    def _selected_row_type(row: Dict[str, Any]) -> str:
+        raw = str(row.get("CR") or row.get("mapped_cr") or row.get("cr") or row.get("cr_id") or "").strip()
+        explicit = str(row.get("Row Type") or "").strip().lower()
+        if explicit in ("cr", "mapped_jira", "open"):
+            return explicit
+        return _row_type(raw)
+
     try:
         jql_tabs, _cached_report_rows = _current_jql_summary(target["key"])
     except Exception:
         jql_tabs, _cached_report_rows = [], []
 
     selected_tabs = [row for row in jql_tabs if str(row.get("id") or "") in set(selected_tab_ids)]
-    selected_meta_ids = [str(row.get("build_id") or "").strip() for row in selected_tabs if str(row.get("build_id") or "").strip()]
-    selected_meta_ids.extend(selected_build_ids)
-    selected_meta_ids = list(dict.fromkeys(selected_meta_ids))
+    selected_items: List[Dict[str, Any]] = []
+    for row in selected_tabs:
+        build_id = str(row.get("build_id") or "").strip()
+        if build_id:
+            selected_items.append({"kind": "tab", "id": row.get("id"), "build_id": build_id, "tab": row})
+    for build_id in selected_build_ids:
+        if build_id:
+            selected_items.append({"kind": "build", "id": build_id, "build_id": build_id, "tab": {}})
+    selected_source_meta_ids = []
+    for item in selected_items:
+        key = _selection_meta_key(item.get("build_id"))
+        if key and key not in selected_source_meta_ids:
+            selected_source_meta_ids.append(key)
+    merged_meta_id = selected_source_meta_ids[0] if selected_source_meta_ids else ""
+    # WBC selected PPT flow treats all checked current/already-ran metas as one
+    # current-meta deck. Keep all selected rows/builds, but render exactly one
+    # status slide under a single displayed meta id.
+    selected_meta_ids = [merged_meta_id] if merged_meta_id else []
 
     if selected_meta_ids:
-        def _same_meta(a, b):
-            aa = str(a or "").strip().lower()
-            bb = str(b or "").strip().lower()
-            return bool(aa and bb and (aa == bb or aa in bb or bb in aa))
+        base_builds = ppt_data.get("builds") or {}
+        build_cols = base_builds.get("columns") or []
+        build_key = legacy_wbc_ppt.find_col_key(base_builds, ["CRM Build ID", "Build ID", "META-ID", "Meta ID", "Meta"])
+        original_build_rows = list(base_builds.get("rows") or [])
+        rows_by_build = ((data.get("build_summary") or {}).get("rows_by_build") or {})
+        selected_report_rows_by_meta: Dict[str, List[Dict[str, Any]]] = {meta: [] for meta in selected_meta_ids}
+        selected_tab_by_meta: Dict[str, Dict[str, Any]] = {}
 
-        builds = ppt_data.get("builds") or {}
-        build_cols = builds.get("columns") or []
-        build_key = legacy_wbc_ppt.find_col_key(builds, ["CRM Build ID", "Build ID", "META-ID", "Meta ID", "Meta"])
-        original_build_rows = list(builds.get("rows") or [])
-        selected_build_rows = [
-            row for row in original_build_rows
-            if any(_same_meta(row.get(build_key), wanted) for wanted in selected_meta_ids)
-        ] if build_key else []
-        if selected_build_rows:
-            ppt_data["builds"] = {**builds, "columns": build_cols, "rows": selected_build_rows}
-            ppt_data["mtbf_chart"] = legacy_wbc_ppt.build_mtbf_chart(ppt_data["builds"])
-
-        # Pull cached Current Running Build / saved-JQL rows for selected tabs so
-        # the old PPT's "Current Meta CR/Jira" sections reflect the UI selection.
-        selected_report_rows: List[Dict[str, Any]] = []
         if selected_tabs:
             try:
                 from live_view_saved_jql_service import get_cached_report
@@ -3121,61 +3269,114 @@ def _wbc_build_ppt(target_key: str, tab_id: str = "", tab_ids: List[str] = None,
                 pdt_key = _wbc_pdt_key(target_row)
                 saved_domain = _wbc_saved_jql_domain(target_row)
                 for selected_tab in selected_tabs:
+                    raw_meta_id = str(selected_tab.get("build_id") or "").strip()
+                    meta_id = merged_meta_id or _selection_meta_key(raw_meta_id)
+                    if not meta_id:
+                        continue
+                    selected_tab_by_meta.setdefault(meta_id, {"build_id": meta_id, "cr_count": 0, "jira_count": 0, "open_jira_count": 0})
+                    for count_key in ("cr_count", "jira_count", "open_jira_count"):
+                        if selected_tab.get(count_key) not in (None, "", "-"):
+                            selected_tab_by_meta[meta_id][count_key] = _safe_int(selected_tab_by_meta[meta_id].get(count_key)) + _safe_int(selected_tab.get(count_key))
                     selected_cached = get_cached_report(pdt_key, saved_domain, selected_tab.get("id")) or {}
-                    selected_report_rows.extend(selected_cached.get("rows") or selected_cached.get("flat_rows") or [])
+                    selected_report_rows_by_meta.setdefault(meta_id, []).extend(selected_cached.get("rows") or selected_cached.get("flat_rows") or [])
             except Exception:
-                selected_report_rows = []
+                selected_report_rows_by_meta = {meta: [] for meta in selected_meta_ids}
 
-        if not selected_report_rows:
-            rows_by_build = ((data.get("build_summary") or {}).get("rows_by_build") or {})
-            for build_id in selected_build_ids:
-                selected_report_rows.extend(rows_by_build.get(build_id) or [])
+        for build_id in selected_build_ids:
+            meta_id = merged_meta_id or _selection_meta_key(build_id)
+            selected_report_rows_by_meta.setdefault(meta_id, []).extend(rows_by_build.get(build_id) or [])
 
-        if selected_report_rows:
-            all_cols = []
+        status_slides: List[Dict[str, Any]] = []
+        all_selected_build_rows: List[Dict[str, Any]] = []
+        all_selected_wanted_builds = [merged_meta_id] + [item.get("build_id") for item in selected_items]
+        for meta_id in selected_meta_ids:
+            selected_build_rows = [
+                row for row in original_build_rows
+                if any(_same_meta(row.get(build_key), wanted) for wanted in all_selected_wanted_builds)
+            ] if build_key else []
+            if selected_build_rows:
+                all_selected_build_rows.extend(selected_build_rows)
+
+            selected_report_rows = selected_report_rows_by_meta.get(meta_id) or []
+            all_cols: List[str] = []
             for row in selected_report_rows:
                 for key in (row.keys() if isinstance(row, dict) else []):
                     if key not in all_cols:
                         all_cols.append(key)
             column_objs = [{"title": str(col).replace("_", " "), "key": col} for col in all_cols]
-            cr_rows = [
+            cr_rows = [row for row in selected_report_rows if _selected_row_type(row) == "cr"]
+            open_jira_rows = [
                 row for row in selected_report_rows
-                if str(row.get("Row Type") or "").strip().lower() == "cr"
-                or re.match(r"^CR\d{5,9}$", str(row.get("CR") or row.get("mapped_cr") or row.get("cr") or row.get("cr_id") or "").strip(), re.I)
+                if _selected_row_type(row) == "open"
+                and str(row.get("JIRA") or row.get("stability_ticket") or row.get("jira") or row.get("jira_id") or "").strip()
             ]
-            jira_rows = [
+            mapped_jira_rows = [
                 row for row in selected_report_rows
-                if str(row.get("Row Type") or "").strip().lower() == "jira"
-                or re.match(r"^[A-Z][A-Z0-9]+-\d+$", str(row.get("JIRA") or row.get("stability_ticket") or row.get("jira") or row.get("jira_id") or "").strip(), re.I)
+                if _selected_row_type(row) == "mapped_jira"
+                or (
+                    not open_jira_rows
+                    and re.match(r"^[A-Z][A-Z0-9]+-\d+$", str(row.get("JIRA") or row.get("stability_ticket") or row.get("jira") or row.get("jira_id") or "").strip(), re.I)
+                )
             ]
-            if cr_rows:
-                ppt_data["current_cr"] = {"columns": column_objs, "rows": cr_rows}
-                ppt_data["open_cr"] = {"columns": column_objs, "rows": cr_rows}
-            if jira_rows:
-                ppt_data["current_jira"] = {"columns": column_objs, "rows": jira_rows}
+            jira_rows = open_jira_rows if open_jira_rows else mapped_jira_rows
 
-        kpi = ppt_data.setdefault("computed_kpis", {})
-        first_meta = selected_meta_ids[0]
-        selected_tab = selected_tabs[0] if selected_tabs else {}
-        selected_build_row = (ppt_data.get("builds") or {}).get("rows", [{}])[-1] if (ppt_data.get("builds") or {}).get("rows") else {}
-        kpi["current_meta"] = first_meta
-        if selected_tab:
+            meta_builds = {**base_builds, "columns": build_cols, "rows": selected_build_rows or original_build_rows}
+            meta_kpi = dict(ppt_data.get("computed_kpis") or {})
+            meta_kpi["current_meta"] = meta_id
+            selected_tab = selected_tab_by_meta.get(meta_id) or {}
             if selected_tab.get("cr_count") not in (None, "", "-"):
-                kpi["current_meta_crashes"] = selected_tab.get("cr_count")
-                kpi["open_cr_current"] = selected_tab.get("cr_count")
+                meta_kpi["current_meta_crashes"] = selected_tab.get("cr_count")
+                meta_kpi["open_cr_current"] = selected_tab.get("cr_count")
             if selected_tab.get("jira_count") not in (None, "", "-"):
-                kpi["open_jira_current"] = selected_tab.get("jira_count")
-        if selected_build_row:
-            h_key = legacy_wbc_ppt.find_col_key(ppt_data.get("builds") or {}, ["Hours+", "Hours", "Total Hours"])
-            c_key = legacy_wbc_ppt.find_col_key(ppt_data.get("builds") or {}, ["Crash", "Crashes", "Total Crashes"])
-            m_key = legacy_wbc_ppt.find_col_key(ppt_data.get("builds") or {}, ["MTBF", "Sum of MTBF"])
-            d_key = legacy_wbc_ppt.find_col_key(ppt_data.get("builds") or {}, ["Date"])
-            kpi["current_meta_hours"] = selected_build_row.get(h_key) or kpi.get("current_meta_hours")
-            kpi["current_meta_crashes"] = selected_build_row.get(c_key) or kpi.get("current_meta_crashes")
-            kpi["current_pdt_mtbf"] = selected_build_row.get(m_key) or kpi.get("current_pdt_mtbf")
-            kpi["current_meta_date"] = selected_build_row.get(d_key) or kpi.get("current_meta_date")
+                meta_kpi["open_jira_current"] = selected_tab.get("jira_count")
+            if selected_build_rows:
+                h_key = legacy_wbc_ppt.find_col_key(meta_builds, ["Hours+", "Hours", "Total Hours"])
+                c_key = legacy_wbc_ppt.find_col_key(meta_builds, ["Crash", "Crashes", "Total Crashes"])
+                m_key = legacy_wbc_ppt.find_col_key(meta_builds, ["MTBF", "Sum of MTBF"])
+                d_key = legacy_wbc_ppt.find_col_key(meta_builds, ["Date"])
+                last_selected_build = selected_build_rows[-1]
+                meta_kpi["current_meta_hours"] = last_selected_build.get(h_key) or meta_kpi.get("current_meta_hours")
+                meta_kpi["current_meta_crashes"] = last_selected_build.get(c_key) or meta_kpi.get("current_meta_crashes")
+                meta_kpi["current_pdt_mtbf"] = last_selected_build.get(m_key) or meta_kpi.get("current_pdt_mtbf")
+                meta_kpi["current_meta_date"] = last_selected_build.get(d_key) or meta_kpi.get("current_meta_date")
+
+            status_slides.append({
+                "computed_kpis": meta_kpi,
+                "builds": meta_builds,
+                "mtbf_chart": legacy_wbc_ppt.build_mtbf_chart(meta_builds),
+                "current_cr": {"columns": column_objs, "rows": cr_rows},
+                "current_jira": {"columns": column_objs, "rows": jira_rows},
+            })
+
+        if all_selected_build_rows:
+            ppt_data["builds"] = {**base_builds, "columns": build_cols, "rows": all_selected_build_rows}
+            ppt_data["mtbf_chart"] = legacy_wbc_ppt.build_mtbf_chart(ppt_data["builds"])
+        if status_slides:
+            ppt_data["status_slides"] = status_slides[:1]
+            ppt_data["selected_meta_ids"] = selected_source_meta_ids
+
+    # Match the preview modal exactly for the Open/Analysis CR slide: the UI uses
+    # payload.previews.open_crs (DB-backed target payload), not the old workbook
+    # and not the selected Current Meta CR rows.  Keep only the same target-level
+    # Open/Analysis CR rows so the downloaded PPT does not change data compared
+    # with the preview.
+    try:
+        preview_open_cr = (((data.get("previews") or {}).get("open_crs")) or {})
+        if preview_open_cr.get("rows"):
+            ppt_data["open_cr"] = {
+                "columns": [
+                    col if isinstance(col, dict) else {"title": str(col).replace("_", " "), "key": str(col)}
+                    for col in (preview_open_cr.get("columns") or [])
+                ],
+                "rows": preview_open_cr.get("rows") or [],
+            }
+            ppt_data.setdefault("computed_kpis", {})["overall_open_crs"] = len(preview_open_cr.get("rows") or [])
+    except Exception:
+        pass
 
     ppt_data = _merge_wbc_analysis_cache_into_ppt_data(ppt_data, target["key"], target=target, db_cfg=db_cfg)
+    # WBC report deck includes the standard current-week/current-meta cover
+    # first and the ThankQ closing slide last.
     return legacy_wbc_ppt.build_ppt(ppt_data, include_cover=True, include_thankq=True)
     overview = data.get("overview_summary") or {}
     counts = data.get("counts") or {}
@@ -4787,18 +4988,37 @@ def api_wbc_open_cr_save(target_key: str):
         return jsonify({"ok": False, "error": str(exc)}), 500
 
 
-@wbc_live_view_stats_bp.route("/api/wbc_live_view_stats/target/<path:target_key>/export_ppt")
+@wbc_live_view_stats_bp.route("/api/wbc_live_view_stats/target/<path:target_key>/export_ppt", methods=["GET", "POST"])
 @login_required
 def api_wbc_export_ppt(target_key: str):
-    """Download a PowerPoint for the given WBC target."""
+    """Download a PowerPoint for the given WBC target.
+
+    GET keeps the server-side fallback. POST accepts the exact PPT data assembled
+    by the browser preview so download and UI preview cannot drift because of a
+    fresh DB/cache rebuild during download.
+    """
     try:
-        raw_tab_ids = str(request.args.get("tab_ids") or "").strip()
-        tab_ids = [x.strip() for x in raw_tab_ids.split(",") if x.strip()]
-        raw_build_ids = str(request.args.get("build_ids") or "").strip()
-        build_ids = [x.strip() for x in raw_build_ids.split(",") if x.strip()]
-        buf = _wbc_build_ppt(target_key, request.args.get("tab_id", ""), tab_ids, build_ids)
         target = _find_target(target_key)
-        label = (target.get("label") or target.get("name") or target_key).replace(" ", "_")
+        if request.method == "POST":
+            body = request.get_json(silent=True) or {}
+            ppt_data = body.get("ppt_data") if isinstance(body.get("ppt_data"), dict) else body
+            if not isinstance(ppt_data, dict):
+                return jsonify({"ok": False, "error": "ppt_data JSON object is required"}), 400
+            # Basic guardrails: stamp/override identity fields from the selected
+            # target, but otherwise render the browser preview payload as-is.
+            label_value = (target or {}).get("label") or (target or {}).get("name") or target_key
+            ppt_data["project"] = str(ppt_data.get("project") or label_value)
+            ppt_data["source"] = "ui_preview_post"
+            if isinstance(ppt_data.get("status_slides"), list) and len(ppt_data.get("status_slides") or []) > 1:
+                ppt_data["status_slides"] = (ppt_data.get("status_slides") or [])[:1]
+            buf = legacy_wbc_ppt.build_ppt(ppt_data, include_cover=True, include_thankq=True)
+        else:
+            raw_tab_ids = str(request.args.get("tab_ids") or "").strip()
+            tab_ids = [x.strip() for x in raw_tab_ids.split(",") if x.strip()]
+            raw_build_ids = str(request.args.get("build_ids") or "").strip()
+            build_ids = [x.strip() for x in raw_build_ids.split(",") if x.strip()]
+            buf = _wbc_build_ppt(target_key, request.args.get("tab_id", ""), tab_ids, build_ids)
+        label = ((target or {}).get("label") or (target or {}).get("name") or target_key).replace(" ", "_")
         filename = f"WBC_{label}_{datetime.now().strftime('%Y%m%d_%H%M')}.pptx"
         return send_file(
             buf,

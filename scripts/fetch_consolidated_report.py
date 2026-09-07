@@ -214,6 +214,35 @@ def _safe(value, default=""):
         return default
 
 
+_INVALID_CR_VALUES = {'', 'NA', 'N/A', 'NONE', 'NULL', 'UNKNOWN', 'TBD', 'NOCR', 'NO_CR', '-', '--', '0'}
+
+
+def _normalize_cr_num(value):
+    """Return only a valid CR number's digits, or '' for placeholders like None/NONE/NO_CR."""
+    raw = _safe(value)
+    if not raw:
+        return ''
+    compact = re.sub(r'[\s_-]+', '', raw.upper())
+    if compact in _INVALID_CR_VALUES:
+        return ''
+
+    candidate = raw.strip().upper()
+    if candidate.startswith('CR'):
+        candidate = candidate[2:].strip()
+    candidate = candidate.replace(' ', '').replace('-', '').replace('_', '')
+    if candidate in _INVALID_CR_VALUES:
+        return ''
+    if re.fullmatch(r'\d{5,9}', candidate):
+        return candidate
+    return ''
+
+
+def _normalize_cr_key(value):
+    """Return CR-prefixed normalized key, or '' for invalid/placeholder CR values."""
+    num = _normalize_cr_num(value)
+    return f'CR{num}' if num else ''
+
+
 def _parse_date(value):
     """Best-effort date parser for DB/Orbit/JIRA date strings."""
     s = _safe(value)
@@ -1286,13 +1315,9 @@ def _build_cr_to_jira_images(issues_dicts, explicit_software_images=None):
         cr_mapped = d.get('cr_mapped') or ''
         raw_final = (d.get('traversal') or {}).get('raw_final_cr') or ''
         for cr in (final_cr, cr_mapped, raw_final):
-            cr = str(cr).strip()
-            if cr and cr != 'NO_CR':
-                cr_keys.add(cr)
-                # also store without/with CR prefix so lookup always hits
-                num = cr.upper().replace('CR', '').strip()
-                if num:
-                    cr_keys.add('CR' + num)
+            cr_key = _normalize_cr_key(cr)
+            if cr_key:
+                cr_keys.add(cr_key)
         if not cr_keys:
             continue
         # Collect all image names and build_ids from this JIRA.  If the caller
@@ -1344,7 +1369,15 @@ def fetch_cr_info_from_orbit(cr_numbers, issues_dicts=None, progress=None, progr
 
     result   = {}
     cr_to_jira_images = _build_cr_to_jira_images(issues_dicts, explicit_software_images=explicit_software_images)
-    num_list = list(set(cr.replace('CR', '').strip() for cr in cr_numbers if cr))
+    num_list = []
+    seen_cr_nums = set()
+    for cr in cr_numbers or []:
+        num = _normalize_cr_num(cr)
+        if num and num not in seen_cr_nums:
+            seen_cr_nums.add(num)
+            num_list.append(num)
+    if not num_list:
+        return {}
 
     def _has_orbit_payload(data):
         """True only when Orbit returned meaningful CR details.
@@ -1366,6 +1399,9 @@ def fetch_cr_info_from_orbit(cr_numbers, issues_dicts=None, progress=None, progr
 
     def _fetch_cr_data(cr_num):
         """Fetch CR data, falling back across known Orbit regions if needed."""
+        cr_num = _normalize_cr_num(cr_num)
+        if not cr_num:
+            return {}
         candidates = []
         seen = set()
 
@@ -1524,7 +1560,7 @@ def fetch_cr_info_from_orbit(cr_numbers, issues_dicts=None, progress=None, progr
                 'cr_age'       : _compute_cr_age(_g('CreatedOn', 'cr_date', 'created_on', 'CreatedDate')[:10], best_built, best_status or _g('Status', 'cr_status', 'status')),
                 'AssigneeUid'  : _g('AssigneeUid', 'AssigneeUID', 'Assignee', 'assignee_uid', 'assignee'),
                 'assignee_uid' : _g('AssigneeUid', 'AssigneeUID', 'Assignee', 'assignee_uid', 'assignee'),
-                'parent_cr'    : ('CR' + _g('ParentId', 'ParentID', 'ParentCR', 'parent_id', 'parent_cr').upper().replace('CR', '').strip()) if _g('ParentId', 'ParentID', 'ParentCR', 'parent_id', 'parent_cr') else '',
+                'parent_cr'    : _normalize_cr_key(_g('ParentId', 'ParentID', 'ParentCR', 'parent_id', 'parent_cr')),
                 'cr_category'  : _g('Category', 'cr_category', 'Status'),
                 'image_matched': image_matched,
                 'cr_notes'     : cr_notes,
@@ -1902,12 +1938,20 @@ def lookup_cr_info_from_db(cr_numbers, target_name, issues_dicts=None, explicit_
 
                 # DB may store CR as 3456789 or CR3456789, and the final CR often
         # lives in `mapped_cr` rather than `cr`. Query both styles in both cols.
-        num_list = [str(cr).upper().replace('CR', '').strip() for cr in cr_numbers if cr]
+        num_list = []
+        seen_cr_nums = set()
+        for cr in cr_numbers or []:
+            n = _normalize_cr_num(cr)
+            if n and n not in seen_cr_nums:
+                seen_cr_nums.add(n)
+                num_list.append(n)
         lookup_values = []
         for n in num_list:
             if n:
                 lookup_values.extend([n, 'CR' + n])
         lookup_values = list(dict.fromkeys(lookup_values))
+        if not lookup_values:
+            return result
 
 
         placeholders = ', '.join(['%s'] * len(lookup_values))
@@ -1963,7 +2007,7 @@ def lookup_cr_info_from_db(cr_numbers, target_name, issues_dicts=None, explicit_
                 raw_values.append(str(row.get(mapped_col, '') or '').strip())
             raw_values = [v for v in raw_values if v]
             canonical_raw = (str(row.get(mapped_col, '') or '').strip() if mapped_col else '') or (raw_values[0] if raw_values else '')
-            canonical_num = canonical_raw.upper().replace('CR', '').strip()
+            canonical_num = _normalize_cr_num(canonical_raw)
             if not canonical_num:
                 continue
             canonical_key = 'CR' + canonical_num
@@ -1990,7 +2034,7 @@ def lookup_cr_info_from_db(cr_numbers, target_name, issues_dicts=None, explicit_
                                 'cr_age'       : (str(row.get(age_col, '') or '') if age_col else '') or _compute_cr_age(str(row.get(date_col, '') or '') if date_col else '', str(row.get(built_col, '') or '') if built_col else '', str(row.get(status_col, '') or '') if status_col else ''),
                 'assignee_uid' : str(row.get(assignee_col, '') or '') if assignee_col else '',
                 'AssigneeUid'  : str(row.get(assignee_col, '') or '') if assignee_col else '',
-                'parent_cr'    : ('CR' + str(row.get(parent_col, '') or '').upper().replace('CR', '').strip()) if parent_col and str(row.get(parent_col, '') or '').strip() else '',
+                'parent_cr'    : _normalize_cr_key(row.get(parent_col, '') if parent_col else ''),
                 'cr_category'  : str(row.get(category_col, '') or '') if category_col else '',
                 'image_matched': image_matched,   # True = image found in JIRA's pl_id_raw
 
@@ -2017,7 +2061,7 @@ def lookup_cr_info_from_db(cr_numbers, target_name, issues_dicts=None, explicit_
             # the canonical mapped_cr without falling back to Orbit.
             result[canonical_key] = info
             for raw in raw_values:
-                raw_num = raw.upper().replace('CR', '').strip()
+                raw_num = _normalize_cr_num(raw)
                 if raw_num:
                     result['CR' + raw_num] = dict(info)
 
@@ -2121,8 +2165,11 @@ def run_consolidated_report(build_ids, filter_id, traverse=True, enrich_orbit=Tr
         all_crs = traverse_all_jiras(jira_obj, issues_dicts, progress=progress)
     else:
         for d in issues_dicts:
-            if d['cr_mapped']:
-                all_crs.add(d['cr_mapped'])
+            cr_key = _normalize_cr_key(d.get('cr_mapped'))
+            if cr_key:
+                all_crs.add(cr_key)
+
+    all_crs = {cr_key for cr_key in (_normalize_cr_key(cr) for cr in all_crs) if cr_key}
 
         # Step 4 - CR enrichment
     cr_info_map  = {}
@@ -2170,7 +2217,7 @@ def run_consolidated_report(build_ids, filter_id, traverse=True, enrich_orbit=Tr
         # must come from the parent CR.
         parent_crs = []
         for info in (cr_info_map or {}).values():
-            parent = (info or {}).get('parent_cr') or ''
+            parent = _normalize_cr_key((info or {}).get('parent_cr'))
             if parent and parent not in cr_info_map:
                 parent_crs.append(parent)
         parent_crs = list(dict.fromkeys(parent_crs))
@@ -2191,7 +2238,7 @@ def run_consolidated_report(build_ids, filter_id, traverse=True, enrich_orbit=Tr
             current_cr = d.get('traversal', {}).get('final_cr') or d.get('cr_mapped', '')
 
             info_for_current = cr_info_map.get(current_cr, {}) or {}
-            canonical_cr = info_for_current.get('canonical_cr') or info_for_current.get('parent_cr') or info_for_current.get('cr_number')
+            canonical_cr = _normalize_cr_key(info_for_current.get('canonical_cr') or info_for_current.get('parent_cr') or info_for_current.get('cr_number'))
             if canonical_cr and current_cr and canonical_cr != current_cr:
                 d.setdefault('traversal', {})['raw_final_cr'] = current_cr
                 d['traversal']['final_cr'] = canonical_cr

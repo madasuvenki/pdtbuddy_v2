@@ -1,4 +1,4 @@
- in our cod# Progress: PDTBuddy
+# Progress: PDTBuddy
 
 ## What Works (Confirmed from Codebase)
 
@@ -24,6 +24,7 @@
 
 ### Dashboard & Reporting
 - ✅ Weekly Smart Build CSV upload/import now preserves full occurrence-level Jira rows for the selected report week by stamping imports to the report week, filtering Smart Build queries by `fetched_date`, and removing the legacy global unique-ticket constraint/dedup path that dropped repeated stability-ticket rows.
+- ✅ Weekly Smart Build Report now binds Axiom builds to the selected UI week directly and assigns completed jobs by `ended_at`/`completed_at`, preventing previous-week completions such as `2026-08-25` from appearing in `2026-08-31..2026-09-06`; filtered rows are used consistently for Builds, landing totals, consolidate rebuilds, and Active Devices.
 - ✅ Weekly Smart Build report now suppresses stale/historical Axiom `Running` / `JobSetup` rows so old stopped jobs, including historical PL/build rows such as `SA510-`, no longer remain visually running when Axiom missed a terminal transition.
 - ✅ Automotive Gen4.5 MTBF "Merge PL" groups are now shared UI-level settings stored separately in `static/auto_gen45_ui/mtbf_pl_merges_hqx.json` and `static/auto_gen45_ui/mtbf_pl_merges_hgy.json`, visible to all viewers and editable only by target users/admins without modifying existing target/path JSON.
 - ✅ Multi-BU dashboard with per-target MySQL schema routing
@@ -48,10 +49,10 @@
 - ✅ Model selection from QGENIE_HIGHLIGHTS_MODEL_OPTIONS
 
 ### Feature Modules
-- ✅ Build Report synchronous API `/api/build_report/run` now accepts raw saved/browser Build Info `.txt` content via `software_images_txt` plus related aliases (`build_info_text`, `build_info_txt`, `txt_file_content`, multipart `build_info_file`/`software_images_file`/`txt_file`) and forwards extracted/de-duped software images into the existing CR Software Image Release status matching path as `explicit_software_images`, matching standalone `/build_report` behavior without changing JIRA filtering. The API also supports explicit Orbit region/endpoint selection for token/background callers via `orbit_region`, `region`, `orbit_server`, or `orbit_endpoint`; browser calls fall back to the login-populated `session['orbit_endpoint']`.
-- ✅ WBC Live View TEA/QGenie Open CR analysis now follows the old WBC portal pipeline: TEA technical response first using the legacy `C:\Dropbox\WBC_Scrum_DB\Open_CR_Script\CR_TEA.py` request defaults (`https://10.213.98.5:5001/api/cr-summary`, username `alalji`, JSON content type, 60s timeout), QGenie summary from TEA text only, TEA-derived fallback summaries when QGenie is unavailable, normalized CR cache keys, target-JIRAs `scenario` extraction for common unique 1-2 PDT Scenario/TestCase values per CR/mapped CR with duplicate/common fragment cleanup, and PPT export merges cached TEA/QGenie/PDT fields before calling `wbc_legacy_ppt_adapter.py`.
+- ✅ Build Report synchronous API `/api/build_report/run` now accepts raw saved/browser Build Info `.txt` content via `software_images_txt` plus related aliases (`build_info_text`, `build_info_txt`, `txt_file_content`, multipart `build_info_file`/`software_images_file`/`txt_file`) and forwards extracted/de-duped software images into the existing CR Software Image Release status matching path as `explicit_software_images`, matching standalone `/build_report` behavior without changing JIRA filtering. The API also supports explicit Orbit region/endpoint selection for token/background callers via `orbit_region`, `region`, `orbit_server`, or `orbit_endpoint`; browser calls fall back to the login-populated `session['orbit_endpoint']`. CR enrichment now normalizes CR IDs centrally and filters placeholders such as `None`, `NONE`, `NO_CR`, `N/A`, `UNKNOWN`, and `0` before DB/Orbit lookup, preventing invalid `CRNONE` Orbit requests and related fallback-region warnings.
+- ✅ WBC Live View TEA/QGenie Open CR analysis now follows the old WBC portal pipeline: TEA technical response first using the legacy `C:\Dropbox\WBC_Scrum_DB\Open_CR_Script\CR_TEA.py` request defaults (`https://10.213.98.5:5001/api/cr-summary`, username `alalji`, JSON content type, 60s timeout), QGenie summary from TEA text only, TEA-derived fallback summaries when QGenie is unavailable, normalized CR cache keys, and target-JIRAs `scenario` extraction for common unique 1-2 PDT Scenario/TestCase values per CR/mapped CR with duplicate/common fragment cleanup.
 - ✅ WBC Live View Compose Mail now creates an Outlook desktop draft for the current running build report using `ms-outlook://compose` only, with a report-style body and CR Details columns for CR-ID, occurrence, title, area, subsystem, functionality, date, SI, status, and age.
-- ✅ WBC Live View PPT download now uses the old `C:\Dropbox\WBC_Scrum_DB\WBC_Report.py` teams-ready slide sequence/details via `wbc_legacy_ppt_adapter.py`: optional cover, selected-meta status slide, MTBF trend slide, Open/Analysis CR slides with QGenie/TEA-derived analysis fields, and optional ThankQ slide.
+- ✅ WBC Live View PPT preview/download now uses the old `C:\Dropbox\WBC_Scrum_DB\WBC_Report.py` teams-ready layout but starts directly with the current-meta status slide (no cover/ThankQ for WBC Live View), includes current meta + consolidated CR/JIRA details + visible MTBF trend on slide 1, shows up to the top 5 current-meta JIRAs, and renders Open/Analysis CR detail slides from the configured Unique CR DB table using the exact requested 12 screenshot columns with 18 CRs per slide and DB-backed Priority aliases.
 - ✅ Live Status Core Slides external view now supports direct latest generated PPTX download from `/api/core_deck/download_latest_pptx?target=<target>` without regenerating or modifying slide content.
 - ✅ UniqQC dashboard is integrated as a PDT Buddy blueprint/page and now uses PDT Buddy MySQL `overallcrs` tables via `dashboard_status` metadata/db prefixes, with compatible data, subsystem, CR detail, PPT, and CSV/ZIP export endpoints.
 - ✅ SP-only Device Summary inventory can enrich active devices via Axiom job playlists (`/jobs/{id}/data/playlists`) and `/resources`, preserving active chip IDs so MCN/host/running-job details attach in SP mode
@@ -234,3 +235,29 @@ See `activeContext.md` for full design details per item.
 - AI features (QGenie, ChatWise) added as optional enhancements
 - MCP server added for AI agent integration with MTBF data
 - **Modularization started 2026-08-06**: extracting routes and utilities from monolithic app.py
+
+## 2026-09-06 17:42 - WBC PPT export
+- Fixed WBC PPT export/preview drift for current-meta status slides, MTBF chart, current CR/JIRA sections, and Overall Open/Analysis CR slides.
+- Validated Python compilation for wbc_live_view_stats_routes.py and wbc_legacy_ppt_adapter.py and generated a sample PPT buffer successfully.
+
+
+## 2026-09-06 22:00 - WBC Live View PPT slide sequence
+- Implemented merged selected-meta PPT flow in templates/wbc_live_view_stats.html and wbc_legacy_ppt_adapter.py.
+- Selecting 3 metas now produces one merged current-meta slide instead of 3 separate current-meta slides.
+- Open/Analysis CR details are limited to one table slide, Welcome uses the WBC current meta ID/date, and the closing slide says Thank You.
+- Validation passed with py -3 -m py_compile for wbc_live_view_stats_routes.py and wbc_legacy_ppt_adapter.py plus content checks. Note: plain python points to an older interpreter that cannot parse annotations; use py -3 for this project.
+
+
+## 2026-09-06 22:04 - WBC PPT selected-meta follow-up
+- Removed default selected meta behavior from WBC PPT modal.
+- Added selected-meta CR detail lookup/hydration in the browser PPT preview/download payload so slide 1/current-meta CR table contains complete CR details when available from configured CR tables.
+- Revalidated Python syntax with py -3 -m py_compile and confirmed required template markers.
+
+## 2026-09-07 - Weekly Smart Build selected-week completion filtering
+- Fixed Smart Build week `2026-08-31..2026-09-06` showing Axiom rows completed in the previous week, e.g. `2026-08-25`.
+- `_sp2_axiom_window_for_report_week()` now returns the selected report week directly instead of shifting back 7 days.
+- `_sp2_axiom_row_belongs_to_execution_week()` now includes Axiom jobs that overlap the selected week, while still excluding jobs fully outside it; this prevents prior-week-only completions such as `2026-08-25` from appearing without dropping valid cross-week hours.
+- Hours are calculated from `pdt_stats_dashboard.axiom_job_summary` using `_sp2_week_bounded_device_hours_sql()`: `GREATEST(device_count, JSON_LENGTH(chip_ids)) * clipped_duration_hours`, clipped to selected Monday 00:00:00 through Sunday 23:59:59. Cross-week jobs now contribute only their in-week hours.
+- Applied filtering across static snapshot display, static seeding/consolidate, live Builds fallback, landing summary, and Active Devices so stale cached rows do not leak into current totals.
+- CHIPMD tickets are excluded from Smart Build crash/JIRA counts. Existing ticket parsing already drops `CHIPMD*`; SQL filters now also exclude rows whose `stability_ticket` starts with `CHIPMD` from `_sp2_weekly_crash_map()` and `/api/sp2/stability_health` total Jira counts.
+- Validation passed with `uv run python -m py_compile weekly_summary_routes.py` and helper checks for Aug 31-Sep 6 overlap/inclusion/exclusion boundaries.

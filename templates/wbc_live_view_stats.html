@@ -1268,7 +1268,21 @@ let _wbcTabReportRows={};
 const _WBC_EXCLUDE_COLS=new Set(['crash_type','crash_types','type','failure_type','_source_table','crash type','Crash Type','Crash Types','CrashType']);function _wbcCols(rows){const pref=['CR','CR Count','CR Title','CR Status','CR Area','CR Subsystem','CR Function','JIRA','JIRA Title','JIRA Status','Final Ticket','Final Status','Created','Serial No','Matched Build','stability_ticket','jira','jira_id','mapped_cr','cr','cr_id','jira_title','title','summary','cr_area','area','cr_status','status','jira_date','si_last_seen','last_instance','metabuild','meta_build','build'];const seen=new Set(),out=[];pref.forEach(c=>{if(!_WBC_EXCLUDE_COLS.has(c)&&(rows||[]).some(r=>Object.prototype.hasOwnProperty.call(r,c))&&!seen.has(c)){seen.add(c);out.push(c);}});(rows[0]?Object.keys(rows[0]):[]).forEach(c=>{if(!seen.has(c)&&!_WBC_EXCLUDE_COLS.has(c)&&out.length<18){seen.add(c);out.push(c);}});return out;}
 function toggleWbcBuildReport(idx){const body=document.getElementById('wbcBwrBody_'+idx), chev=document.getElementById('wbcBwrChev_'+idx);if(!body)return;const open=body.style.display==='block';document.querySelectorAll('.wbc-bwr-body').forEach(e=>e.style.display='none');document.querySelectorAll('.wbc-bwr-chev').forEach(e=>e.style.transform='');if(open)return;body.style.display='block';if(chev)chev.style.transform='rotate(90deg)';const build=body.getAttribute('data-build')||'', rows=_wbcBuildReportRows[build]||[], cols=_wbcCols(rows), uid='bwr_'+idx+'_'+Math.random().toString(36).slice(2,5);body.innerHTML=rows.length?_wbcSimpleTableHtml(rows,cols,uid,{maxHeight:'420px'}):'<div class="empty">No detail rows for this build.</div>';}
 function filterWbcBuildReport(){const q=(document.getElementById('wbcBwrSearch')?.value||'').toLowerCase();document.querySelectorAll('.wbc-bwr-item').forEach(el=>{el.style.display=(!q||String(el.getAttribute('data-text')||'').toLowerCase().includes(q))?'':'none';});}
-function _wbcMetaId(bid){const m=String(bid||'').match(/^(.+?-\d{4,6})\b/);return m?m[1].toUpperCase():String(bid||'').toUpperCase();}
+function _wbcMetaId(bid){
+  const raw=String(bid||'').trim();
+  const project=((payload&&payload.target&&(payload.target.label||payload.target.name))||active||'').trim();
+  let m=raw.match(/\b([A-Z][A-Z0-9_.]*\.LE\.[0-9.]+-\d{3,6})\b/i);
+  if(m)return m[1].toUpperCase();
+  m=raw.match(/\b([A-Z][A-Z0-9_.-]+-\d{3,6})\b/i);
+  if(m&&/[A-Z]/i.test(m[1]))return m[1].toUpperCase();
+  m=raw.match(/\b(?:META|BUILD)[-_ ]?0*(\d{2,6})\b/i)||raw.match(/[-_ ]0*(\d{2,6})(?:\b|[-_.])/i);
+  if(m){
+    const metaNo=String(m[1]||'').padStart(Math.max(5,String(m[1]||'').length),'0');
+    if(/\.LE\./i.test(project))return (project+'-'+metaNo).toUpperCase();
+    return ('META-'+metaNo).toUpperCase();
+  }
+  return raw.toUpperCase();
+}
 
 function _wbcRowsToCsvBlob(headers, rows){
   const csv=[headers, ...rows.map(r=>headers.map(h=>r[h]??''))].map(arr=>arr.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\r\n');
@@ -1855,7 +1869,8 @@ function wbcSjqlRunCard(id, force){
         cached_jira_count:        d.valid_jira_count        !== undefined ? d.valid_jira_count        : (d.jira_count        || 0),
         cached_open_jira_count:   d.valid_open_jira_count   !== undefined ? d.valid_open_jira_count   : (d.open_jira_count   || 0),
         cached_mapped_jira_count: d.valid_mapped_jira_count !== undefined ? d.valid_mapped_jira_count : (d.mapped_jira_count || 0),
-        cached_invalid_count: d.invalid_count || 0
+        cached_invalid_count: d.invalid_count || 0,
+        cached_rows: d.rows || d.flat_rows || []
       };
       wbcSjqlRenderCards();
       updateRunningJqlCount(_wbcSjqlTabs.length);
@@ -2487,10 +2502,9 @@ function openPptMetaModal(){
   if(!list)return downloadPpt();
   const tabs=_wbcSjqlTabs||[];
   const ranBuilds=((payload&&payload.build_summary&&payload.build_summary.builds)||[]);
-  const activeId=_wbcActiveTabId||(tabs[0]&&tabs[0].id)||'';
   const currentHtml=tabs.length?`<div style="font-size:11px;font-weight:1000;color:#1e3a8a;margin:4px 0 8px;text-transform:uppercase">Current running metas</div>`+tabs.map((t,i)=>{
     const bid=_wbcBuildIdFromJqlTab(t)||t.name||('Meta '+(i+1));
-    const checked=t.id===activeId?'checked':'';
+    const checked='';
     const st=_wbcTabCacheState(t);
     return `<label style="display:flex;align-items:flex-start;gap:10px;padding:11px 12px;border:1px solid #dbeafe;border-radius:12px;background:#fff;margin-bottom:8px;cursor:pointer">
       <input type="checkbox" class="wbc-ppt-meta-check" value="${esc(t.id)}" ${checked} style="margin-top:3px;width:16px;height:16px">
@@ -2538,9 +2552,9 @@ function toggleAllPptMetas(on){document.querySelectorAll('.wbc-ppt-meta-check,.w
 function selectedPptMetaIds(){return Array.from(document.querySelectorAll('.wbc-ppt-meta-check:checked')).map(cb=>cb.value).filter(Boolean);}
 function selectedPptBuildIds(){return Array.from(document.querySelectorAll('.wbc-ppt-build-check:checked')).map(cb=>cb.value).filter(Boolean);}
 function _pptPreviewCell(v,max){return esc(String(v??'').replace(/\s+/g,' ').trim()).slice(0,max||160);}
-function _pptPreviewTable(headers,rows,widths){
-  const ws=widths||headers.map(()=>1), total=ws.reduce((a,b)=>a+b,0);
-  return `<table style="width:100%;border-collapse:collapse;table-layout:fixed;font-family:Arial,sans-serif;font-size:6px;color:#000"><thead><tr>${headers.map((h,i)=>`<th style="width:${(ws[i]||1)*100/total}%;background:#1f5f91;color:#fff;border:1px solid #fff;text-align:center;padding:4px 3px;font-size:6px">${esc(h)}</th>`).join('')}</tr></thead><tbody>${(rows&&rows.length?rows:[['No Data']]).map((r,ri)=>`<tr>${headers.map((h,i)=>`<td style="background:${ri%2?'#f4ecf2':'#e9edf3'};border:1px solid #fff;text-align:${i===3?'left':'center'};vertical-align:middle;padding:4px 3px;word-break:break-word;font-size:6px">${_pptPreviewCell((r||[])[i]||'',i===3?130:60)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+function _pptPreviewTable(headers,rows,widths,titleCols){
+  const ws=widths||headers.map(()=>1), total=ws.reduce((a,b)=>a+b,0), leftCols=new Set(Array.isArray(titleCols)?titleCols:[3]);
+  return `<table style="width:100%;border-collapse:collapse;table-layout:fixed;font-family:Arial,sans-serif;font-size:6px;color:#000"><thead><tr>${headers.map((h,i)=>`<th style="width:${(ws[i]||1)*100/total}%;background:#1f5f91;color:#fff;border:1px solid #fff;text-align:center;padding:4px 3px;font-size:6px">${esc(h)}</th>`).join('')}</tr></thead><tbody>${(rows&&rows.length?rows:[['No Data']]).map((r,ri)=>`<tr>${headers.map((h,i)=>`<td style="background:${ri%2?'#f4ecf2':'#e9edf3'};border:1px solid #fff;text-align:${leftCols.has(i)?'left':'center'};vertical-align:middle;padding:4px 3px;word-break:break-word;font-size:6px">${_pptPreviewCell((r||[])[i]||'',leftCols.has(i)?130:60)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
 }
 function _pptFindCol(cols,names){
   const norm=s=>String(s||'').toLowerCase().replace(/[^a-z0-9]/g,'');
@@ -2563,8 +2577,8 @@ function _pptRows(preview,aliases,limit,withIndex){
   const cols=(preview&&preview.columns)||[], rows=((preview&&preview.rows)||[]).slice(0,limit||5), keys=(aliases||[]).map(a=>_pptFindCol(cols,a));
   return rows.map((r,i)=>{const vals=keys.map(k=>k?(r[k]??''):'');return withIndex?[String(i+1),...vals]:vals;});
 }
-function _pptBuildPreviewItems(){
-  const selectedIds=selectedPptMetaIds(), selectedBuilds=selectedPptBuildIds();
+function _pptBuildPreviewItems(metaIds, buildIds){
+  const selectedIds=Array.isArray(metaIds)?metaIds.filter(Boolean):selectedPptMetaIds(), selectedBuilds=Array.isArray(buildIds)?buildIds.filter(Boolean):selectedPptBuildIds();
   const rawTabs=(_wbcSjqlTabs||[]).filter(t=>selectedIds.includes(String(t.id||''))).map(t=>({
     kind:'tab',
     id:String(t.id||''),
@@ -2573,6 +2587,7 @@ function _pptBuildPreviewItems(){
     jira_count:t.jira_count||t.cached_jira_count||0,
     open_jira_count:t.open_jira_count||t.cached_open_jira_count||0,
     row_count:t.cached_row_count||0,
+    cached_rows:t.cached_rows||[],
     tab:t
   }));
   const rawBuilds=((payload&&payload.build_summary&&payload.build_summary.builds)||[]).filter(b=>selectedBuilds.includes(String(b.build_id||b.meta_id||''))).map(b=>({
@@ -2587,34 +2602,47 @@ function _pptBuildPreviewItems(){
   }));
   let items=[...rawTabs,...rawBuilds].filter(x=>String(x.build_id||'').trim());
 
-  // PPT should be meta-based, not build-suffix-based.  Example:
-  // AMBOSELI.LE.1.2-00035-QMP4... and AMBOSELI.LE.1.2-00035-QMP5...
-  // are the same meta (AMBOSELI.LE.1.2-00035), so preview/download should
-  // regenerate one selected meta slide, with counts merged.
-  const grouped=new Map();
-  items.forEach(item=>{
-    const meta=_wbcMetaId(item.build_id)||String(item.build_id||'').toUpperCase();
-    if(!grouped.has(meta)){
-      grouped.set(meta,{...item,meta_id:meta,build_ids:[item.build_id],tab_ids:item.id?[item.id]:[],cr_count:0,jira_count:0,open_jira_count:0,row_count:0});
-    }
-    const g=grouped.get(meta);
-    if(!g.build_ids.includes(item.build_id))g.build_ids.push(item.build_id);
-    if(item.id&&!g.tab_ids.includes(item.id))g.tab_ids.push(item.id);
-    g.cr_count+=num(item.cr_count);
-    g.jira_count+=num(item.jira_count);
-    g.open_jira_count+=num(item.open_jira_count);
-    g.row_count+=num(item.row_count);
-  });
-  items=Array.from(grouped.values());
-  if(items.length)return items;
-
-  const activeTab=(_wbcSjqlTabs||[]).find(t=>String(t.id||'')===String(_wbcActiveTabId||''))||(_wbcSjqlTabs||[])[0];
-  if(activeTab){
-    const bid=_wbcBuildIdFromJqlTab(activeTab)||activeTab.name||'';
-    return [{kind:'tab',id:String(activeTab.id||''),build_id:bid,meta_id:_wbcMetaId(bid)||bid,build_ids:[bid],cr_count:activeTab.cr_count||activeTab.cached_cr_count||0,jira_count:activeTab.jira_count||activeTab.cached_jira_count||0,open_jira_count:activeTab.open_jira_count||activeTab.cached_open_jira_count||0,tab:activeTab}];
+  // Merge all selected checkboxes into one current-meta slide. QMP4/QMP5 or
+  // already-ran variants are treated as the same selected WBC meta deck so the
+  // preview/download sequence is Welcome → one Current Meta → Open/Analysis CR → Thank You.
+  if(items.length){
+    const primary=items[0];
+    const mergedMeta=_wbcMetaId(primary.build_id)||primary.build_id;
+    const tabIds=[];
+    const buildIds=[];
+    const mergedRows=[];
+    const seenRows=new Set();
+    const addRow=(r)=>{
+      if(!r||typeof r!=='object')return;
+      const k=_wbcIssueKey(r)||_wbcCrKey(r)||JSON.stringify(r).slice(0,80);
+      if(seenRows.has(k))return;
+      seenRows.add(k);
+      mergedRows.push(r);
+    };
+    items.forEach(item=>{
+      const bid=String(item.build_id||'').trim();
+      if(bid&&!buildIds.includes(bid))buildIds.push(bid);
+      if(item.kind==='tab'&&item.id&&!tabIds.includes(item.id))tabIds.push(item.id);
+      (_pptGetItemRows({...item,build_ids:bid?[bid]:[],tab_ids:item.kind==='tab'&&item.id?[item.id]:[]} )||[]).forEach(addRow);
+    });
+    return [{
+      ...primary,
+      kind:'merged',
+      id:tabIds[0]||primary.id||'',
+      meta_id:mergedMeta,
+      build_id:mergedMeta,
+      build_ids:buildIds.length?buildIds:[primary.build_id],
+      tab_ids:tabIds,
+      cached_rows:mergedRows,
+      row_count:items.reduce((a,x)=>a+num(x.row_count),0),
+      cr_count:new Set(mergedRows.filter(r=>_wbcRowType(r)==='cr').map(_wbcCrKey).filter(Boolean)).size || items.reduce((a,x)=>a+num(x.cr_count),0),
+      jira_count:new Set(mergedRows.map(r=>_wbcIssueKey(r)).filter(Boolean)).size || items.reduce((a,x)=>a+num(x.jira_count),0),
+      open_jira_count:new Set(mergedRows.filter(r=>_wbcRowType(r)==='open').map(_wbcIssueKey).filter(Boolean)).size || items.reduce((a,x)=>a+num(x.open_jira_count),0),
+      merged_count:items.length
+    }];
   }
-  const excel=(payload&&payload.excel)||{}, chartRows=excel.chart_rows||[], last=chartRows[chartRows.length-1]||{}, bid=last.crm_build_id||last.meta_id||((payload&&payload.target&&(payload.target.label||payload.target.name))||active||'WBC');
-  return [{kind:'fallback',id:'',build_id:bid,meta_id:_wbcMetaId(bid)||bid,build_ids:[bid],cr_count:0,jira_count:0,open_jira_count:0}];
+
+  return [];
 }
 function _pptGetItemRows(item){
   let rows=[];
@@ -2622,9 +2650,71 @@ function _pptGetItemRows(item){
   const add=(arr)=>{(arr||[]).forEach(r=>{const k=_wbcIssueKey(r)||_wbcCrKey(r)||JSON.stringify(r).slice(0,40);if(!seen.has(k)){seen.add(k);rows.push(r);}});};
   (item.tab_ids||[]).forEach(tid=>add(_wbcTabReportRows[tid]||[]));
   if(item.id&&!(item.tab_ids||[]).includes(item.id))add(_wbcTabReportRows[item.id]||[]);
-  (item.build_ids||[]).forEach(bid=>add(_wbcBuildReportRows[bid]||[]));
-  if(!rows.length&&item.build_id)add(_wbcBuildReportRows[item.build_id]||[]);
+  if(!rows.length&&item.tab&&Array.isArray(item.tab.cached_rows))add(item.tab.cached_rows);
+  if(!rows.length&&Array.isArray(item.cached_rows))add(item.cached_rows);
+  (item.build_ids||[]).forEach(bid=>{
+    add(_wbcBuildReportRows[bid]||[]);
+    if(!(_wbcBuildReportRows[bid]||[]).length){
+      Object.keys(_wbcBuildReportRows||{}).forEach(k=>{
+        if(_buildsMatchClient(bid,k))add(_wbcBuildReportRows[k]||[]);
+      });
+    }
+  });
+  if(!rows.length&&item.build_id){
+    add(_wbcBuildReportRows[item.build_id]||[]);
+    Object.keys(_wbcBuildReportRows||{}).forEach(k=>{
+      if(_buildsMatchClient(item.build_id,k))add(_wbcBuildReportRows[k]||[]);
+    });
+  }
   return rows;
+}
+function _pptOpenCrDetailLookup(previews){
+  const out={};
+  const add=(preview)=>{
+    const rows=(preview&&preview.rows)||[];
+    rows.forEach(r=>{
+      const cr=String(_wbcVal(r,['CR','CR-ID','CR ID','mapped_cr','cr','cr_id','unique_cr','cr_number'])).trim();
+      if(!cr)return;
+      const bare=cr.replace(/^CR/i,'').trim().toUpperCase();
+      if(bare){
+        out[bare]=r;
+        out['CR'+bare]=r;
+      }
+    });
+  };
+  previews=previews||{};
+  add(previews.open_crs);
+  add(previews.crs);
+  add(previews.all_crs);
+  return out;
+}
+function _pptHydrateCrDetails(row, lookup){
+  row=row||{};
+  const cr=String(_wbcVal(row,['CR','CR-ID','CR ID','mapped_cr','cr','cr_id','unique_cr','cr_number'])).trim();
+  const bare=cr.replace(/^CR/i,'').trim().toUpperCase();
+  const detail=(lookup&&bare&&(lookup[bare]||lookup['CR'+bare]))||{};
+  const merged={...detail};
+  Object.keys(row).forEach(k=>{
+    const v=row[k];
+    if(v!==undefined&&v!==null&&String(v).trim()!=='')merged[k]=v;
+    else if(!(k in merged))merged[k]=v;
+  });
+  return merged;
+}
+function _pptVal(row,names){
+  return _wbcVal(row,names);
+}
+function _pptIsOpenJiraRow(row){
+  const rowType=String((row||{})['Row Type']||(row||{}).row_type||'').trim().toLowerCase();
+  if(rowType==='open')return true;
+  const source=String(_wbcVal(row,['Source','source','_source','Table','table','Sheet','sheet'])).trim().toLowerCase();
+  return !!_wbcIssueKey(row) && /open/.test(source) && /jira/.test(source);
+}
+function _pptJiraRowKey(row){
+  return _wbcIssueKey(row)||String(_wbcVal(row,['JIRA','JIRA-Ticket','Jira Ticket','Open JIRA','open_jira','stability_ticket','jira','jira_id','jira_key','ticket','Issue','Issue Key','Final Ticket','final_ticket','CR','CR-ID','CR ID'])).trim()||_wbcCrKey(row)||JSON.stringify(row||{}).slice(0,80);
+}
+function _pptUniqueJiraRows(rows){
+  return _wbcUniqueBy(rows||[], _pptJiraRowKey);
 }
 function _pptChartHtml(chartRows){
   const rows=(chartRows||[]).slice(-7);
@@ -2657,25 +2747,61 @@ function _pptRampupHtml(project){
     <div style="position:absolute;left:32px;right:16px;bottom:0;font-size:8.5px;line-height:1.35">• Device Ramp up Plan from ES to CS – Post CS.<br>• All the Projections are dependent on HW Availability.</div>
   </div>`;
 }
+function _pptRenderWelcomeSlide(metaId, reportDate){
+  const meta=metaId||'WBC Current Meta';
+  const dateText=reportDate||new Date().toLocaleDateString('en-US');
+  return `<div class="wbc-ppt-slide" style="width:960px;height:540px;background:linear-gradient(135deg,#1f4268 0%,#345d8a 58%,#18304d 100%);position:relative;margin:0 auto;color:#fff;font-family:Arial;border:1px solid #cbd5e1;overflow:hidden;flex:0 0 auto">
+    <div style="position:absolute;left:0;top:0;width:52px;height:540px;background:#35679d"></div>
+    <div style="position:absolute;left:74px;top:110px;font-size:22px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#dbeafe">WBC Live View</div>
+    <div style="position:absolute;left:74px;top:172px;font-size:42px;font-weight:700;line-height:1.16">Current Meta</div>
+    <div style="position:absolute;left:74px;right:48px;top:250px;font-size:24px;font-weight:800;line-height:1.22;word-break:break-word">${esc(meta)}</div>
+    <div style="position:absolute;left:74px;top:330px;font-size:24px;font-weight:650;color:#f8fafc">${esc(dateText)}</div>
+  </div>`;
+}
+function _pptRenderThankYouSlide(){
+  return `<div class="wbc-ppt-slide" style="width:960px;height:540px;background:#fff;position:relative;margin:0 auto;color:#000;font-family:Arial;border:1px solid #cbd5e1;overflow:hidden;flex:0 0 auto;display:grid;place-items:center">
+    <div style="font-size:52px;font-weight:800;color:#111827">Thank You</div>
+  </div>`;
+}
 function _pptRenderStatusSlide(item, ctx){
   const project=ctx.project, counts=ctx.counts, overview=ctx.overview, previews=ctx.previews, chartRows=ctx.chartRows;
   const currentMeta=item.meta_id||item.build_id||project;
-  // Use item-specific rows (from cached report for this meta) if available
-  const itemRows=_pptGetItemRows(item);
+  // Use item-specific rows (from cached report for this meta) if available.
+  // Hydrate selected-meta rows from the Open/Analysis CR preview table because
+  // saved JQL cache rows can contain only the CR number while the detail table
+  // has title/area/subsystem/function/date/status/age.
+  const crDetailLookup=_pptOpenCrDetailLookup(previews);
+  const itemRows=_pptGetItemRows(item).map(r=>_pptHydrateCrDetails(r,crDetailLookup));
   let crRows, jiraRows;
   if(itemRows.length){
     const _crAll=itemRows.filter(r=>_wbcRowType(r)==='cr');
-    const _openAll=itemRows.filter(r=>_wbcRowType(r)==='open');
+    const _openSourceAll=itemRows.filter(_pptIsOpenJiraRow);
+    const _openAll=_openSourceAll.length?_openSourceAll:itemRows.filter(r=>_wbcRowType(r)==='open');
     const _mappedAll=itemRows.filter(r=>_wbcRowType(r)==='mapped_jira');
     const crGrouped=_wbcGroupByCr(_crAll,r=>_wbcCrKey(r)).slice(0,3);
-    const openUniq=_wbcUniqueBy(_openAll,_wbcIssueKey).slice(0,2);
-    const mappedUniq=_wbcGroupByCr(_mappedAll,r=>_wbcCrKey(r)||_wbcIssueKey(r)).slice(0,2);
+    const openUniq=_pptUniqueJiraRows(_openAll).slice(0,5);
+    const mappedUniq=_wbcGroupByCr(_mappedAll,r=>_wbcCrKey(r)||_wbcIssueKey(r)).slice(0,5);
     const jiraUniq=openUniq.length?openUniq:mappedUniq;
-    crRows=crGrouped.map((r,i)=>[String(i+1),r.CR||r.cr||r.mapped_cr||'',r['CR Count']||r.Occurrence||r.Instances||'1',r['CR Title']||r.Title||r.Summary||'',r['CR Area']||r.Area||'',r['CR SubSystem']||r.Subsystem||'',r['CR Functionality']||r.Functionality||'',r['CR Status']||r.Status||'']);
-    jiraRows=jiraUniq.map((r,i)=>[String(i+1),r.JIRA||r.jira||r.stability_ticket||r['JIRA-Ticket']||'',r.Instances||r.Occurrence||'1',r['JIRA Title']||r['Jira Title']||r.Title||'',r['JIRA Status']||r.Status||'']);
+    crRows=crGrouped.map((r,i)=>[
+      String(i+1),
+      _pptVal(r,['CR','CR-ID','CR ID','mapped_cr','cr','cr_id','unique_cr','cr_number']),
+      _pptVal(r,['CR Count','CR Occurrence','Occurrence','Occurrences','Instances','Instance','count'])||'1',
+      _pptVal(r,['CR Title','cr_title','Title','title','Summary','summary']),
+      _pptVal(r,['CR Area','cr_area','Area','area']),
+      _pptVal(r,['CR SubSystem','CR Subsystem','CR Subsystem','cr_subsystem','Subsystem','subsystem','sub']),
+      _pptVal(r,['CR Functionality','CR Function','cr_functionality','Functionality','functionality','func']),
+      _pptVal(r,['CR Status','cr_status','Status','status'])
+    ]);
+    jiraRows=jiraUniq.map((r,i)=>[
+      String(i+1),
+      _pptVal(r,['JIRA','JIRA-Ticket','Jira Ticket','Open JIRA','open_jira','stability_ticket','jira','jira_id','jira_key','ticket','Issue','Issue Key','Final Ticket','final_ticket','CR','CR-ID','CR ID']),
+      _pptVal(r,['Instances','Occurrence','Occur','CR Count','count'])||'1',
+      _pptVal(r,['JIRA Title','Jira Title','jira_title','Title','title','Summary','summary','CR Title','cr_title']),
+      _pptVal(r,['JIRA Status','Jira Status','status','Status','Final Status','final_status'])
+    ]);
   } else {
     crRows=_pptRows(previews.open_crs||previews.crs||previews.all_crs,[['CR-ID','CR ID','CR','mapped_cr','cr_id'],['Occurrence','Instances','Instance'],['CR Title','Title','Summary'],['CR Area','Area'],['CR SubSystem','Subsystem'],['CR Functionality','Functionality'],['CR Status','Status']],3,true);
-    jiraRows=_pptRows(previews.open_jiras,[['JIRA-Ticket','JIRA ID','jira','stability_ticket'],['Instances','Occurrence','Instance'],['Jira Title','Title','Summary'],['Status','Jira Status']],2,true);
+    jiraRows=_pptRows(previews.open_jiras,[['JIRA-Ticket','JIRA ID','jira','stability_ticket'],['Instances','Occurrence','Instance'],['Jira Title','Title','Summary'],['Status','Jira Status']],5,true);
   }
   const metaChartRows=(chartRows||[]).filter(r=>String(r.crm_build_id||r.meta_id||r.build_id||'').toLowerCase().includes(String(currentMeta).toLowerCase())||String(currentMeta).toLowerCase().includes(String(r.crm_build_id||r.meta_id||r.build_id||'').toLowerCase()));
   const mtbfSource=(metaChartRows.length?metaChartRows:chartRows).slice(-3);
@@ -2704,23 +2830,150 @@ function renderPptPreview(){
   if(!payload){box.innerHTML='<div style="color:#cbd5e1;padding:30px;text-align:center">Select a target to preview PPT slides.</div>';return;}
   const target=payload.target||{}, project=target.label||target.name||active||'WBC', counts=payload.counts||{}, excel=payload.excel||{}, chartRows=excel.chart_rows||[], overview=payload.overview_summary||{}, previews=payload.previews||{};
   const selectedItems=_pptBuildPreviewItems();
-  const openRows=_pptRows(previews.open_crs||previews.all_crs,[['CR-ID','CR ID','CR','mapped_cr','cr_id'],['Jira Date -last instance','Jira Date','updated'],['Occurrence','Instances','Instance'],['CR Title','Title','Summary'],['CR Area','Area'],['CR SubSystem','Subsystem'],['CR Functionality','Functionality'],['CR Date','Date'],['CR Status','Status'],['CR Age','Age'],['Priority']],17,true);
+  if(!selectedItems.length){
+    box.innerHTML='<div style="color:#cbd5e1;padding:42px;text-align:center;font-size:13px;font-weight:800">No PPT slides generated by default.<br>Select one or more meta/build rows on the left, then click <b>Regenerate Selected Preview</b>.</div>';
+    return;
+  }
+  const primaryItem=selectedItems[0]||{};
+  const welcomeMeta=primaryItem.meta_id||primaryItem.build_id||project;
+  const welcomeDate=(counts.latest_mtbf_date||((chartRows[chartRows.length-1]||{}).date)||new Date().toLocaleDateString('en-US'));
+  const openRows=_pptRows(previews.open_crs||previews.all_crs,[['CR-ID','CR ID','CR','mapped_cr','cr_id'],['Jira Date -last instance','Jira Date','updated'],['Occurrence','Instances','Instance'],['CR Title','Title','Summary'],['CR Area','Area'],['CR SubSystem','Subsystem'],['CR Functionality','Functionality'],['CR Date','Date'],['CR Status','Status'],['CR Age','Age'],['Priority','CR Priority','priority','cr_priority','pdt_priority','PdtPriority','PDTPriority','cr_pdt_priority','Severity','severity']],2000,true);
+  const openChunks=[openRows.slice(0,18)];
+  if(!openChunks.length)openChunks.push([]);
+  const openSlideHtml=openChunks.map((chunk,idx)=>`<div class="wbc-ppt-slide" style="width:960px;height:540px;background:#fff;margin:0 auto;color:#000;font-family:Arial;border:1px solid #cbd5e1;padding:13px 11px;overflow:hidden"><div style="color:#156082;text-decoration:underline;font-weight:bold;margin:0 0 18px 2px;font-size:12px">Overall Open/Analysis CRs:${openChunks.length>1?' ('+(idx+1)+'/'+openChunks.length+')':''}</div>${_pptPreviewTable(['S.No','CR','Jira Date -last instance','CR Occurrence','CR Title','CR Area','CR SubSystem','CR Functionality','CR Date','CR Status','CR Age','Priority'],chunk,[.42,.70,.90,.78,4.70,.86,.92,1.05,.78,.78,.48,.48],[4])}</div>`).join('');
   const ctx={project,counts,excel,chartRows,overview,previews};
-  box.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px;color:#cbd5e1;font-size:11px;font-weight:900"><span>${selectedItems.length} unique selected meta slide${selectedItems.length===1?'':'s'} regenerated below</span><span>Same base meta builds are merged</span></div><div style="display:grid;gap:18px;min-width:960px">
-    <div class="wbc-ppt-slide" style="width:960px;height:540px;background:#24486d;position:relative;overflow:hidden;margin:0 auto;color:#fff;font-family:Arial"><div style="position:absolute;left:0;top:0;width:45px;height:100%;background:#35679d"></div><div style="position:absolute;left:70px;bottom:95px;font-size:36px;text-shadow:0 0 8px #9cc7ff">PDT WBC SW Core Update ${(new Date()).toLocaleDateString('en-GB')}</div></div>
-    ${selectedItems.map(item=>_pptRenderStatusSlide(item,ctx)).join('')}
-    <div class="wbc-ppt-slide" style="width:960px;height:540px;background:#fff;margin:0 auto;color:#000;font-family:Arial;border:1px solid #cbd5e1;padding:20px;overflow:hidden"><div style="color:#156082;text-decoration:underline;font-weight:bold;margin-bottom:26px">Overall Open/Analysis CRs:</div>${_pptPreviewTable(['S.No','CR','Jira Date -last instance','CR Occurrence','CR Title','CR Area','CR SubSystem','CR Functionality','CR Date','CR Status','CR Age','Priority'],openRows,[.35,.6,.8,.65,2.4,.65,.75,.85,.65,.65,.45,.45])}</div>
-    <div class="wbc-ppt-slide" style="width:960px;height:540px;background:#fff;margin:0 auto;color:#000;font-family:Arial;border:1px solid #cbd5e1;display:grid;place-items:center;font-size:52px">ThankQ</div>
+  box.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px;color:#cbd5e1;font-size:11px;font-weight:900"><span>${primaryItem.merged_count||selectedItems.length||1} selected meta${(primaryItem.merged_count||selectedItems.length||1)===1?'':'s'} merged as 1 current-meta slide + ${openChunks.length} Open/Analysis CR table slide${openChunks.length===1?'':'s'} regenerated below</span><span>Download uses this same slide set</span></div><div style="display:grid;gap:18px;min-width:960px">
+    ${_pptRenderWelcomeSlide(welcomeMeta,welcomeDate)}
+    ${_pptRenderStatusSlide(primaryItem,ctx)}
+    ${openSlideHtml}
+    ${_pptRenderThankYouSlide()}
   </div>`;
+}
+function _pptObjTable(rows, columns){
+  rows=(rows||[]).filter(r=>r&&typeof r==='object');
+  let cols=(columns||[]).map(c=>typeof c==='object'?(c.key||c.title||''):String(c||'')).filter(Boolean);
+  if(!cols.length){
+    rows.forEach(r=>Object.keys(r||{}).forEach(k=>{if(!cols.includes(k))cols.push(k);}));
+  }
+  return {
+    columns:cols.map(k=>({title:String(k).replace(/_/g,' '),key:k})),
+    rows:rows.map(r=>{const o={};cols.forEach(k=>o[k]=(r&&r[k]!=null)?r[k]:'');return o;})
+  };
+}
+function _pptCanonicalTable(headers, rows){
+  const cols=(headers||[]).map(h=>({title:h,key:h}));
+  return {columns:cols,rows:(rows||[]).map(row=>{const o={};headers.forEach((h,i)=>o[h]=(row&&row[i]!=null)?row[i]:'');return o;})};
+}
+function _pptStatusTablesForItem(item, previews){
+  const itemRows=_pptGetItemRows(item);
+  let crRows, jiraRows;
+  if(itemRows.length){
+    const crDetailLookup=_pptOpenCrDetailLookup(previews);
+    const hydratedRows=itemRows.map(r=>_pptHydrateCrDetails(r,crDetailLookup));
+    const _crAll=hydratedRows.filter(r=>_wbcRowType(r)==='cr');
+    const _openSourceAll=hydratedRows.filter(_pptIsOpenJiraRow);
+    const _openAll=_openSourceAll.length?_openSourceAll:hydratedRows.filter(r=>_wbcRowType(r)==='open');
+    const _mappedAll=hydratedRows.filter(r=>_wbcRowType(r)==='mapped_jira');
+    const crGrouped=_wbcGroupByCr(_crAll,r=>_wbcCrKey(r)).slice(0,3);
+    const openUniq=_pptUniqueJiraRows(_openAll).slice(0,5);
+    const mappedUniq=_wbcGroupByCr(_mappedAll,r=>_wbcCrKey(r)||_wbcIssueKey(r)).slice(0,5);
+    const jiraUniq=openUniq.length?openUniq:mappedUniq;
+    crRows=crGrouped.map((r,i)=>[
+      String(i+1),
+      _pptVal(r,['CR','CR-ID','CR ID','mapped_cr','cr','cr_id','unique_cr','cr_number']),
+      _pptVal(r,['CR Count','CR Occurrence','Occurrence','Occurrences','Instances','Instance','count'])||'1',
+      _pptVal(r,['CR Title','cr_title','Title','title','Summary','summary']),
+      _pptVal(r,['CR Area','cr_area','Area','area']),
+      _pptVal(r,['CR SubSystem','CR Subsystem','CR SubSystem','cr_subsystem','Subsystem','subsystem','sub']),
+      _pptVal(r,['CR Functionality','CR Function','cr_functionality','Functionality','functionality','func']),
+      _pptVal(r,['CR Status','cr_status','Status','status'])
+    ]);
+    jiraRows=jiraUniq.map((r,i)=>[
+      String(i+1),
+      _pptVal(r,['JIRA','JIRA-Ticket','Jira Ticket','Open JIRA','open_jira','stability_ticket','jira','jira_id','jira_key','ticket','Issue','Issue Key','Final Ticket','final_ticket','CR','CR-ID','CR ID']),
+      _pptVal(r,['Instances','Occurrence','Occur','CR Count','count'])||'1',
+      _pptVal(r,['JIRA Title','Jira Title','jira_title','Title','title','Summary','summary','CR Title','cr_title']),
+      _pptVal(r,['JIRA Status','Jira Status','status','Status','Final Status','final_status'])
+    ]);
+  } else {
+    crRows=_pptRows(previews.open_crs||previews.crs||previews.all_crs,[['CR-ID','CR ID','CR','mapped_cr','cr_id'],['Occurrence','Instances','Instance'],['CR Title','Title','Summary'],['CR Area','Area'],['CR SubSystem','Subsystem'],['CR Functionality','Functionality'],['CR Status','Status']],3,true);
+    jiraRows=_pptRows(previews.open_jiras,[['JIRA-Ticket','JIRA ID','jira','stability_ticket'],['Instances','Occurrence','Instance'],['Jira Title','Title','Summary'],['Status','Jira Status']],5,true);
+  }
+  return {
+    current_cr:_pptCanonicalTable(['S.No.','CR-ID','Occurrence','CR Title','CR Area','CR SubSystem','CR Functionality','CR Status'],crRows),
+    current_jira:_pptCanonicalTable(['S.No.','JIRA-Ticket','Instances','Jira Title','Status'],jiraRows)
+  };
+}
+function _pptBuildDownloadData(metaIds, buildIds){
+  const target=payload.target||{}, project=target.label||target.name||active||'WBC', counts=payload.counts||{}, excel=payload.excel||{}, chartRows=excel.chart_rows||[], overview=payload.overview_summary||{}, previews=payload.previews||{};
+  const buildRows=(chartRows||[]).map((r,i)=>({crm_build_id:r.crm_build_id||r.meta_id||r.build_id||'',date:r.date||'',hours:r.hours||r.build_hours||0,crash:(r.crash!=null&&r.crash!=='')?r.crash:(r.total_crashes||0),mtbf:r.mtbf||0,s_no:i+1}));
+  const builds={columns:[{title:'CRM Build ID',key:'crm_build_id'},{title:'Date',key:'date'},{title:'Hours+',key:'hours'},{title:'crash',key:'crash'},{title:'MTBF',key:'mtbf'}],rows:buildRows};
+  const mtbf_chart={categories:buildRows.map(r=>r.crm_build_id),hours:buildRows.map(r=>r.hours),crashes:buildRows.map(r=>r.crash),mtbf:buildRows.map(r=>r.mtbf)};
+  const openPreview=previews.open_crs||previews.all_crs||{columns:[],rows:[]};
+  const open_cr=_pptObjTable((openPreview.rows||[]).slice(0,2000),openPreview.columns||[]);
+  const items=_pptBuildPreviewItems(metaIds, buildIds);
+  const status_slides=items.slice(0,1).map(item=>{
+    const currentMeta=item.meta_id||item.build_id||project;
+    const tables=_pptStatusTablesForItem(item,previews);
+    const wantedBuilds=(item.build_ids&&item.build_ids.length?item.build_ids:[currentMeta]).map(v=>String(v||'').toLowerCase());
+    const matchRows=buildRows.filter(r=>{
+      const bid=String(r.crm_build_id||'').toLowerCase();
+      return wantedBuilds.some(w=>w&&(bid===w||bid.includes(w)||w.includes(bid)));
+    });
+    return {
+      computed_kpis:{
+        total_jiras:counts.total_jiras||0,
+        overall_open_jiras:item.open_jira_count||counts.open_jiras||0,
+        overall_open_crs:(open_cr.rows||[]).length,
+        total_crs:counts.total_crs||0,
+        pdt_unique_cr:item.cr_count||0,
+        current_meta:currentMeta,
+        current_meta_crashes:item.cr_count||0,
+        open_cr_current:item.cr_count||0,
+        open_jira_current:item.open_jira_count||0,
+        current_pdt_mtbf:counts.latest_mtbf||counts.mtbf||'',
+        current_meta_hours:counts.latest_mtbf_hours||'',
+        current_meta_date:counts.latest_mtbf_date||''
+      },
+      builds:{...builds,rows:matchRows.length?matchRows:buildRows},
+      mtbf_chart,
+      current_cr:tables.current_cr,
+      current_jira:tables.current_jira
+    };
+  });
+  return {
+    project,
+    refreshed_at:(excel.updated_at||excel.refreshed_at||new Date().toISOString()),
+    summary:{summary_text:overview.overview||overview.summary_title||'',status_text:overview.pdt_status||overview.next_steps||''},
+    computed_kpis:{
+      total_jiras:counts.total_jiras||0,
+      overall_open_jiras:counts.open_jiras||0,
+      overall_open_crs:(open_cr.rows||[]).length,
+      total_crs:counts.total_crs||0,
+      pdt_unique_cr:(open_cr.rows||[]).length,
+      current_meta:(items[0]&&(items[0].meta_id||items[0].build_id))||project,
+      current_pdt_mtbf:counts.latest_mtbf||counts.mtbf||'',
+      current_meta_hours:counts.latest_mtbf_hours||'',
+      current_meta_crashes:counts.latest_mtbf_crashes||counts.crashes||'',
+      current_meta_date:counts.latest_mtbf_date||''
+    },
+    builds,
+    mtbf_chart,
+    current_cr:(status_slides[0]&&status_slides[0].current_cr)||{columns:[],rows:[]},
+    current_jira:(status_slides[0]&&status_slides[0].current_jira)||{columns:[],rows:[]},
+    open_cr,
+    status_slides
+  };
 }
 async function downloadSelectedPpt(){
   const ids=selectedPptMetaIds();
   const buildIds=selectedPptBuildIds();
   if(((_wbcSjqlTabs||[]).length||(((payload&&payload.build_summary&&payload.build_summary.builds)||[]).length)) && !ids.length && !buildIds.length){alert('Select at least one meta/build for PPT.');return;}
+  const pptData=_pptBuildDownloadData(ids, buildIds);
   closePptMetaModal();
-  return downloadPpt(ids, buildIds);
+  return downloadPpt(ids, buildIds, pptData);
 }
-async function downloadPpt(metaIds, buildIds){
+async function downloadPpt(metaIds, buildIds, pptData){
   if(!active){alert('Please select a target first.');return;}
   const btn=document.getElementById('pptBtn');
   const resetBtn=()=>{if(btn){btn.innerHTML='<i class="fas fa-file-powerpoint" style="color:#c0392b"></i> PPT';btn.disabled=false;}};
@@ -2734,7 +2987,8 @@ async function downloadPpt(metaIds, buildIds){
     if(bids.length) params.set('build_ids', bids.join(','));
     const qs=params.toString()?('?'+params.toString()):'';
     const url=`${API}/target/${encodeURIComponent(active)}/export_ppt${qs}`;
-    const r=await fetch(url,{cache:'no-store'});
+    const bodyData=pptData||_pptBuildDownloadData(ids,bids);
+    const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ppt_data:bodyData,wbc_slide_flow:'merged_single_meta'}),cache:'no-store'});
     if(!r.ok){
       const ct=r.headers.get('content-type')||'';
       let msg='PPT generation failed ('+r.status+')';

@@ -2,6 +2,63 @@
 
 ## Current Work Focus
 
+### WBC Live View PPT Current-Meta + Open/Analysis CR Download Fix — Complete (2026-09-06)
+
+**User request addressed:** WBC Live View PPT preview/download should match the required UI slide set: slide 1 is the current-meta status page with current meta + consolidated CR/JIRA details + visible MTBF trend, and slide 2 onward contains Overall Open/Analysis CR details from the configured Unique CR DB table, paginated 18 CRs per slide (for example 22 open CRs => 2 Open/Analysis CR slides).
+
+**Changes made:**
+- `wbc_legacy_ppt_adapter.py`
+  - Keeps the old `C:\Dropbox\WBC_Scrum_DB\WBC_Report.py`-style WBC layout but defaults to no cover and no ThankQ when called by WBC Live View.
+  - Slide 1 is now the current-meta status slide and includes:
+    - `Current Meta`
+    - PDT status/date/timeline block
+    - KPI row
+    - Key Updates
+    - MTBF Chart
+    - MTBF summary table
+    - Weekly Stability Stats
+    - CR Details
+    - Jira Details
+    - Device Ramp Up Plan
+  - Open/Analysis CR slides use 18 rows per slide and the requested screenshot columns, including Priority aliases from DB-backed Unique CR / overall CR data:
+    - `S.No`
+    - `CR`
+    - `Jira Date -last instance`
+    - `CR Occurrence`
+    - `CR Title`
+    - `CR Area`
+    - `CR SubSystem`
+    - `CR Functionality`
+    - `CR Date`
+    - `CR Status`
+    - `CR Age`
+    - `Priority`
+  - Fixed `_rect()` so fractional PowerPoint line widths are converted to `Pt(...)`; this prevents `python-pptx` `TypeError: value must be an integral type` during generation.
+- `wbc_live_view_stats_routes.py`
+  - `_wbc_build_ppt()` now always routes through `legacy_wbc_ppt.build_ppt(..., include_cover=False, include_thankq=False)` so downloaded decks start with the current-meta status slide and match the WBC Live View contract.
+  - Selected current-meta/saved-JQL rows are reshaped into `status_slides` before rendering, so selected metas produce corresponding slide-1-style status pages.
+  - Open/Analysis CR data is populated directly from the configured `unique_crs_table` / `overall_crs_table` through the same DB-backed `payload.previews.open_crs` path used by the UI.
+- `templates/wbc_live_view_stats.html`
+  - PPT preview modal now mirrors the backend slide set:
+    - No cover slide.
+    - No ThankQ slide.
+    - Selected current-meta slide(s) first.
+    - Overall Open/Analysis CR table slides afterward.
+  - Current-meta status preview now shows up to the top 5 JIRA rows.
+  - Preview table pagination changed to 18 Open/Analysis CR rows per slide and uses the same 12 columns as the download, including Priority / CR Priority / pdt priority / severity aliases.
+
+**Validation:**
+- `py -3 -c "import py_compile; py_compile.compile('wbc_live_view_stats_routes.py', doraise=True); py_compile.compile('wbc_legacy_ppt_adapter.py', doraise=True); print('PY_COMPILE_OK')"` returned `PY_COMPILE_OK`.
+- `py -3 -c "from pathlib import Path; from jinja2 import Environment; Environment().parse(Path('templates/wbc_live_view_stats.html').read_text(encoding='utf-8')); print('WBC_TEMPLATE_JINJA_OK')"` returned `WBC_TEMPLATE_JINJA_OK`.
+- Direct sample PPT generation with 22 Open/Analysis CR rows succeeded:
+  - `slides=3`
+  - `slide1_has_current=True`
+  - `mtbf=True`
+  - `open_pages=2`
+  - `cover=False`
+  - `thankq_any=False`
+- This confirms the 22-row case now generates 1 current-meta status slide + 2 Open/Analysis CR slides at 18 rows per slide, with no extra cover/ThankQ slides.
+
 ### Build Report API Orbit Region/Session Handling — Complete (2026-09-06)
 
 **User request addressed:** Clarified and hardened `/api/build_report/run` when another/background tool sends software images as a parameter. The endpoint now preserves the existing flow where passed Build Info/software-image values are used only for Orbit CR Software Image Release matching, and it can also choose the correct Orbit regional endpoint when the API call has no browser login session.
@@ -58,6 +115,10 @@
   - External tools using `curl -F "build_info_file=@BuildInfo.txt"` can verify the uploaded path/content was received through `input_details.build_info_files`, `build_info_images`, `build_info_image_count`, and final `software_images`.
   - External tools passing comma-separated `software_images` can verify via `input_details.raw_software_images_count` and final `software_images`.
   - External tools passing raw `software_images_txt` can verify via `input_details.build_info_text_supplied`, `build_info_images`, and final `software_images`.
+- Resolved noisy Orbit warnings such as `CRNONE fetch error: 400 Bad Request` and `orbit-ch.qualcomm.com ... NameResolutionError`.
+  - Root cause: Build Report CR enrichment could normalize placeholder CR values (`None`, `NONE`, `NO_CR`, `N/A`, `0`, etc.) by stripping/adding the `CR` prefix, producing invalid keys like `CRNONE`; the enrichment path then attempted direct Orbit fetches for that invalid CR and also tried fallback regions including CH.
+  - Fix: `scripts/fetch_consolidated_report.py` now has `_normalize_cr_num()` / `_normalize_cr_key()` helpers, filters invalid placeholder CRs before DB/Orbit lookup, guards direct Orbit fetch against invalid CR values, and normalizes DB canonical/alias/parent CR handling so placeholders are not converted to CR IDs.
+  - Validation confirmed invalid placeholder CRs produce no Orbit client calls, while valid values such as `CR1234567` / `1234567` normalize and are still fetched normally.
 
 **Validation:**
 - `py -3 -m py_compile orbit_client.py jiraquery_api_routes.py scripts/fetch_consolidated_report.py` executed successfully.
@@ -845,3 +906,30 @@
   - Returns per-week, per-entity `jira_count` and `cr_count`, plus target-level breakdown.
 - `templates/target_compare_studio.html`
   - Added **Generate
+
+## 2026-09-06 17:42 - WBC PPT report generation fix
+- WBC Live View PPT download now posts the same browser-assembled preview payload used by the PPT preview modal, so downloaded slides match UI-selected metas and open CR table slides.
+- Server-side WBC PPT fallback no longer seeds from stale legacy workbook tables; it uses DB-backed WBC target payload while retaining the legacy WBC slide layout.
+- Open/Analysis CR details remain paginated at 18 rows per slide via the legacy PPT adapter.
+
+
+## 2026-09-06 22:00 - WBC PPT merged selected-meta flow
+- WBC Live View PPT selector/preview now treats multiple selected current/already-ran metas as one merged WBC current-meta deck.
+- Preview order is: Welcome slide showing WBC current meta ID and date, one Current Meta status slide, one Open/Analysis CR table slide, and Thank You slide.
+- Download POST uses the same UI preview payload; server-side guardrails also clamp status_slides to one slide for merged selections.
+
+
+## 2026-09-06 22:04 - WBC PPT selection and CR detail hydration follow-up
+- PPT modal no longer auto-selects a current report/meta; default preview shows no slides until the user explicitly selects meta/build rows and regenerates.
+- Selected left/right current/already-ran meta checkboxes are the only source for PPT generation.
+- Current-meta slide CR Details now hydrates selected-meta CR rows from Open/Analysis/All CR preview tables so title, area, subsystem, functionality, status, age, and related CR fields are retained instead of showing only CR numbers.
+
+## 2026-09-07 - Weekly Smart Build selected-week Axiom completion filter
+- Fixed `/weekly-report/smart-build-report?week_start=2026-08-31&week_end=2026-09-06` showing prior-week completed Axiom builds such as rows completed on `2026-08-25`.
+- Root cause: `_sp2_axiom_window_for_report_week()` shifted the Axiom execution window back by 7 days, so selecting Aug 31-Sep 6 queried/seeded Aug 24-Aug 30 builds. Completed rows were also accepted when they overlapped the shifted execution window instead of being assigned by their completion date.
+- `weekly_summary_routes.py` now keeps the Axiom window equal to the selected Smart Build week. `_sp2_axiom_row_belongs_to_execution_week()` includes Axiom jobs that overlap the selected week and still excludes jobs fully outside it, preventing prior-week-only completions such as `2026-08-25` from appearing.
+- Hours are calculated from `pdt_stats_dashboard.axiom_job_summary` via `_sp2_week_bounded_device_hours_sql()`: `GREATEST(device_count, JSON_LENGTH(chip_ids)) * clipped_duration_hours`, where duration is clipped to selected Monday 00:00:00 through Sunday 23:59:59. Cross-week jobs now contribute only their in-week hours, e.g. Aug 25-Sep 3 contributes Aug 31-Sep 3 hours, and Sep 1-Sep 7 contributes Sep 1-Sep 6 23:59:59 hours.
+- Applied the selected-week guard consistently across Smart Build landing summary, static snapshot display, static consolidate rebuild, live Builds fallback, and Active Devices fallback/source rows. Static rows from old bad snapshots are filtered out until admin force refresh/re-import clears them.
+- Total unique devices in `/api/sp2/builds` now comes from filtered build rows, not stale consolidate rows that may have been generated before this fix.
+- CHIPMD tickets are excluded from Smart Build crash/JIRA counts. Existing ticket parsing already drops `CHIPMD*` tokens; follow-up SQL filters now also exclude rows whose `stability_ticket` starts with `CHIPMD` from `_sp2_weekly_crash_map()` and `/api/sp2/stability_health` total Jira counts.
+- Validation: `uv run python -m py_compile weekly_summary_routes.py` passed, and helper checks confirmed prior-week-only rows are excluded while selected-week overlapping rows are included for Aug 31-Sep 6.

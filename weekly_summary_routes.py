@@ -851,16 +851,28 @@ def _upsert_rows(rows: list):
             for r in rows if r.get('week_start') and r.get('week_end')
         )
 
-        # Step 1: delete only the report-week rows being refreshed.
-        # Do not delete by stability_ticket: the same ticket can legitimately
-        # appear in another week and can appear multiple times in the same CSV.
+        # Step 1: delete the report-week rows being refreshed.
+        #
+        # Smart Build reads/report-counts weekly_qipl_data by fetched_date because
+        # the QIPL CR_TAT CSV is a reporting-week snapshot.  Older imports could
+        # leave rows with fetched_date in the selected report week but
+        # week_start/week_end derived from each Jira-created date.  Deleting only
+        # by week_start/week_end leaves those stale rows behind and inflates the
+        # top-level "Total Crashes" KPI (for example Aug 31-Sep 06 can show
+        # ~37k even when the CSV has ~28k after CHIPMD removal).
+        #
+        # Delete by both the canonical stamped report-week bucket and the
+        # fetched_date reporting window so a re-import fully replaces that week's
+        # CSV snapshot while still preserving occurrence-level duplicate tickets
+        # inside the latest CSV.
         # Step 2: insert all latest occurrence-level rows fresh from CSV.
         deleted = 0
         for ws_del, we_del in weeks:
             cur.execute(
                 f"DELETE FROM `{_QIPL_DB}`.`{_QIPL_TABLE}`"
-                " WHERE week_start=%s AND week_end=%s",
-                (ws_del, we_del)
+                " WHERE (week_start=%s AND week_end=%s)"
+                "    OR (fetched_date >= %s AND fetched_date <= %s)",
+                (ws_del, we_del, ws_del, we_del)
             )
             deleted += cur.rowcount
 
@@ -3081,6 +3093,39 @@ def _sp2_pl_group(value: str) -> str:
     return _sp2_re.sub(r'\.r\d+$', '', str(value or '').strip(), flags=_sp2_re.IGNORECASE)
 
 
+def _sp2_non_chipmd_sql_predicate() -> str:
+    """SQL predicate excluding rows whose primary Jira/ticket text is CHIPMD-only.
+
+    QIPL CSVs are not consistent about where the Jira key lands.  Some files use
+    stability_ticket, some only have the Jira key in row_data JSON, and some
+    multi-ticket cells can contain CHIPMD alongside other values.  Exclude only
+    rows where all discovered Jira/ticket tokens are CHIPMD tokens; keep rows
+    that also contain a real CR/QSTABILITY/CNSSDEBUG ticket.
+    """
+    candidate_expr = """
+        UPPER(TRIM(COALESCE(
+            NULLIF(stability_ticket, ''),
+            NULLIF(JSON_UNQUOTE(JSON_EXTRACT(row_data,'$.Stability Ticket')), ''),
+            NULLIF(JSON_UNQUOTE(JSON_EXTRACT(row_data,'$.StabilityTicket')), ''),
+            NULLIF(JSON_UNQUOTE(JSON_EXTRACT(row_data,'$.stability_ticket')), ''),
+            NULLIF(JSON_UNQUOTE(JSON_EXTRACT(row_data,'$.Jira')), ''),
+            NULLIF(JSON_UNQUOTE(JSON_EXTRACT(row_data,'$.JIRA')), ''),
+            NULLIF(JSON_UNQUOTE(JSON_EXTRACT(row_data,'$.JIRA ID')), ''),
+            NULLIF(JSON_UNQUOTE(JSON_EXTRACT(row_data,'$.Jira ID')), ''),
+            NULLIF(JSON_UNQUOTE(JSON_EXTRACT(row_data,'$.Jira Key')), ''),
+            NULLIF(JSON_UNQUOTE(JSON_EXTRACT(row_data,'$.Issue key')), ''),
+            NULLIF(JSON_UNQUOTE(JSON_EXTRACT(row_data,'$.Issue Key')), ''),
+            NULLIF(JSON_UNQUOTE(JSON_EXTRACT(row_data,'$.Key')), '')
+        )))
+    """
+    # Convert separators to commas, remove CHIPMD-* tokens, then see whether any
+    # other Jira-like token remains.  This catches values like "CHIPMD-1; CHIPMD-2"
+    # and avoids counting them simply because the full string does not start with
+    # CHIPMD after trimming.
+    no_chipmd_expr = f"TRIM(BOTH ',' FROM REGEXP_REPLACE(REPLACE(REPLACE({candidate_expr}, ';', ','), ' ', ','), '(^|,)CHIPMD-[0-9A-Z_-]+(?=,|$)', ''))"
+    return f"({candidate_expr} IS NULL OR {candidate_expr} = '' OR {candidate_expr} NOT LIKE 'CHIPMD%%' OR {no_chipmd_expr} <> '')"
+
+
 def _sp2_weekly_crash_map(week_start, week_end) -> dict:
     """Return crash counts keyed by (meta_build_upper, pl_id_upper).
 
@@ -3090,12 +3135,12 @@ def _sp2_weekly_crash_map(week_start, week_end) -> dict:
         week, not the JIRA-created week_start/week_end bucket. Using
         week_start/week_end under-counts because those columns are derived from
         Jira Date and only include JIRAs created in the selected week.
-      - Count every CSV JIRA row, including repeated stability tickets,
-        sanitizer/sanitized diagnostics, and repeated mapped CRs. The source is
-        an occurrence-level report and Smart Build needs the full reported-JIRA
-        volume for the selected reporting week.
+      - Count every non-CR CSV Jira row, including repeated stability tickets
+        and closed/unmapped Jira rows.  CR-mapped rows are not counted as Smart
+        Build crashes because they are already represented in the CR sections.
+      - CHIPMD tickets are excluded from crash/JIRA counts.
       - Crash/JIRA count = COUNT(*) per meta_build + pl_id where fetched_date is
-        within selected week_start..week_end.
+        within selected week_start..week_end and jira_category is not CR Mapped.
       - Key: (meta_build.strip().upper(), pl_id.strip().upper())
     """
     ws = _safe_date(week_start)
@@ -3112,6 +3157,8 @@ def _sp2_weekly_crash_map(week_start, week_end) -> dict:
                    COUNT(*) AS crash_count
             FROM `{_QIPL_DB}`.`{_QIPL_TABLE}`
             WHERE fetched_date >= %s AND fetched_date <= %s
+              AND LOWER(TRIM(COALESCE(jira_category,''))) <> 'cr mapped'
+              AND {_sp2_non_chipmd_sql_predicate()}
             GROUP BY {_sp_build_match_sql_expr()}, pl_id
         """, (ws.isoformat(), we.isoformat()))
         result = {}
@@ -3126,6 +3173,40 @@ def _sp2_weekly_crash_map(week_start, week_end) -> dict:
         return result
     except Exception:
         return {}
+    finally:
+        try:
+            cur.close(); conn.close()
+        except Exception:
+            pass
+
+
+def _sp2_weekly_total_crashes_count(week_start, week_end) -> int:
+    """Authoritative Smart Build top-level crash/Jira total for one report week.
+
+    This count intentionally comes from the full weekly CSV import, not from
+    build-row matches. Some valid non-CR Jira rows may not map to an Axiom
+    build/PL row, so summing per-build crashes can under-count the top KPI.
+    """
+    ws = _safe_date(week_start)
+    we = _safe_date(week_end)
+    if not ws or not we:
+        return 0
+    conn = get_mysql_connection_db(bu_key=None)
+    if not conn:
+        return 0
+    cur = conn.cursor(dictionary=True)
+    try:
+        cur.execute(f"""
+            SELECT COUNT(*) AS total_count
+            FROM `{_QIPL_DB}`.`{_QIPL_TABLE}`
+            WHERE fetched_date >= %s AND fetched_date <= %s
+              AND LOWER(TRIM(COALESCE(jira_category,''))) <> 'cr mapped'
+              AND {_sp2_non_chipmd_sql_predicate()}
+        """, (ws.isoformat(), we.isoformat()))
+        row = cur.fetchone() or {}
+        return int(row.get('total_count') or 0)
+    except Exception:
+        return 0
     finally:
         try:
             cur.close(); conn.close()
@@ -3161,18 +3242,21 @@ def _sp2_parse_chip_ids(chips_raw, device_count=0, fallback_key: str = '') -> li
 
 
 def _sp2_axiom_window_for_report_week(week_start, week_end):
-    """Return the Axiom execution week that feeds a Smart Build report week.
+    """Return the Axiom date window for a Smart Build report week.
 
-    QIPL CR_TAT CSV rows are selected by fetched/report week. Those reports are
-    generated after the execution week completes, so the CSV fetched during
-    week N mostly contains crashes from Axiom jobs that ran in week N-1.
-    Example: fetched week Aug 17-23 maps to Axiom execution Aug 10-16.
+    The Smart Build page must mirror the selected UI week directly.  A previous
+    implementation shifted the Axiom window back by seven days because some QIPL
+    CSV files are published after the execution week.  That caused stale builds
+    completed in the previous week (for example 2026-08-25) to appear when the
+    user selected the next week (2026-08-31..2026-09-06).  Keep Axiom rows bound
+    to the requested Monday-Sunday range and let CSV fetched_date continue to be
+    used only for crash/JIRA counting.
     """
     ws = _safe_date(week_start)
     we = _safe_date(week_end)
     if not ws or not we:
         return week_start, week_end
-    return ws - timedelta(days=7), we - timedelta(days=7)
+    return ws, we
 
 
 def _sp2_week_bounded_device_hours_sql(week_start, week_end) -> str:
@@ -3226,12 +3310,13 @@ def _sp2_week_bounded_device_hours_sql(week_start, week_end) -> str:
 
 
 def _sp2_axiom_row_belongs_to_execution_week(row: dict, report_week_start=None, report_week_end=None) -> bool:
-    """Return True when an Axiom row should be considered for the mapped execution week.
+    """Return True when an Axiom row overlaps the selected week.
 
-    The Smart Build report week maps to the prior Axiom execution week. Rows
-    stuck in Axiom as Running/JobSetup with no ended_at must not be treated as
-    spanning every later week forever. For historical weeks, include no-ended
-    rows only when they started/submitted inside the mapped execution week.
+    Hours are calculated separately with start/end clipped to the selected
+    Monday-Sunday window. Therefore cross-week jobs must be included when they
+    overlap the week; otherwise in-week device-hours become too low. Jobs that
+    fully ended before the week, such as an 08/25 completion for an
+    08/31-09/06 report, are still excluded.
     """
     ax_ws, ax_we = _sp2_axiom_window_for_report_week(report_week_start, report_week_end)
     ax_ws = _safe_date(ax_ws)
@@ -3243,7 +3328,12 @@ def _sp2_axiom_row_belongs_to_execution_week(row: dict, report_week_start=None, 
     ended = _safe_date((row or {}).get('ended_at')) or _safe_date((row or {}).get('completed_at'))
 
     if ended:
-        return bool(started and started <= ax_we and ended >= ax_ws)
+        # Include jobs that overlap the selected week.  Hours are calculated
+        # separately with start/end clipped to the week window, so a job that
+        # started before the week and finished during/after it still contributes
+        # only the in-week device-hours.  Using the direct selected-week window
+        # still excludes prior-week-only completions such as 2026-08-25.
+        return bool((not started or started <= ax_we) and ended >= ax_ws)
 
     state_l = str((row or {}).get('state') or '').strip().lower()
     if state_l in ('running', 'jobsetup'):
@@ -3354,7 +3444,11 @@ def _cap_sp2_static_snapshot_hours(ws, we) -> int:
             SELECT target, pl_id, build_name, device_count, chip_ids, hours
             FROM `{_QIPL_DB}`.`{_SP2_BUILD_TYPE_OVERRIDES_TABLE}`
             WHERE week_start=%s AND week_end=%s AND hours IS NOT NULL
-        """, (ws.isoformat(), we.isoformat()))
+              AND (
+                    completed_at IS NULL
+                 OR DATE(completed_at) >= %s
+              )
+        """, (ws.isoformat(), we.isoformat(), ws.isoformat()))
         groups = {}
         for r in cur.fetchall() or []:
             target = str(r.get('target') or '').strip()
@@ -5638,11 +5732,12 @@ def _sp2_landing_summary(week_start, week_end):
             all_chips.update(str(c).strip() for c in chip_ids if str(c).strip())
             total_hours += float(r.get('hours') or 0)
             total_crashes += int(r.get('total_crashes') or 0)
+        weekly_total_crashes = _sp2_weekly_total_crashes_count(week_start, week_end)
         return {
             'sp2_build_count': len(active_static_rows),
             'sp2_device_count': len(all_chips),
             'sp2_total_hours': round(total_hours, 1),
-            'sp2_crash_count': total_crashes,
+            'sp2_crash_count': weekly_total_crashes if weekly_total_crashes > 0 else total_crashes,
         }
 
     # 1. Axiom jobs for the week
@@ -5656,8 +5751,9 @@ def _sp2_landing_summary(week_start, week_end):
                 live_h = _sp2_week_bounded_device_hours_sql(ax_ws, ax_we)
                 cur.execute(f"""
                     SELECT job_id, build_id, build_name, software_product,
-                           chip_ids, state, device_count, submitter,
-                           ({live_h}) AS hours_live
+                           taxonomy_path, city_team, chip_ids, state,
+                           device_count, submitter, submitted_at, started_at,
+                           ended_at, updated_at, ({live_h}) AS hours_live
                     FROM `pdt_stats_dashboard`.`axiom_job_summary`
                     WHERE taxonomy_path LIKE '/PDT%'
                       AND taxonomy_path NOT LIKE '/PDT/QIPL/HW%'
@@ -5688,6 +5784,8 @@ def _sp2_landing_summary(week_start, week_end):
 
     grouped = {}
     for r in db_rows:
+        if not _sp2_axiom_row_belongs_to_execution_week(r, week_start, week_end):
+            continue
         chips_raw = r.get('chip_ids') or '[]'
         if isinstance(chips_raw, str):
             try:
@@ -5723,11 +5821,12 @@ def _sp2_landing_summary(week_start, week_end):
         total_hours   += g['hours']
         total_crashes += g['crashes']
 
+    weekly_total_crashes = _sp2_weekly_total_crashes_count(week_start, week_end)
     return {
         'sp2_build_count':  len(grouped),
         'sp2_device_count': len(all_chips),
         'sp2_total_hours':  round(total_hours, 1),
-        'sp2_crash_count':  total_crashes,
+        'sp2_crash_count':  weekly_total_crashes if weekly_total_crashes > 0 else total_crashes,
     }
 
 @weekly_summary_bp.route('/weekly-report')
@@ -8463,7 +8562,7 @@ def _seed_sp2_build_type_overrides_from_axiom(ws, we, username: str = '') -> int
         cur.execute(f"""
                         SELECT job_id, build_id, build_name, software_product,
                    taxonomy_path, team, city_team, state, device_count, chip_ids,
-                   submitted_at, ended_at, updated_at,
+                   submitted_at, started_at, ended_at, updated_at,
                    submitter, ({live_h}) AS hours_live
             FROM `pdt_stats_dashboard`.`axiom_job_summary`
             WHERE taxonomy_path LIKE '/PDT%'
@@ -8958,8 +9057,9 @@ def _build_and_save_sp2_consolidate(ws, we, username: str):
                 live_h = _sp2_week_bounded_device_hours_sql(ax_ws, ax_we)
                 cur.execute(f"""
                                         SELECT job_id, build_id, build_name, software_product,
-                           taxonomy_path, team, city_team, state, device_count, chip_ids, submitter,
-                           ({live_h}) AS hours_live
+                           taxonomy_path, team, city_team, state, device_count, chip_ids,
+                           submitted_at, started_at, ended_at, updated_at,
+                           submitter, ({live_h}) AS hours_live
                     FROM `pdt_stats_dashboard`.`axiom_job_summary`
                                                             WHERE taxonomy_path LIKE '/PDT%'
                       AND taxonomy_path NOT LIKE '/PDT/QIPL/HW%'
@@ -9084,6 +9184,8 @@ def _build_and_save_sp2_consolidate(ws, we, username: str):
     group_order = []
 
     for r in db_rows:
+        if not _sp2_axiom_row_belongs_to_execution_week(r, ws, we):
+            continue
         chips_raw = r.get('chip_ids') or '[]'
         if isinstance(chips_raw, str):
             try:
@@ -10346,8 +10448,12 @@ def api_sp2_builds():
                 _tcc.close(); _tc.close()
         except Exception:
             pass
-        _total_devices = len(_true_chips) if _true_chips else len(all_chips)
+        # Use only devices from rows that survived the selected-week filter.
+        # Existing consolidate rows may have been created before the date-window
+        # fix and can still contain stale prior-week builds until a refresh.
+        _total_devices = len(all_chips)
         return jsonify(success=True, builds=out, total_devices=_total_devices,
+                       total_crashes_csv=_sp2_weekly_total_crashes_count(ws, we),
                        bu_list=sorted(bu_opts),
                        week_start=ws.isoformat(), week_end=we.isoformat(), static=True)
 
@@ -10622,8 +10728,12 @@ def api_sp2_builds():
             _tcc2.close(); _tc2.close()
     except Exception:
         pass
-    _total_devices2 = len(_true_chips2) if _true_chips2 else len(all_chips)
+    # Use only devices from rows that survived the selected-week filter.
+    # Existing consolidate rows may have been created before the date-window fix
+    # and can still contain stale prior-week builds until a refresh.
+    _total_devices2 = len(all_chips)
     return jsonify(success=True, builds=out, total_devices=_total_devices2,
+                   total_crashes_csv=_sp2_weekly_total_crashes_count(ws, we),
                    bu_list=bu_list,
                    week_start=ws.isoformat(), week_end=we.isoformat())
 
@@ -10721,6 +10831,11 @@ def api_sp2_active_devices():
                 'bu': row.get('bu'),
                 'taxonomy_path': '/PDT/QIPL',
                 'city_team': 'QIPL',
+                'state': row.get('state'),
+                'submitted_at': row.get('submitted_at'),
+                'started_at': row.get('submitted_at'),
+                'ended_at': row.get('completed_at'),
+                'completed_at': row.get('completed_at'),
                 'device_count': row.get('device_count'),
                 'chip_ids': row.get('chip_ids'),
                 'hours_live': row.get('hours'),
@@ -10735,6 +10850,7 @@ def api_sp2_active_devices():
             live_h = _sp2_week_bounded_device_hours_sql(ax_ws, ax_we)
             cur.execute(f"""
                 SELECT software_product, taxonomy_path, city_team,
+                       state, submitted_at, started_at, ended_at, updated_at,
                        device_count, chip_ids, ({live_h}) AS hours_live
                 FROM `pdt_stats_dashboard`.`axiom_job_summary`
                 WHERE taxonomy_path LIKE '/PDT%'
@@ -10816,6 +10932,8 @@ def api_sp2_active_devices():
     bu_tgt_hours = _dd(lambda: _dd(float))
 
     for row in db_rows:
+        if not _sp2_axiom_row_belongs_to_execution_week(row, ws, we):
+            continue
         pl_id = _sp2_pl_group(str(row.get('software_product') or '').strip())
         target = (str(row.get('target') or '').strip()
                   or _swpdt_target_from_product(pl_id)
@@ -10986,13 +11104,7 @@ def api_sp2_stability_health():
                 # by fetched_date/reporting week. week_start/week_end are derived
                 # from Jira-created date and under-count/shift rows when a Monday
                 # CSV reports the previous completed week.
-                cur.execute(
-                    f"""SELECT COUNT(*) AS total_count
-                      FROM `{_QIPL_DB}`.`{_QIPL_TABLE}`
-                      WHERE fetched_date >= %s AND fetched_date <= %s""",
-                    (week_start.isoformat(), week_end.isoformat()))
-                total_jira_row = cur.fetchone() or {}
-                weekly_total_jiras_count = int(total_jira_row.get('total_count') or 0)
+                weekly_total_jiras_count = _sp2_weekly_total_crashes_count(week_start, week_end)
 
                 # Distinct CR Mapped tickets for the Unique CRs bar.
                 cur.execute(

@@ -53,20 +53,31 @@ def find_col_key(table: Dict[str, Any], aliases: List[str]) -> str:
     alias_tokens = [canon_text(a) for a in aliases if canon_text(a)]
     cols = table.get("columns", []) or []
 
+    def _column_title_key(col: Any) -> tuple[str, str, str]:
+        if isinstance(col, dict):
+            raw_key = safe_text(col.get("key"))
+            raw_title = safe_text(col.get("title"), raw_key)
+        else:
+            raw_key = safe_text(col)
+            raw_title = raw_key
+        return raw_title, raw_key, raw_key
+
     # 1) Exact title/key match.
     for col in cols:
-        title = canon_text(col.get("title"))
-        key = canon_text(col.get("key"))
+        raw_title, raw_key, return_key = _column_title_key(col)
+        title = canon_text(raw_title)
+        key = canon_text(raw_key)
         if title in alias_tokens or key in alias_tokens:
-            return col.get("key") or ""
+            return return_key or ""
 
     # 2) Conservative partial match for descriptive aliases only.
     for col in cols:
-        title = canon_text(col.get("title"))
-        key = canon_text(col.get("key"))
+        raw_title, raw_key, return_key = _column_title_key(col)
+        title = canon_text(raw_title)
+        key = canon_text(raw_key)
         for alias in alias_tokens:
             if len(alias) >= 4 and (alias in title or title in alias or alias in key or key in alias):
-                return col.get("key") or ""
+                return return_key or ""
     return ""
 
 
@@ -311,7 +322,7 @@ def current_jira_rows(data: Dict[str, Any], limit: int = 2) -> List[List[str]]:
     )
 
 
-def open_cr_columns_and_rows(data: Dict[str, Any], limit: int = 17):
+def open_cr_columns_and_rows(data: Dict[str, Any], limit: int = 18):
     table = data.get("open_cr") or {}
     preferred = [
         ["S.No", "S No"],
@@ -325,7 +336,7 @@ def open_cr_columns_and_rows(data: Dict[str, Any], limit: int = 17):
         ["CR Date", "Date"],
         ["CR Status", "Status"],
         ["CR Age", "Age"],
-        ["Priority"],
+        ["Priority", "CR Priority", "priority", "cr_priority", "pdt_priority", "PdtPriority", "PDTPriority", "cr_pdt_priority", "Severity", "severity"],
     ]
     keys = []
     titles = []
@@ -383,7 +394,7 @@ def _rect(slide, left, top, width, height, fill_color, line_color=None, line_wid
     if line_color:
         shape.line.color.rgb = line_color
         if line_width is not None:
-            shape.line.width = line_width
+            shape.line.width = line_width if isinstance(line_width, int) else Pt(float(line_width))
     else:
         shape.line.fill.background()
     return shape
@@ -628,57 +639,170 @@ def _ppt_weekly_rows(data):
     ]
 
 
-def _ppt_current_cr_rows(data, max_rows=5):
+def _ppt_add_mini_mtbf_chart(slide, data, x=0.30, y=3.52, w=5.90, h=1.48):
+    """Draw the MTBF trend directly on slide 1 so the downloaded deck starts with current-meta status."""
+    mc = data.get("mtbf_chart", {}) or {}
+    categories = list(mc.get("categories", []) or [])
+    hours = [to_num(v, 0) for v in (mc.get("hours", []) or [])]
+    crashes = [to_num(v, 0) for v in (mc.get("crashes", []) or [])]
+    mtbf = [to_num(v, 0) for v in (mc.get("mtbf", []) or [])]
+
+    if not categories:
+        _rect(slide, _ppt_in(x), _ppt_in(y), _ppt_in(w), _ppt_in(h), RGBColor(0xf8, 0xfb, 0xff), RGBColor(0xe8, 0xee, 0xf6), 0.35)
+        _ppt_add_text(slide, x, y + 0.55, w, 0.20, "No MTBF trend data available", size=6.0,
+                      color=RGBColor(0x61, 0x6f, 0x82), align=PP_ALIGN.CENTER)
+        return
+
+    max_points = 8
+    if len(categories) > max_points:
+        categories = categories[-max_points:]
+        hours = hours[-max_points:]
+        crashes = crashes[-max_points:]
+        mtbf = mtbf[-max_points:]
+
+    _rect(slide, _ppt_in(x), _ppt_in(y), _ppt_in(w), _ppt_in(h), _PPT_WHITE, RGBColor(0xe8, 0xee, 0xf6), 0.35)
+    _ppt_add_text(slide, x + 0.02, y + 0.04, w - 0.04, 0.14, "MTBF by Build", size=5.3,
+                  bold=True, color=_PPT_BLACK, align=PP_ALIGN.CENTER)
+
+    plot_left = x + 0.35
+    plot_top = y + 0.24
+    plot_w = w - 0.65
+    plot_h = h - 0.54
+    plot_bottom = plot_top + plot_h
+    n = max(1, len(categories))
+    h_max = _ppt_nice_axis_max(hours + crashes, default=10.0)
+    m_max = _ppt_nice_axis_max(mtbf, default=1.0)
+
+    grid_color = RGBColor(0xee, 0xf1, 0xf5)
+    axis_color = RGBColor(0xd6, 0xde, 0xea)
+    for i in range(4):
+        yy = plot_bottom - (plot_h * i / 3.0)
+        _ppt_add_line(slide, plot_left, yy, plot_left + plot_w, yy, width=0.22, color=grid_color)
+        _ppt_add_text(slide, x + 0.02, yy - 0.04, 0.26, 0.10, _ppt_axis_label(h_max * i / 3.0),
+                      size=3.8, color=RGBColor(0x61, 0x6f, 0x82), align=PP_ALIGN.RIGHT)
+        _ppt_add_text(slide, plot_left + plot_w + 0.03, yy - 0.04, 0.24, 0.10, _ppt_axis_label(m_max * i / 3.0),
+                      size=3.8, color=RGBColor(0xb8, 0x86, 0x0b), align=PP_ALIGN.LEFT)
+    _ppt_add_line(slide, plot_left, plot_top, plot_left, plot_bottom, width=0.25, color=axis_color)
+    _ppt_add_line(slide, plot_left, plot_bottom, plot_left + plot_w, plot_bottom, width=0.25, color=axis_color)
+
+    blue = RGBColor(0x3b, 0x5b, 0xdb)
+    red = RGBColor(0xd9, 0x30, 0x25)
+    gold = RGBColor(0xc7, 0x8b, 0x12)
+    step = plot_w / n
+    bar_w = min(0.09, step * 0.30)
+    points = []
+    for i, cat in enumerate(categories):
+        cx = plot_left + step * (i + 0.5)
+        bh = 0 if h_max <= 0 else plot_h * (hours[i] / h_max)
+        ch = 0 if h_max <= 0 else plot_h * (crashes[i] / h_max)
+        mh = 0 if m_max <= 0 else plot_h * (mtbf[i] / m_max)
+        _rect(slide, _ppt_in(cx - bar_w - 0.01), _ppt_in(plot_bottom - bh), _ppt_in(bar_w), _ppt_in(max(0.015, bh)), blue)
+        _rect(slide, _ppt_in(cx + 0.01), _ppt_in(plot_bottom - ch), _ppt_in(bar_w), _ppt_in(max(0.015, ch)), red)
+        points.append((cx, plot_bottom - mh))
+        label = _ppt_trunc(cat, 18)
+        lab = _ppt_add_text(slide, cx - 0.24, plot_bottom + 0.06, 0.48, 0.23, label,
+                            size=3.2, color=RGBColor(0x45, 0x52, 0x63), align=PP_ALIGN.RIGHT)
+        lab.rotation = 315
+
+    for p1, p2 in zip(points, points[1:]):
+        _ppt_add_line(slide, p1[0], p1[1], p2[0], p2[1], width=0.75, color=gold)
+    for px, py in points:
+        marker = slide.shapes.add_shape(9, _ppt_in(px - 0.018), _ppt_in(py - 0.018), _ppt_in(0.036), _ppt_in(0.036))
+        marker.fill.solid()
+        marker.fill.fore_color.rgb = gold
+        marker.line.color.rgb = _PPT_WHITE
+        marker.line.width = Pt(0.25)
+
+    _ppt_add_text(slide, x + 2.10, y + h - 0.15, 1.70, 0.10, "● Hours   ● Crashes   — MTBF",
+                  size=3.6, color=RGBColor(0x45, 0x52, 0x63), align=PP_ALIGN.CENTER)
+
+
+def _ppt_current_cr_rows(data, max_rows=3):
     table = data.get("current_cr", {}) or {}
     rows = table.get("rows") or []
-    k_cr = _ppt_find_key(table, ["CR-ID", "CR ID", "CR"])
-    k_occ = _ppt_find_key(table, ["Occurrence", "Occur", "Instance"])
+    k_cr = _ppt_find_key(table, ["CR-ID", "CR ID", "CR", "mapped_cr", "cr_id", "unique_cr"])
+    k_occ = _ppt_find_key(table, ["CR Count", "CR Occurrence", "Occurrence", "Occur", "Instance", "Instances"])
     k_title = _ppt_find_key(table, ["CR Title", "Title", "Summary"])
     k_area = _ppt_find_key(table, ["CR Area", "Area"])
-    k_sub = _ppt_find_key(table, ["CR SubSystem", "Subsystem", "Sub System"])
-    k_func = _ppt_find_key(table, ["CR Functionality", "Functionality"])
+    k_sub = _ppt_find_key(table, ["CR SubSystem", "CR Subsystem", "Subsystem", "Sub System"])
+    k_func = _ppt_find_key(table, ["CR Functionality", "CR Function", "Functionality"])
     k_status = _ppt_find_key(table, ["CR Status", "Status"])
+    grouped = []
+    by_cr: Dict[str, Dict[str, Any]] = {}
+    for r in rows:
+        cr = _ppt_get(r, k_cr).strip()
+        key = cr.upper() if cr else f"row-{len(grouped)}"
+        if key not in by_cr:
+            item = dict(r)
+            item["_ppt_occ_total"] = to_num(_ppt_get(r, k_occ, "1"), 1)
+            by_cr[key] = item
+            grouped.append(item)
+        else:
+            by_cr[key]["_ppt_occ_total"] = to_num(by_cr[key].get("_ppt_occ_total"), 1) + to_num(_ppt_get(r, k_occ, "1"), 1)
     out = []
-    for idx, r in enumerate(rows[:max_rows], start=1):
+    for idx, r in enumerate(grouped[:max_rows], start=1):
+        occ = r.get("_ppt_occ_total")
+        occ_text = str(int(occ)) if float(occ or 0).is_integer() else str(occ)
         out.append([
-            str(idx), _ppt_get(r, k_cr), _ppt_get(r, k_occ, "1"),
+            str(idx), _ppt_get(r, k_cr), occ_text or _ppt_get(r, k_occ, "1"),
             _ppt_trunc(_ppt_get(r, k_title), 130), _ppt_get(r, k_area),
             _ppt_get(r, k_sub), _ppt_trunc(_ppt_get(r, k_func), 30), _ppt_get(r, k_status),
         ])
     return out
 
 
-def _ppt_current_jira_rows(data, max_rows=1):
+def _ppt_current_jira_rows(data, max_rows=2):
     table = data.get("current_jira", {}) or {}
     rows = table.get("rows") or []
-    k_jira = _ppt_find_key(table, ["JIRA-Ticket", "JIRA ID", "Jira", "ID"])
-    k_occ = _ppt_find_key(table, ["Occurrence", "Occur", "Instance"])
-    k_title = _ppt_find_key(table, ["Jira Title", "Title", "Summary"])
-    k_date = _ppt_find_key(table, ["Jira Date", "Date"])
-    k_status = _ppt_find_key(table, ["Status", "Jira Status"])
+    k_jira = _ppt_find_key(table, ["JIRA-Ticket", "JIRA ID", "Jira", "JIRA", "stability_ticket", "ID"])
+    k_occ = _ppt_find_key(table, ["Occurrence", "Occur", "Instance", "Instances"])
+    k_title = _ppt_find_key(table, ["Jira Title", "JIRA Title", "Title", "Summary"])
+    k_status = _ppt_find_key(table, ["JIRA Status", "Status", "Jira Status"])
+    seen = set()
     out = []
-    for idx, r in enumerate(rows[:max_rows], start=1):
-        out.append([str(idx), _ppt_get(r, k_jira), _ppt_get(r, k_occ, "1"),
-                    _ppt_trunc(_ppt_get(r, k_title), 120), _ppt_get(r, k_date), _ppt_get(r, k_status)])
+    for r in rows:
+        jira = _ppt_get(r, k_jira).strip()
+        key = jira.upper() if jira else f"row-{len(out)}"
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append([str(len(out) + 1), jira, _ppt_get(r, k_occ, "1"),
+                    _ppt_trunc(_ppt_get(r, k_title), 120), _ppt_get(r, k_status)])
+        if len(out) >= max_rows:
+            break
     return out
 
 
 def _ppt_open_cr_rows(data):
     table = data.get("open_cr", {}) or {}
     rows = table.get("rows") or []
-    k_cr = _ppt_find_key(table, ["CR-ID", "CR ID", "CR"])
-    k_inst = _ppt_find_key(table, ["Instance", "Occurrence", "Occur"])
+    k_cr = _ppt_find_key(table, ["CR", "CR-ID", "CR ID", "mapped_cr", "cr_id", "unique_cr"])
+    k_jira_date = _ppt_find_key(table, ["Jira Date -last instance", "Jira Date last instance", "Last Instance Jira Date", "Jira Date", "last instance", "updated"])
+    k_occ = _ppt_find_key(table, ["CR Occurrence", "Occurrence", "Occur", "Instance", "Instances"])
     k_title = _ppt_find_key(table, ["CR Title", "Title", "Summary"])
     k_area = _ppt_find_key(table, ["CR Area", "Area"])
-    k_age = _ppt_find_key(table, ["CR Age", "Age"])
+    k_sub = _ppt_find_key(table, ["CR SubSystem", "CR Subsystem", "Subsystem", "Sub System"])
+    k_func = _ppt_find_key(table, ["CR Functionality", "Functionality", "CR Function", "Function"])
+    k_date = _ppt_find_key(table, ["CR Date", "Date", "Created Date", "Reported Date"])
     k_status = _ppt_find_key(table, ["CR Status", "Status"])
-    k_qgenie = _ppt_find_key(table, ["Qgenie Analysis", "QGenie Analysis", "CR Analysis", "Auto Analysis", "Qgenie"])
+    k_age = _ppt_find_key(table, ["CR Age", "Age"])
+    k_priority = _ppt_find_key(table, ["Priority", "CR Priority", "priority", "cr_priority", "pdt_priority", "PdtPriority", "PDTPriority", "cr_pdt_priority", "Severity", "severity"])
     out = []
     for idx, r in enumerate(rows, start=1):
-        out.append([str(idx), _ppt_get(r, k_cr), _ppt_get(r, k_inst, "1"),
-                    _ppt_trunc(_ppt_get(r, k_title), 130), _ppt_get(r, k_area),
-                    _ppt_get(r, k_age), _ppt_get(r, k_status),
-                    _ppt_trunc(_ppt_get(r, k_qgenie), 210)])
+        out.append([
+            str(idx),
+            _ppt_get(r, k_cr),
+            _ppt_get(r, k_jira_date),
+            _ppt_get(r, k_occ, "1"),
+            _ppt_trunc(_ppt_get(r, k_title), 165),
+            _ppt_get(r, k_area),
+            _ppt_get(r, k_sub),
+            _ppt_trunc(_ppt_get(r, k_func), 45),
+            _ppt_get(r, k_date),
+            _ppt_get(r, k_status),
+            _ppt_get(r, k_age),
+            _ppt_get(r, k_priority),
+        ])
     return out
 
 
@@ -693,76 +817,109 @@ def _ppt_add_meta_header(slide, data):
 
 def _ppt_build_first_slide(prs, data):
     slide = prs.slides.add_slide(prs.slide_layouts[6])
-    W = prs.slide_width
-    H = prs.slide_height
     _ppt_add_meta_header(slide, data)
 
     project = data.get("project", "WBC")
     summary = data.get("summary", {}) or {}
     kpi = data.get("computed_kpis", {}) or {}
 
-    # Left half
-    _ppt_add_table(slide, 0.20, 0.58, 6.00, 0.78,
+    # Left half: current meta, KPI summary, key updates, visible MTBF trend, and stability stats.
+    status_rows = _ppt_build_status_rows(project, summary, data.get("refreshed_at", ""))
+    _ppt_add_table(slide, 0.20, 0.50, 6.00, 0.72,
                    ["", "", ""],
-                   _ppt_build_status_rows(project, summary, data.get("refreshed_at", ""))[1:],
-                   col_widths=[1.6, 0.7, 3.7], font_size=5.8, header_size=6.2)
+                   status_rows[1:],
+                   col_widths=[1.6, 0.7, 3.7], font_size=5.6, header_size=6.0)
     # Rewrite first row to mimic merged title row visually.
     top_tbl = slide.shapes[-1].table
-    _ppt_set_cell(top_tbl.cell(0, 0), _ppt_build_status_rows(project, summary, data.get("refreshed_at", ""))[0][0], size=6.0, bold=True, color=_PPT_WHITE)
-    _ppt_set_cell(top_tbl.cell(0, 1), _ppt_build_status_rows(project, summary, data.get("refreshed_at", ""))[0][1], size=6.0, bold=True, color=_PPT_WHITE)
-    _ppt_set_cell(top_tbl.cell(0, 2), "", size=6.0, bold=True, color=_PPT_WHITE)
+    _ppt_set_cell(top_tbl.cell(0, 0), status_rows[0][0], size=5.9, bold=True, color=_PPT_WHITE)
+    _ppt_set_cell(top_tbl.cell(0, 1), status_rows[0][1], size=5.9, bold=True, color=_PPT_WHITE)
+    _ppt_set_cell(top_tbl.cell(0, 2), "", size=5.9, bold=True, color=_PPT_WHITE)
 
-    _ppt_add_table(slide, 0.20, 1.55, 6.03, 0.58,
+    _ppt_add_table(slide, 0.20, 1.38, 6.03, 0.54,
                    ["", "", "", "", ""], _ppt_kpi_rows(kpi),
-                   col_widths=[1, 1, 1, 1, 1], font_size=7.1, header_size=1,
+                   col_widths=[1, 1, 1, 1, 1], font_size=6.8, header_size=1,
                    header_color=_PPT_BLUE, row_color=_PPT_BLUE)
     kpi_tbl = slide.shapes[-1].table
     for ci in range(5):
         _ppt_rgb_fill(kpi_tbl.cell(0, ci), _PPT_BLUE)
         _ppt_rgb_fill(kpi_tbl.cell(1, ci), _PPT_BLUE)
-        _ppt_set_cell(kpi_tbl.cell(0, ci), _ppt_kpi_rows(kpi)[0][ci].split("\n")[0], size=7.0, bold=True, color=_PPT_WHITE)
-        _ppt_set_cell(kpi_tbl.cell(1, ci), _ppt_kpi_rows(kpi)[0][ci].split("\n")[-1], size=7.0, bold=True, color=_PPT_WHITE)
+        _ppt_set_cell(kpi_tbl.cell(0, ci), _ppt_kpi_rows(kpi)[0][ci].split("\n")[0], size=6.7, bold=True, color=_PPT_WHITE)
+        _ppt_set_cell(kpi_tbl.cell(1, ci), _ppt_kpi_rows(kpi)[0][ci].split("\n")[-1], size=6.7, bold=True, color=_PPT_WHITE)
 
-    _ppt_add_key_updates(slide, 0.28, 2.30, 5.85, 1.68, summary)
+    _ppt_add_key_updates(slide, 0.28, 2.14, 5.85, 0.86, summary)
 
-    _ppt_add_section_title(slide, 0.30, 4.48, "MTBF Chart", w=1.2)
-    _ppt_add_table(slide, 0.32, 4.86, 5.88, 0.68,
+    _ppt_add_section_title(slide, 0.30, 3.18, "MTBF Chart", w=1.2)
+    _ppt_add_mini_mtbf_chart(slide, data, 0.30, 3.45, 5.90, 1.46)
+    _ppt_add_table(slide, 0.32, 5.10, 5.88, 0.62,
                    ["Team", "Meta", "Total Hours", "Total Crashes", "MTBF"],
                    _ppt_mtbf_rows(data),
-                   col_widths=[0.7, 1.8, 1.05, 1.05, 0.75], font_size=5.8, header_size=5.8)
+                   col_widths=[0.7, 1.8, 1.05, 1.05, 0.75], font_size=5.3, header_size=5.4)
 
-    _ppt_add_section_title(slide, 0.30, 5.78, "Weekly Stability Stats (SW PDT)", w=2.6)
-    _ppt_add_table(slide, 0.32, 6.14, 5.90, 0.82,
+    _ppt_add_section_title(slide, 0.30, 5.92, "Weekly Stability Stats (SW PDT)", w=2.6)
+    _ppt_add_table(slide, 0.32, 6.24, 5.90, 0.72,
                    ["Team", "Builds Tested", "Total Hours", "Total Crashes"],
                    _ppt_weekly_rows(data),
-                   col_widths=[1.0, 2.1, 1.5, 1.4], font_size=5.7, header_size=5.7)
+                   col_widths=[1.0, 2.1, 1.5, 1.4], font_size=5.3, header_size=5.4)
 
     # Divider
     _ppt_add_line(slide, 6.38, 0.15, 6.38, 7.27, width=0.65, dash=True)
 
-    # Right half
-    _ppt_add_section_title(slide, 6.50, 0.50, "Crash Details of current meta", w=2.3)
-    _ppt_add_section_title(slide, 6.50, 0.78, "CR Details", w=1.0)
-    _ppt_add_table(slide, 6.55, 1.08, 6.45, 4.34,
+    # Right half: current meta CRs and top open JIRAs.
+    _ppt_add_section_title(slide, 6.50, 0.42, "CR Details", w=1.0)
+    _ppt_add_table(slide, 6.55, 0.74, 6.45, 1.48,
                    ["S.No.", "CR-ID", "Occurrence", "CR Title", "CR Area", "CR\nSubSystem", "CR Functionality", "CR Status"],
-                   _ppt_current_cr_rows(data, max_rows=5),
+                   _ppt_current_cr_rows(data, max_rows=3),
                    col_widths=[0.45, 0.75, 0.55, 2.45, 0.7, 0.82, 0.98, 0.68],
-                   font_size=4.65, header_size=4.8, title_cols_left={3})
+                   font_size=4.55, header_size=4.7, title_cols_left={3})
 
-    _ppt_add_section_title(slide, 6.50, 5.73, "Open JIRA Details", w=1.55)
-    _ppt_add_table(slide, 6.55, 6.08, 6.45, 0.88,
-                   ["S.No.", "JIRA-Ticket", "Occurrence", "Jira Title", "Jira Date", "Status"],
-                   _ppt_current_jira_rows(data, max_rows=1),
-                   col_widths=[0.45, 1.0, 0.65, 3.0, 0.85, 0.55],
-                   font_size=4.5, header_size=4.8, title_cols_left={3})
+    _ppt_add_section_title(slide, 6.50, 2.38, "Jira Details", w=1.0)
+    _ppt_add_table(slide, 6.55, 2.68, 6.45, 1.50,
+                   ["S.No.", "JIRA-Ticket", "Instances", "Jira Title", "Status"],
+                   _ppt_current_jira_rows(data, max_rows=5),
+                   col_widths=[0.45, 1.0, 0.65, 3.5, 0.65],
+                   font_size=3.75, header_size=4.5, title_cols_left={3})
+
+    _ppt_add_text(slide, 6.70, 4.48, 5.70, 0.22, f"{project.split('.')[0]} : PDT Device Ramp Up Plan (Global)", size=10.8, color=_PPT_BLACK)
+    _ppt_add_text(slide, 8.20, 4.88, 3.15, 0.20, "Global PDT Device Distribution", size=9.8, bold=True, color=RGBColor(0x46, 0x55, 0x6b), align=PP_ALIGN.CENTER)
+    base_x, base_y, gap, max_h = 7.45, 6.34, 1.35, 0.88
+    for i, (label, val) in enumerate([("ES – 29-May", 5), ("Pre-FC-1-Jun", 10), ("FC-10-Aug", 15), ("Pre-CS", 70)]):
+        h = max_h * (float(val) / 70.0)
+        x = base_x + i * gap
+        _rect(slide, _ppt_in(x), _ppt_in(base_y - h), _ppt_in(0.42), _ppt_in(max(0.04, h)), RGBColor(0x4f, 0x81, 0xbd), RGBColor(0x4f, 0x81, 0xbd))
+        _ppt_add_text(slide, x, base_y - h + 0.08, 0.42, 0.14, str(val), size=6.2, color=_PPT_WHITE, align=PP_ALIGN.CENTER)
+        _ppt_add_text(slide, x - 0.22, base_y + 0.09, 0.86, 0.15, label, size=4.4, color=RGBColor(0x00, 0x2f, 0x68), align=PP_ALIGN.CENTER)
+    _ppt_add_text(slide, 6.78, 6.88, 5.2, 0.30, "• Device Ramp up Plan from ES to CS – Post CS.\n• All the Projections are dependent on HW Availability.", size=4.8, color=_PPT_BLACK)
     return slide
 
 
 def _ppt_axis_label(value):
     value = float(value or 0)
+    if abs(value) < 0.0001:
+        return "0"
+    if 0 < abs(value) < 10:
+        return f"{value:.1f}"
     if value >= 1000:
         return f"{value/1000:.1f}k".replace(".0k", "k")
     return str(int(round(value)))
+
+
+def _ppt_nice_axis_max(values, default=1.0):
+    """Choose chart axis max values closer to Chart.js/UI auto-scaling."""
+    vals = [float(v or 0) for v in (values or [])]
+    max_val = max([float(default)] + vals)
+    if max_val <= 1:
+        return 1.0
+    if max_val <= 2:
+        return 2.0
+    if max_val <= 5:
+        return 5.0
+    if max_val <= 10:
+        return 10.0
+    if max_val <= 100:
+        return math.ceil(max_val / 10.0) * 10
+    if max_val <= 500:
+        return math.ceil(max_val / 50.0) * 50
+    return math.ceil(max_val / 500.0) * 500
 
 
 def _ppt_build_mtbf_chart_slide(prs, data):
@@ -807,10 +964,8 @@ def _ppt_build_mtbf_chart_slide(prs, data):
     left, top, width, height = 0.90, 0.92, 11.35, 4.85
     bottom = top + height
     n = max(1, len(categories))
-    h_max = max([1.0] + hours + crashes)
-    m_max = max([1.0] + mtbf)
-    h_max = math.ceil(h_max / 500.0) * 500 if h_max > 500 else max(10, math.ceil(h_max / 10.0) * 10)
-    m_max = math.ceil(m_max / 200.0) * 200 if m_max > 200 else max(10, math.ceil(m_max / 10.0) * 10)
+    h_max = _ppt_nice_axis_max(hours + crashes, default=10.0)
+    m_max = _ppt_nice_axis_max(mtbf, default=1.0)
 
     # Title inside chart panel.
     _ppt_add_text(slide, left, 0.58, width, 0.20, "MTBF by Build",
@@ -904,17 +1059,25 @@ def _ppt_build_mtbf_chart_slide(prs, data):
 
 def _ppt_build_open_cr_slide(prs, data, rows, page_num=1, total_pages=1):
     slide = prs.slides.add_slide(prs.slide_layouts[6])
-    title = "Open/Analysis CRs" if total_pages == 1 else f"Open/Analysis CRs ({page_num}/{total_pages})"
-    _ppt_add_section_title(slide, 0.34, 0.32, title, w=2.0)
-    _ppt_add_table(slide, 0.28, 0.80, 12.78, 5.98,
-                   ["S.No", "CR", "Instance", "CR Title", "CR Area", "CR Age", "CR Status", "Qgenie Analysis"],
-                   rows,
-                   col_widths=[0.45, 0.85, 0.62, 3.55, 0.82, 0.70, 0.78, 3.45],
-                   font_size=4.25, header_size=4.7, title_cols_left={3, 7})
+    title = "Overall Open/Analysis CRs:" if total_pages == 1 else f"Overall Open/Analysis CRs: ({page_num}/{total_pages})"
+    _ppt_add_section_title(slide, 0.18, 0.16, title, w=2.3)
+    _ppt_add_table(
+        slide,
+        0.15,
+        0.58,
+        13.05,
+        6.70,
+        ["S.No", "CR", "Jira Date -last\ninstance", "CR Occurrence", "CR Title", "CR Area", "CR SubSystem", "CR Functionality", "CR Date", "CR Status", "CR Age", "Priority"],
+        rows,
+        col_widths=[0.42, 0.70, 0.90, 0.78, 4.70, 0.86, 0.92, 1.05, 0.78, 0.78, 0.48, 0.48],
+        font_size=4.35,
+        header_size=4.55,
+        title_cols_left={4},
+    )
     return slide
 
 
-def build_ppt(data: Dict[str, Any], include_cover: bool = True, include_thankq: bool = True):  # type: ignore[override]
+def build_ppt(data: Dict[str, Any], include_cover: bool = False, include_thankq: bool = False):  # type: ignore[override]
 
     """Build a Teams-ready SW PDT PPT matching the attached reference format."""
     prs = Presentation()
@@ -929,22 +1092,30 @@ def build_ppt(data: Dict[str, Any], include_cover: bool = True, include_thankq: 
         _rect(cover, _ppt_in(0.62), 0, _ppt_in(9.12), _ppt_in(5.12), RGBColor(0x34, 0x5d, 0x8a))
         _rect(cover, _ppt_in(9.74), 0, _ppt_in(3.59), _ppt_in(5.12), RGBColor(0x18, 0x30, 0x4d))
         _rect(cover, _ppt_in(0.62), _ppt_in(5.12), _ppt_in(9.12), _ppt_in(2.38), RGBColor(0x29, 0x4b, 0x70))
-        _ppt_add_text(cover, 0.95, 4.62, 9.2, 0.62, f"PDT WBC SW Core Update {datetime.now().strftime('%d/%m/%Y')}", size=25, color=_PPT_WHITE)
-    _ppt_build_first_slide(prs, data)
-    _ppt_build_mtbf_chart_slide(prs, data)
+        cover_meta = (data.get("computed_kpis") or {}).get("current_meta") or data.get("project", "")
+        _ppt_add_text(cover, 0.95, 4.18, 9.2, 0.52, "WBC Current Meta", size=25, color=_PPT_WHITE)
+        _ppt_add_text(cover, 0.98, 4.86, 9.1, 0.30, f"{cover_meta}", size=14, color=_PPT_WHITE)
+        _ppt_add_text(cover, 0.98, 5.22, 9.1, 0.24, f"Date: {datetime.now().strftime('%d/%m/%Y')}", size=12, color=_PPT_WHITE)
+
+    status_slides = data.get("status_slides") if isinstance(data.get("status_slides"), list) else []
+    if status_slides:
+        for status_data in status_slides:
+            _ppt_build_first_slide(prs, {**data, **(status_data or {})})
+    else:
+        _ppt_build_first_slide(prs, data)
 
     open_rows = _ppt_open_cr_rows(data)
     if not open_rows:
-        open_rows = [["", "", "", "No Open/Analysis CRs", "", "", "", ""]]
-    chunk_size = 10
+        open_rows = [["", "", "", "", "No Open/Analysis CRs", "", "", "", "", "", "", ""]]
+    chunk_size = 18
 
-    chunks = [open_rows[i:i + chunk_size] for i in range(0, len(open_rows), chunk_size)]
+    chunks = [open_rows[:chunk_size]]
     for idx, chunk in enumerate(chunks, start=1):
         _ppt_build_open_cr_slide(prs, data, chunk, idx, len(chunks))
 
     if include_thankq:
         thanks = prs.slides.add_slide(prs.slide_layouts[6])
-        _ppt_add_text(thanks, 0, 3.10, 13.33, 0.80, "ThankQ", size=40, color=_PPT_BLACK, align=PP_ALIGN.CENTER)
+        _ppt_add_text(thanks, 0, 3.10, 13.33, 0.80, "Thank You", size=40, color=_PPT_BLACK, align=PP_ALIGN.CENTER)
 
     buf = io.BytesIO()
     prs.save(buf)
