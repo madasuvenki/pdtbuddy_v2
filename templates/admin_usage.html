@@ -26,9 +26,9 @@
 /*    Page shell    */
 .adm-shell {
   width:100%;
-  max-width:1680px;
-  margin:0 auto;
-  padding:30px 38px 70px;
+  max-width:none;
+  margin:0;
+  padding:24px 26px 60px;
   box-sizing:border-box;
 }
 @media(max-width:700px){ .adm-shell{ padding:18px 14px 48px; } }
@@ -45,6 +45,46 @@
 }
 .adm-page-title  { font-size:28px; font-weight:950; color:#0f172a; display:flex; align-items:center; gap:12px; letter-spacing:-.03em; }
 .adm-page-title i { color:#6366f1; }
+.adm-tabs {
+  position:sticky;
+  top:0;
+  z-index:30;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-wrap:wrap;
+  margin:0 0 18px;
+  padding:10px;
+  background:rgba(255,255,255,.78);
+  border:1px solid rgba(226,232,240,.9);
+  border-radius:18px;
+  box-shadow:0 14px 35px rgba(15,23,42,.08);
+  backdrop-filter:blur(14px);
+}
+.adm-tab-btn {
+  border:none;
+  border-radius:14px;
+  padding:10px 16px;
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  cursor:pointer;
+  font-size:13px;
+  font-weight:950;
+  color:#475569;
+  background:#f8fafc;
+  box-shadow:inset 0 0 0 1px #e2e8f0;
+  transition:transform .15s, box-shadow .15s, background .15s, color .15s;
+}
+.adm-tab-btn:hover { transform:translateY(-1px); background:#eef2ff; color:#4f46e5; }
+.adm-tab-btn.active {
+  color:#fff;
+  background:linear-gradient(135deg,#4f46e5,#06b6d4);
+  box-shadow:0 10px 24px rgba(79,70,229,.24);
+}
+.adm-tab-btn.dbtab.active { background:linear-gradient(135deg,#0891b2,#10b981); }
+.adm-section.adm-tab-hidden { display:none; }
+.adm-tabs-spacer { flex:1; min-width:16px; }
 
 /*    Accordion section    */
 .adm-section {
@@ -205,6 +245,37 @@ table.tm-table tr:hover td { background:#f0f4ff; }
 /*    Refresh button    */
 .adm-refresh-btn { display:inline-flex;align-items:center;gap:6px;padding:7px 16px;border-radius:8px;color:#fff;font-size:12px;font-weight:800;border:none;cursor:pointer; }
 .adm-refresh-btn:hover { opacity:.88; }
+
+/*    DB Health    */
+.dbh-cards { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; margin-bottom:16px; }
+@media(max-width:900px){ .dbh-cards{ grid-template-columns:repeat(2,1fr); } }
+@media(max-width:560px){ .dbh-cards{ grid-template-columns:1fr; } }
+.dbh-card { background:linear-gradient(135deg,#ffffff,#f8fbff); border:1px solid #dbe5f3; border-radius:16px; padding:16px 18px; box-shadow:0 10px 26px rgba(15,23,42,.055); }
+.dbh-card-label { font-size:10px; font-weight:900; color:#64748b; text-transform:uppercase; letter-spacing:.08em; }
+.dbh-card-value { margin-top:6px; font-size:25px; font-weight:1000; color:#0f172a; letter-spacing:-.035em; }
+.dbh-card-sub { margin-top:4px; font-size:11px; color:#94a3b8; font-weight:700; }
+.dbh-grid { display:grid; grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr); gap:14px; margin-bottom:14px; }
+@media(max-width:1000px){ .dbh-grid{ grid-template-columns:1fr; } }
+.dbh-panel { background:#f8faff; border:1px solid #e5e7eb; border-radius:14px; padding:16px; overflow:hidden; }
+.dbh-title { display:flex; align-items:center; gap:8px; font-size:13px; font-weight:900; color:#0f172a; margin-bottom:10px; }
+.dbh-table-wrap { overflow:auto; max-height:340px; border-radius:12px; border:1px solid #e5e7eb; background:#fff; }
+.dbh-table { width:100%; border-collapse:collapse; font-size:12px; }
+.dbh-table th { position:sticky; top:0; background:#eef2ff; color:#334155; padding:9px 10px; text-align:left; font-size:10px; font-weight:1000; text-transform:uppercase; letter-spacing:.07em; border-bottom:1px solid #dbe5f3; white-space:nowrap; }
+.dbh-table td { padding:8px 10px; border-bottom:1px solid #f1f5f9; white-space:nowrap; }
+.dbh-table tr:hover td { background:#f8fbff; }
+.dbh-meter { height:8px; border-radius:999px; background:#e2e8f0; overflow:hidden; margin-top:8px; }
+.dbh-meter > span { display:block; height:100%; border-radius:999px; background:linear-gradient(90deg,#16a34a,#06b6d4,#7c3aed); width:0%; }
+.dbh-ok { color:#15803d; background:#dcfce7; border:1px solid #86efac; border-radius:999px; padding:2px 8px; font-size:10px; font-weight:900; }
+.dbh-fail { color:#b91c1c; background:#fee2e2; border:1px solid #fecaca; border-radius:999px; padding:2px 8px; font-size:10px; font-weight:900; }
+.dbh-rec-list { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin-bottom:14px; }
+@media(max-width:1100px){ .dbh-rec-list{ grid-template-columns:1fr; } }
+.dbh-rec { border-radius:13px; padding:12px 14px; border:1px solid #e2e8f0; background:#fff; }
+.dbh-rec.high { border-color:#fecaca; background:#fff5f5; }
+.dbh-rec.medium { border-color:#fde68a; background:#fffbeb; }
+.dbh-rec.info { border-color:#bfdbfe; background:#eff6ff; }
+.dbh-rec-title { font-size:12px; font-weight:950; color:#0f172a; margin-bottom:5px; }
+.dbh-rec-msg { font-size:11px; font-weight:700; color:#64748b; line-height:1.45; }
+.dbh-sql { font-family:Consolas,monospace; font-size:10px; color:#0f766e; background:#ecfdf5; border:1px solid #a7f3d0; border-radius:7px; padding:3px 6px; white-space:nowrap; }
 </style>
 
 <!-- Toast -->
@@ -227,11 +298,30 @@ table.tm-table tr:hover td { background:#f0f4ff; }
     </div>
   </div>
 
+  <div class="adm-tabs" role="tablist" aria-label="Admin usage sections">
+    <button class="adm-tab-btn dbtab active" id="adm-tab-dbhealth" type="button" onclick="admShowTab('dbhealth')">
+      <i class="fas fa-heartbeat"></i> DB Health
+    </button>
+    <button class="adm-tab-btn" id="adm-tab-usage" type="button" onclick="admShowTab('usage')">
+      <i class="fas fa-chart-line"></i> User Usage
+    </button>
+    <button class="adm-tab-btn" id="adm-tab-ingest" type="button" onclick="admShowTab('ingest')">
+      <i class="fas fa-database"></i> Ingest Status
+    </button>
+    <button class="adm-tab-btn" id="adm-tab-targets" type="button" onclick="admShowTab('targets')">
+      <i class="fas fa-toggle-on"></i> Target Enable / Disable
+    </button>
+    <button class="adm-tab-btn" id="adm-tab-feedback" type="button" onclick="admShowTab('feedback')">
+      <i class="fas fa-star"></i> Tool Feedback
+    </button>
+    <span class="adm-tabs-spacer"></span>
+  </div>
+
   <!--                                           
-       SECTION 1   User Usage Dashboard (open by default)
+       SECTION 1   User Usage Dashboard
                                              -->
-  <div class="adm-section" id="sec-usage">
-    <div class="adm-section-head open" onclick="admToggle('usage')">
+  <div class="adm-section adm-tab-hidden" id="sec-usage">
+    <div class="adm-section-head" onclick="admToggle('usage')">
       <div class="adm-section-head-left">
         <div class="adm-section-icon" style="background:#ede9fe;color:#6366f1;"><i class="fas fa-chart-line"></i></div>
         <div>
@@ -265,7 +355,7 @@ table.tm-table tr:hover td { background:#f0f4ff; }
         <i class="fas fa-chevron-down adm-section-chevron"></i>
       </div>
     </div>
-    <div class="adm-section-body open" id="body-usage">
+    <div class="adm-section-body" id="body-usage">
       <!-- Stat cards -->
       <div class="au-cards">
         <div class="au-card au-card-users">
@@ -388,7 +478,7 @@ table.tm-table tr:hover td { background:#f0f4ff; }
   <!--                                           
        SECTION 2   Ingest Status (collapsed)
                                              -->
-  <div class="adm-section" id="sec-ingest">
+  <div class="adm-section adm-tab-hidden" id="sec-ingest">
     <div class="adm-section-head" onclick="admToggle('ingest')">
       <div class="adm-section-head-left">
         <div class="adm-section-icon" style="background:#dcfce7;color:#059669;"><i class="fas fa-database"></i></div>
@@ -428,7 +518,7 @@ table.tm-table tr:hover td { background:#f0f4ff; }
   <!--                                           
        SECTION 3   Target Enable / Disable (collapsed)
                                              -->
-  <div class="adm-section" id="sec-targets">
+  <div class="adm-section adm-tab-hidden" id="sec-targets">
     <div class="adm-section-head" onclick="admToggle('targets')">
       <div class="adm-section-head-left">
         <div class="adm-section-icon" style="background:#ede9fe;color:#6366f1;"><i class="fas fa-toggle-on"></i></div>
@@ -471,7 +561,7 @@ table.tm-table tr:hover td { background:#f0f4ff; }
   <!--                                           
        SECTION 4   Tool Feedback (collapsed)
                                              -->
-  <div class="adm-section" id="sec-feedback">
+  <div class="adm-section adm-tab-hidden" id="sec-feedback">
     <div class="adm-section-head" onclick="admToggle('feedback')">
       <div class="adm-section-head-left">
         <div class="adm-section-icon" style="background:#fef9c3;color:#d97706;"><i class="fas fa-star"></i></div>
@@ -521,8 +611,88 @@ table.tm-table tr:hover td { background:#f0f4ff; }
   </div>
 
   <!--                                           
-       SECTION 5   Page Visibility Control
+       SECTION 5   DB Health
                                              -->
+  <div class="adm-section" id="sec-dbhealth">
+    <div class="adm-section-head open" onclick="admToggle('dbhealth')">
+      <div class="adm-section-head-left">
+        <div class="adm-section-icon" style="background:#ecfeff;color:#0891b2;"><i class="fas fa-heartbeat"></i></div>
+        <div>
+          <div class="adm-section-label">DB Health</div>
+          <div class="adm-section-sub">MySQL connection, memory, schema/table usage, and key table freshness</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <button class="adm-refresh-btn" style="background:linear-gradient(135deg,#0891b2,#06b6d4);box-shadow:0 3px 10px rgba(6,182,212,.22);"
+                onclick="event.stopPropagation();dbhLoad()">
+          <i class="fas fa-sync-alt"></i> Refresh
+        </button>
+        <i class="fas fa-chevron-down adm-section-chevron"></i>
+      </div>
+    </div>
+    <div class="adm-section-body open" id="body-dbhealth">
+      <div id="dbhStatus" class="adm-spinner"><i class="fas fa-spinner fa-spin"></i> Loading DB health...</div>
+      <div id="dbhContent" style="display:none;">
+        <div class="dbh-cards">
+          <div class="dbh-card"><div class="dbh-card-label">DB Connection</div><div class="dbh-card-value" id="dbhConnected">-</div><div class="dbh-card-sub" id="dbhServer">-</div></div>
+          <div class="dbh-card"><div class="dbh-card-label">Total DB Size</div><div class="dbh-card-value" id="dbhTotalSize">-</div><div class="dbh-card-sub" id="dbhSizeSplit">Data / index / free / allocated</div></div>
+          <div class="dbh-card"><div class="dbh-card-label">Schemas / Tables</div><div class="dbh-card-value" id="dbhSchemaTables">-</div><div class="dbh-card-sub">Application-visible MySQL objects</div></div>
+          <div class="dbh-card"><div class="dbh-card-label">Connections</div><div class="dbh-card-value" id="dbhConnections">-</div><div class="dbh-card-sub" id="dbhConnSub">Threads / max connections</div></div>
+        </div>
+        <div class="dbh-panel" style="margin-bottom:14px;">
+          <div class="dbh-title"><i class="fas fa-lightbulb" style="color:#f59e0b;"></i> DB Optimization Guidance</div>
+          <div id="dbhRecommendations" class="dbh-rec-list">
+            <div class="dbh-rec info"><div class="dbh-rec-title">Loading recommendations...</div><div class="dbh-rec-msg">Checking schema/table size, allocated free space, and high-growth tables.</div></div>
+          </div>
+          <div class="dbh-table-wrap">
+            <table class="dbh-table">
+              <thead><tr><th>Schema</th><th>Table</th><th>Engine</th><th>Approx Rows</th><th>Total MB</th><th>Data Free MB</th><th>Free %</th><th>Suggested SQL</th></tr></thead>
+              <tbody id="dbhOptimizeTbody"><tr><td colspan="8">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="dbh-grid">
+          <div class="dbh-panel">
+            <div class="dbh-title"><i class="fas fa-memory" style="color:#7c3aed;"></i> MySQL Memory & Runtime</div>
+            <div id="dbhRuntime"></div>
+          </div>
+          <div class="dbh-panel">
+            <div class="dbh-title"><i class="fas fa-check-circle" style="color:#16a34a;"></i> Key PDT Tables</div>
+            <div class="dbh-table-wrap">
+              <table class="dbh-table">
+                <thead><tr><th>Table</th><th>Status</th><th>Rows</th><th>Last Update</th><th>Message</th></tr></thead>
+                <tbody id="dbhChecksTbody"><tr><td colspan="5">Loading...</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        <div class="dbh-grid">
+          <div class="dbh-panel">
+            <div class="dbh-title"><i class="fas fa-database" style="color:#2563eb;"></i> Database Usage by Schema</div>
+            <div class="dbh-table-wrap">
+              <table class="dbh-table">
+                <thead><tr><th>Schema</th><th>Tables</th><th>Approx Rows</th><th>Data MB</th><th>Index MB</th><th>Data Free MB</th><th>Total MB</th><th>Allocated MB</th><th>Free %</th><th>Last Update</th></tr></thead>
+                <tbody id="dbhSchemasTbody"><tr><td colspan="10">Loading...</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="dbh-panel">
+            <div class="dbh-title"><i class="fas fa-table" style="color:#f97316;"></i> Largest Tables</div>
+            <div class="dbh-table-wrap">
+              <table class="dbh-table">
+                <thead><tr><th>Schema</th><th>Table</th><th>Engine</th><th>Approx Rows</th><th>Data MB</th><th>Index MB</th><th>Data Free MB</th><th>Total MB</th><th>Allocated MB</th><th>Free %</th><th>Last Update</th></tr></thead>
+                <tbody id="dbhTopTablesTbody"><tr><td colspan="11">Loading...</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!--                                           
+       SECTION 6   Page Visibility Control
+                                              -->
   <div class="adm-section" id="sec-pv" style="display:none;">
     <div class="adm-section-head" onclick="admToggle('pv')">
       <div class="adm-section-head-left">
@@ -621,39 +791,51 @@ function admToggle(id) {
   head.classList.toggle('open', opening);
   body.classList.toggle('open', opening);
   // Lazy-load data when a section is opened for the first time
-  if (opening) {
-    if (id === 'ingest'   && !_ingestLoaded)   { isLoad();  _ingestLoaded  = true; }
-    if (id === 'targets'  && !_targetsLoaded && window.tmLoad)  { window.tmLoad();  _targetsLoaded = true; }
-    if (id === 'feedback' && !_feedbackLoaded) { fbLoad();  _feedbackLoaded = true; }
-    /* Page Visibility moved to dedicated /admin/page_visibility page. */
-  }
+    if (opening) {
+      if (id === 'ingest'   && !_ingestLoaded)   { isLoad();  _ingestLoaded  = true; }
+      if (id === 'targets'  && !_targetsLoaded && window.tmLoad)  { window.tmLoad();  _targetsLoaded = true; }
+      if (id === 'feedback' && !_feedbackLoaded) { fbLoad();  _feedbackLoaded = true; }
+      if (id === 'dbhealth' && !_dbHealthLoaded) { dbhLoad(); _dbHealthLoaded = true; }
+      /* Page Visibility moved to dedicated /admin/page_visibility page. */
+    }
   try { localStorage.setItem('adm_sec_' + id, opening ? '1' : '0'); } catch(e) {}
 }
 
-var _ingestLoaded = false, _targetsLoaded = false, _feedbackLoaded = false;
+var _ingestLoaded = false, _targetsLoaded = false, _feedbackLoaded = false, _dbHealthLoaded = false;
 
-// Restore saved state on load
-(function() {
-  var defaults = { usage:'1', ingest:'0', targets:'0', feedback:'0' };
-  Object.keys(defaults).forEach(function(id) {
-    var saved;
-    try { saved = localStorage.getItem('adm_sec_' + id); } catch(e) {}
-    // Always show the main Usage dashboard on initial page load.
-    // Previously, localStorage could keep it collapsed and make the default page look empty.
-    var open = id === 'usage' ? true : ((saved !== null ? saved : defaults[id]) === '1');
-    var head = document.querySelector('#sec-' + id + ' .adm-section-head');
-    var body = document.getElementById('body-' + id);
-    if (!head || !body) return;
-    head.classList.toggle('open', open);
-    body.classList.toggle('open', open);
-    // If a non-default section was saved as open, mark it loaded
-          if (open && id !== 'usage') {
-        if (id === 'ingest')   { isLoad();  _ingestLoaded  = true; }
-        if (id === 'targets' && window.tmLoad)  { window.tmLoad();  _targetsLoaded = true; }
-        if (id === 'feedback') { fbLoad();  _feedbackLoaded = true; }
-        /* Page Visibility is no longer embedded in Admin Usage. */
-      }
+function admShowTab(id) {
+  var ids = ['dbhealth', 'usage', 'ingest', 'targets', 'feedback'];
+  ids.forEach(function(x) {
+    var sec = document.getElementById('sec-' + x);
+    var tab = document.getElementById('adm-tab-' + x);
+    var head = document.querySelector('#sec-' + x + ' .adm-section-head');
+    var body = document.getElementById('body-' + x);
+    var active = x === id;
+    if (sec) sec.classList.toggle('adm-tab-hidden', !active);
+    if (tab) tab.classList.toggle('active', active);
+    if (head) head.classList.toggle('open', active);
+    if (body) body.classList.toggle('open', active);
   });
+  try { localStorage.setItem('adm_active_tab', id); } catch(e) {}
+  if (id === 'ingest'   && !_ingestLoaded)   { isLoad();  _ingestLoaded  = true; }
+  if (id === 'targets'  && !_targetsLoaded && window.tmLoad)  { window.tmLoad();  _targetsLoaded = true; }
+  if (id === 'feedback' && !_feedbackLoaded) { fbLoad();  _feedbackLoaded = true; }
+  if (id === 'dbhealth' && !_dbHealthLoaded) { dbhLoad(); _dbHealthLoaded = true; }
+  setTimeout(function(){
+    try {
+      Highcharts.charts.forEach(function(c){ if (c) c.reflow(); });
+    } catch(e) {}
+  }, 80);
+}
+
+// Restore top tab state; DB Health is intentionally the first/default tab.
+(function() {
+  var active = 'dbhealth';
+  try {
+    var saved = localStorage.getItem('adm_active_tab');
+    if (saved && ['dbhealth','usage','ingest','targets','feedback'].indexOf(saved) >= 0) active = saved;
+  } catch(e) {}
+  admShowTab(active);
 })();
 
 /*                                           
@@ -939,6 +1121,136 @@ function isLoad() {
     });
 }
 setInterval(isLoad, 60000);
+
+/*                                           
+   SECTION 5   DB Health
+                                           */
+function dbhFmtNum(v) {
+  var n = Number(v || 0);
+  return Number.isFinite(n) ? n.toLocaleString() : '0';
+}
+function dbhFmtMb(v) {
+  var n = Number(v || 0);
+  return (Number.isFinite(n) ? n.toLocaleString(undefined, {maximumFractionDigits:2}) : '0') + ' MB';
+}
+function dbhRuntimeLine(label, value, pct) {
+  var width = Math.max(0, Math.min(100, Number(pct || 0)));
+  return '<div style="margin-bottom:12px;">'
+    + '<div style="display:flex;justify-content:space-between;gap:10px;font-size:12px;font-weight:800;color:#334155;">'
+    + '<span>' + escHtml(label) + '</span><span>' + escHtml(value) + '</span></div>'
+    + '<div class="dbh-meter"><span style="width:' + width + '%;"></span></div>'
+    + '</div>';
+}
+function dbhLoad() {
+  var status = document.getElementById('dbhStatus');
+  var content = document.getElementById('dbhContent');
+  if (status) {
+    status.style.display = 'flex';
+    status.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading DB health...';
+  }
+  if (content) content.style.display = 'none';
+
+  fetch('/admin/db_health')
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if (!d.success) throw new Error(d.error || 'DB health API failed');
+      var o = d.overview || {};
+      document.getElementById('dbhConnected').textContent = o.connected ? 'Healthy' : 'Down';
+      document.getElementById('dbhServer').textContent = (o.server_host || o.host || '-') + ' : ' + (o.port || '-');
+      document.getElementById('dbhTotalSize').textContent = dbhFmtMb(o.total_size_mb);
+      document.getElementById('dbhSizeSplit').textContent = 'Data ' + dbhFmtMb(o.data_size_mb) + ' / Index ' + dbhFmtMb(o.index_size_mb) + ' / Free ' + dbhFmtMb(o.free_size_mb) + ' / Alloc ' + dbhFmtMb(o.allocated_size_mb);
+      document.getElementById('dbhSchemaTables').textContent = dbhFmtNum(o.database_count) + ' / ' + dbhFmtNum(o.table_count);
+      document.getElementById('dbhConnections').textContent = dbhFmtNum(o.threads_connected) + ' / ' + dbhFmtNum(o.max_connections);
+      document.getElementById('dbhConnSub').textContent = 'Running ' + dbhFmtNum(o.threads_running) + ' | Max used ' + dbhFmtNum(o.max_used_connections);
+
+      var runtime = document.getElementById('dbhRuntime');
+      if (runtime) {
+        runtime.innerHTML =
+          dbhRuntimeLine('InnoDB Buffer Pool Used', dbhFmtMb(o.buffer_pool_used_mb) + ' of ' + dbhFmtMb(o.buffer_pool_size_mb), o.buffer_pool_used_pct)
+          + dbhRuntimeLine('Current Connection Usage', (o.connection_usage_pct || 0) + '%', o.connection_usage_pct)
+          + '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;font-size:12px;color:#475569;font-weight:700;">'
+          + '<div><b>Uptime:</b> ' + dbhFmtNum(o.uptime_days) + ' days</div>'
+          + '<div><b>Questions:</b> ' + dbhFmtNum(o.questions) + '</div>'
+          + '<div><b>Slow Queries:</b> ' + dbhFmtNum(o.slow_queries) + '</div>'
+          + '<div><b>Temp Disk Tables:</b> ' + dbhFmtNum(o.tmp_disk_tables) + '</div>'
+          + '<div><b>Active DB:</b> ' + escHtml(o.active_database || '-') + '</div>'
+          + '<div><b>Server Time:</b> ' + escHtml(o.server_time || '-') + '</div>'
+          + '</div>';
+      }
+
+      var recs = d.recommendations || [];
+      var recEl = document.getElementById('dbhRecommendations');
+      if (recEl) {
+        recEl.innerHTML = recs.length ? recs.map(function(r){
+          var sev = String(r.severity || 'info').toLowerCase();
+          return '<div class="dbh-rec ' + escHtml(sev) + '">'
+            + '<div class="dbh-rec-title">' + escHtml(r.title || 'Recommendation') + '</div>'
+            + '<div class="dbh-rec-msg">' + escHtml(r.message || '-') + '</div>'
+            + '</div>';
+        }).join('') : '<div class="dbh-rec info"><div class="dbh-rec-title">No immediate optimization flags</div><div class="dbh-rec-msg">No high free-space or oversized-table warning was detected in the top table sample.</div></div>';
+      }
+
+      var optRows = d.optimization_candidates || [];
+      document.getElementById('dbhOptimizeTbody').innerHTML = optRows.length ? optRows.map(function(r){
+        return '<tr><td>' + escHtml(r.schema || '-') + '</td>'
+          + '<td><b>' + escHtml(r.table || '-') + '</b></td>'
+          + '<td>' + escHtml(r.engine || '-') + '</td>'
+          + '<td>' + dbhFmtNum(r.approx_rows) + '</td>'
+          + '<td><b>' + dbhFmtNum(r.total_mb) + '</b></td>'
+          + '<td style="color:#b45309;font-weight:900;">' + dbhFmtNum(r.free_mb) + '</td>'
+          + '<td>' + dbhFmtNum(r.free_pct) + '%</td>'
+          + '<td><span class="dbh-sql">' + escHtml(r.optimize_sql || '-') + '</span></td></tr>';
+      }).join('') : '<tr><td colspan="8" style="text-align:center;color:#94a3b8;">No OPTIMIZE candidates detected. Run only after maintenance approval if needed.</td></tr>';
+
+      var checks = d.health_checks || [];
+      document.getElementById('dbhChecksTbody').innerHTML = checks.length ? checks.map(function(r){
+        return '<tr><td><b>' + escHtml(r.name || '-') + '</b></td>'
+          + '<td>' + (r.ok ? '<span class="dbh-ok">OK</span>' : '<span class="dbh-fail">FAIL</span>') + '</td>'
+          + '<td>' + dbhFmtNum(r.rows) + '</td>'
+          + '<td>' + escHtml(r.last_update || '-') + '</td>'
+          + '<td>' + escHtml(r.message || '-') + '</td></tr>';
+      }).join('') : '<tr><td colspan="5" style="text-align:center;color:#94a3b8;">No key table checks available.</td></tr>';
+
+      var schemas = d.schemas || [];
+      document.getElementById('dbhSchemasTbody').innerHTML = schemas.length ? schemas.map(function(r){
+        return '<tr><td><b>' + escHtml(r.schema || '-') + '</b></td>'
+          + '<td>' + dbhFmtNum(r.table_count) + '</td>'
+          + '<td>' + dbhFmtNum(r.approx_rows) + '</td>'
+          + '<td>' + dbhFmtNum(r.data_mb) + '</td>'
+          + '<td>' + dbhFmtNum(r.index_mb) + '</td>'
+          + '<td style="color:#b45309;font-weight:900;">' + dbhFmtNum(r.free_mb) + '</td>'
+          + '<td><b>' + dbhFmtNum(r.total_mb) + '</b></td>'
+          + '<td>' + dbhFmtNum(r.allocated_mb) + '</td>'
+          + '<td>' + dbhFmtNum(r.free_pct) + '%</td>'
+          + '<td>' + escHtml(r.last_update || '-') + '</td></tr>';
+      }).join('') : '<tr><td colspan="10" style="text-align:center;color:#94a3b8;">No schema usage data available.</td></tr>';
+
+      var tables = d.top_tables || [];
+      document.getElementById('dbhTopTablesTbody').innerHTML = tables.length ? tables.map(function(r){
+        return '<tr><td>' + escHtml(r.schema || '-') + '</td>'
+          + '<td><b>' + escHtml(r.table || '-') + '</b></td>'
+          + '<td>' + escHtml(r.engine || '-') + '</td>'
+          + '<td>' + dbhFmtNum(r.approx_rows) + '</td>'
+          + '<td>' + dbhFmtNum(r.data_mb) + '</td>'
+          + '<td>' + dbhFmtNum(r.index_mb) + '</td>'
+          + '<td style="color:#b45309;font-weight:900;">' + dbhFmtNum(r.free_mb) + '</td>'
+          + '<td><b>' + dbhFmtNum(r.total_mb) + '</b></td>'
+          + '<td>' + dbhFmtNum(r.allocated_mb) + '</td>'
+          + '<td>' + dbhFmtNum(r.free_pct) + '%</td>'
+          + '<td>' + escHtml(r.last_update || '-') + '</td></tr>';
+      }).join('') : '<tr><td colspan="11" style="text-align:center;color:#94a3b8;">No table usage data available.</td></tr>';
+
+      if (status) status.style.display = 'none';
+      if (content) content.style.display = '';
+    })
+    .catch(function(e){
+      if (status) {
+        status.style.display = 'flex';
+        status.innerHTML = '<i class="fas fa-exclamation-triangle" style="color:#dc2626;"></i> DB Health failed: ' + escHtml(String(e));
+      }
+      if (content) content.style.display = 'none';
+    });
+}
 
 /*                                           
    SECTION 3   Target Toggle

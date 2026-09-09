@@ -178,8 +178,8 @@
 </div>
 
 <script>
-const JIRA_FILTER_ID = {{ jira_pdt_filter_id|tojson }};
-const BR_TARGET_OPTIONS = {{ target_options|tojson }};
+const JIRA_FILTER_ID = JSON.parse('{{ jira_pdt_filter_id|tojson|safe }}');
+const BR_TARGET_OPTIONS = JSON.parse('{{ target_options|tojson|safe }}');
 const JIRA_BASE = 'https://jira-dc2.qualcomm.com/jira/browse/';
 const JIRA_ISSUES_BASE = 'https://jira-dc2.qualcomm.com/jira/issues/?jql=';
 let brLastCrRows=[];
@@ -1663,7 +1663,12 @@ function brBuildSelectorChanged(){
   // ── Filter using _brBuildJiraMap (pre-built in normalize) ─────────────────
   // Collect all JIRA keys that belong to selected builds
   const map = window._brBuildJiraMap || {};
-  const allSelected = !allRows.length || selectedIdx.size >= allRows.length;
+  // During renderAxiomMetricsHtml(), the build-selector HTML is still being
+  // assembled, so its checkboxes are not present in the DOM yet (total === 0).
+  // Treat that transient state as "all selected"; otherwise the first render
+  // can shrink the CR table to only the __ALL__ bucket while the badge still
+  // shows the full CR count.
+  const allSelected = !allRows.length || total === 0 || selectedIdx.size >= allRows.length;
 
   // Helper: get all jira objects from a map entry (new structure has no .jiras)
   function _entryAllJiras(entry){
@@ -2326,8 +2331,8 @@ function brDownloadCsv(filename, headers, rows){
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},0);
 }
 function brDownloadCrCsv(){
-                const headers=['#','CR','CR URL','Is Duplicate','Parent CR','JIRA Title','JIRA Count','CR Priority','Mapped JIRAs URL','Crash Type','CR Status','Created Date','Ready Date','Built Date','CR Age','Area','Subsystem','Function','Assignee','CR SI'];
-  const rows=(window._brCrRows||brLastCrRows||[]).map((r,i)=>{const id=(String(r.cr||'').match(/(\d{5,9})/)||[])[1]||'';const items=brJiraItemsForCr(r);const keys=items.map(x=>x.key).filter(Boolean);return {'#':i+1,'CR':r.cr||'','CR URL':id?'https://orbit/CR/'+id:'','Is Duplicate':r.is_dup?'Yes':'No','Parent CR':r.parent_cr||'None','JIRA Title':r.title||'','JIRA Count':r.count||keys.length||0,'CR Priority':r.priority||'','Mapped JIRAs URL':keys.length?jiraKeysUrl(keys):'','Crash Type':crashTypeSummary(items,r),'CR Status':r.status||'','Created Date':brDateOnly(r.date),'Ready Date':brDateOnly(r.ready_date)||'None','Built Date':brDateOnly(r.built_date),'CR Age':brDisplayCrAge(r),'Area':r.area||'','Subsystem':r.sub||'','Function':r.func||'','Assignee':r.cr_assignee||'','CR SI':r.si&&r.si!=='NoSIR'?r.si:''};});
+                const headers=['#','CR','CR URL','Is Duplicate','Parent CR','JIRA Title','JIRA Count','CR Priority','Mapped JIRAs URL','Crash Type','CR Status','Created Date','Ready Date','Built Date','CR Age','Area','Subsystem','Function','Assignee','CR SI','CR Notes (Latest)'];
+  const rows=(window._brCrRows||brLastCrRows||[]).map((r,i)=>{const id=(String(r.cr||'').match(/(\d{5,9})/)||[])[1]||'';const items=brJiraItemsForCr(r);const keys=items.map(x=>x.key).filter(Boolean);return {'#':i+1,'CR':r.cr||'','CR URL':id?'https://orbit/CR/'+id:'','Is Duplicate':r.is_dup?'Yes':'No','Parent CR':r.parent_cr||'None','JIRA Title':r.title||'','JIRA Count':r.count||keys.length||0,'CR Priority':r.priority||'','Mapped JIRAs URL':keys.length?jiraKeysUrl(keys):'','Crash Type':crashTypeSummary(items,r),'CR Status':r.status||'','Created Date':brDateOnly(r.date),'Ready Date':brDateOnly(r.ready_date)||'None','Built Date':brDateOnly(r.built_date),'CR Age':brDisplayCrAge(r),'Area':r.area||'','Subsystem':r.sub||'','Function':r.func||'','Assignee':r.cr_assignee||'','CR SI':r.si&&r.si!=='NoSIR'?r.si:'','CR Notes (Latest)':r.cr_notes||''};});
   brDownloadCsv('build_report_cr_summary.csv',headers,rows);
 }
 function brDownloadJiraCsv(){
@@ -2582,9 +2587,9 @@ function brBuildCleanReportHtml(){
     const parentCell=isDup&&r.parent_cr
             ?(function(){const pn=(String(r.parent_cr||'').match(/(\d{5,9})/)||[])[1]||'';return pn?link('https://orbit/CR/'+pn,r.parent_cr):esc(r.parent_cr);})()
       :'None';
-    return '<tr style="'+rowStyle+'">'+td(i+1,'text-align:center;')+td(link(id?'https://orbit/CR/'+id:'',r.cr||''))+td(link(keys.length?jiraKeysUrl(keys):'',r.count||keys.length||0),'text-align:right;font-weight:900;')+td(esc(r.priority||''))+td(esc(crashTypeSummary(brJiraItemsForCr(r),r)))+td(esc(r.title||''))+td(dupCell)+td(parentCell)+td(esc(r.area||''))+td(esc(r.sub||''))+td(esc(r.func||''))+td(esc(r.status||''))+td(esc(brDisplayCrAge(r)))+td(esc(r.cr_assignee||''))+td(esc(r.si&&r.si!=='NoSIR'?r.si:''))+td(esc(brDateOnly(r.date)))+td(esc(brDateOnly(r.ready_date)||'None'))+td(esc(brDateOnly(r.built_date)))+'</tr>';
+    return '<tr style="'+rowStyle+'">'+td(i+1,'text-align:center;')+td(link(id?'https://orbit/CR/'+id:'',r.cr||''))+td(link(keys.length?jiraKeysUrl(keys):'',r.count||keys.length||0),'text-align:right;font-weight:900;')+td(esc(r.priority||''))+td(esc(crashTypeSummary(brJiraItemsForCr(r),r)))+td(esc(r.title||''))+td(dupCell)+td(parentCell)+td(esc(r.area||''))+td(esc(r.sub||''))+td(esc(r.func||''))+td(esc(r.status||''))+td(esc(brDisplayCrAge(r)))+td(esc(r.cr_assignee||''))+td(esc(r.si&&r.si!=='NoSIR'?r.si:''))+td(esc(brDateOnly(r.date)))+td(esc(brDateOnly(r.ready_date)||'None'))+td(esc(brDateOnly(r.built_date)))+td(esc(r.cr_notes||''))+'</tr>';
   });
-  html+='<div style="'+css.h+'">CR Summary</div>'+table(['#','CR-ID','Occurrence','CR Priority','Crash Type','CR Title','Dup?','Parent CR','CR Area','CR SubSystem','CR Functionality','CR Status','CR Age','Assignee','CR SI','Created Date','Ready Date','Built Date'],crHtml);
+  html+='<div style="'+css.h+'">CR Summary</div>'+table(['#','CR-ID','Occurrence','CR Priority','Crash Type','CR Title','Dup?','Parent CR','CR Area','CR SubSystem','CR Functionality','CR Status','CR Age','Assignee','CR SI','Created Date','Ready Date','Built Date','CR Notes (Latest)'],crHtml);
   const mappedHtml=mappedRows.map((r,i)=>'<tr>'+td(i+1,'text-align:center;')+td(link(r.ticket?JIRA_BASE+r.ticket:'',r.ticket||''))+td(esc(r.count||1),'text-align:right;font-weight:900;')+td(esc(r.title||''))+td(esc(r.date||''))+td(esc(r.status||''))+td(esc((r.srcKeys||[]).join(', ')))+'</tr>');
   if(mappedHtml.length)html+='<div style="'+css.h+'">Mapped JIRAs</div>'+table(['#','JIRA-Ticket','Occurrence','Jira Title','Jira Date','Status','JIRA Tickets (Source)'],mappedHtml);
   const openHtml=openRows.map((r,i)=>'<tr>'+td(i+1,'text-align:center;')+td(link(r.key?JIRA_BASE+r.key:'',r.key||''))+td(link(r.key?JIRA_BASE+r.key:'',r.count||1),'text-align:right;font-weight:900;')+td(esc(r.title||''))+td(esc(r.date||''))+td(esc([r.status,r.final_resolution,r.resolution_notes_text].filter(Boolean).join(' - ')))+'</tr>');
@@ -2802,15 +2807,15 @@ async function brRun(){
 
   if(g('brJql')&&!String(g('brJql').value||'').trim())g('brJql').value=activeJql;
   if(g('brOpenJira')){g('brOpenJira').href=jiraUrl(activeJql);g('brOpenJira').style.display=activeJql?'inline-flex':'none'}
-  g('brSpinner').style.display='inline';g('brStatus').className='muted';g('brStatus').textContent='Checking JIRA credentials...';g('brCrRows').innerHTML='<tr><td colspan="17" class="empty"><i class="fas fa-circle-notch spin"></i> Checking JIRA configuration...</td></tr>';
+  g('brSpinner').style.display='inline';g('brStatus').className='muted';g('brStatus').textContent='Checking JIRA credentials...';g('brCrRows').innerHTML='<tr><td colspan="18" class="empty"><i class="fas fa-circle-notch spin"></i> Checking JIRA configuration...</td></tr>';
     try{
       await brCheckJiraReady();
-      g('brStatus').textContent='Running consolidated report...';g('brCrRows').innerHTML='<tr><td colspan="17" class="empty"><i class="fas fa-circle-notch spin"></i> Running report... see progress window.</td></tr>';
+      g('brStatus').textContent='Running consolidated report...';g('brCrRows').innerHTML='<tr><td colspan="18" class="empty"><i class="fas fa-circle-notch spin"></i> Running report... see progress window.</td></tr>';
       const data=await brRunConsolidatedWithProgress({builds:builds,jql:activeJql,target:g('brTarget').value||'',software_images:brCurrentSoftwareImages()});
       renderReport(data);
       g('brStatus').className='muted status-ok';g('brStatus').textContent='Done.';
       brHideProgress(1800);
-    }catch(e){brUpdateProgress({stage:'error',pct:100,message:e.message||String(e),log:e.message||String(e)});g('brStatus').className='muted status-bad';g('brStatus').textContent='Error: '+(e.message||e);g('brCrRows').innerHTML='<tr><td colspan="17" class="empty" style="color:#dc2626">'+esc(e.message||e)+'</td></tr>'}
+    }catch(e){brUpdateProgress({stage:'error',pct:100,message:e.message||String(e),log:e.message||String(e)});g('brStatus').className='muted status-bad';g('brStatus').textContent='Error: '+(e.message||e);g('brCrRows').innerHTML='<tr><td colspan="18" class="empty" style="color:#dc2626">'+esc(e.message||e)+'</td></tr>'}
   finally{g('brSpinner').style.display='none'}
 }
 document.addEventListener('DOMContentLoaded',()=>{

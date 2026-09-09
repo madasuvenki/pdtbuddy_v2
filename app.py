@@ -131,7 +131,7 @@ from itsdangerous import URLSafeSerializer, BadSignature
 
 from src.application import register_feature_blueprints
 
-APP_VERSION = "v2.12"
+APP_VERSION = "v2.13"
 QIPLPDT_QAFAST_TICKET_URL = "https://jira-dc.qualcomm.com/jira/browse/QIPLPDT-10525"
 QIPLPDT_QAFAST_COMPONENT = "Stats_Enhancement"
 
@@ -4235,6 +4235,290 @@ def admin_usage():
     if not is_admin():
         abort(403)
     return render_template('admin_usage.html')
+
+
+@app.route('/admin/db_health')
+@login_required
+def admin_db_health():
+    """Return MySQL database health/usage details for the Admin Usage DB Health tab."""
+    if not is_admin():
+        return jsonify({"error": "Unauthorized"}), 403
+
+    def _num(value, default=0.0):
+        try:
+            if value is None:
+                return default
+            return float(value)
+        except Exception:
+            return default
+
+    def _int(value, default=0):
+        try:
+            if value is None:
+                return default
+            return int(float(value))
+        except Exception:
+            return default
+
+    def _fmt_dt(value):
+        if isinstance(value, (datetime, date)):
+            return value.strftime("%Y-%m-%d %H:%M:%S")
+        return str(value or "")
+
+    conn = get_mysql_connection_db()
+    if not conn:
+        return jsonify({"success": False, "error": "DB connection failed"}), 500
+
+    cur = conn.cursor(dictionary=True)
+    try:
+        now_started = time.time()
+        overview = {
+            "connected": True,
+            "host": MYSQL_HOST,
+            "port": MYSQL_PORT,
+            "user": MYSQL_USER,
+            "main_database": "pdt_stats_dashboard",
+        }
+
+        try:
+            cur.execute(
+                "SELECT @@hostname AS server_host, @@version AS server_version, "
+                "@@version_comment AS version_comment, DATABASE() AS active_database, NOW() AS server_time"
+            )
+            row = cur.fetchone() or {}
+            overview.update({
+                "server_host": row.get("server_host") or "",
+                "server_version": row.get("server_version") or "",
+                "version_comment": row.get("version_comment") or "",
+                "active_database": row.get("active_database") or "",
+                "server_time": _fmt_dt(row.get("server_time")),
+            })
+        except Exception as exc:
+            overview["server_info_error"] = str(exc)
+
+        status_map = {}
+        try:
+            cur.execute("""
+                SHOW GLOBAL STATUS
+                WHERE Variable_name IN (
+                    'Uptime','Threads_connected','Threads_running',
+                    'Connections','Max_used_connections','Questions','Slow_queries',
+                    'Created_tmp_disk_tables','Created_tmp_tables',
+                    'Innodb_buffer_pool_pages_total','Innodb_buffer_pool_pages_free',
+                    'Innodb_buffer_pool_pages_dirty','Innodb_page_size'
+                )
+            """)
+            status_map = {str(r.get("Variable_name")): r.get("Value") for r in (cur.fetchall() or [])}
+        except Exception:
+            status_map = {}
+
+        variables_map = {}
+        try:
+            cur.execute("""
+                SHOW GLOBAL VARIABLES
+                WHERE Variable_name IN ('max_connections','innodb_buffer_pool_size')
+            """)
+            variables_map = {str(r.get("Variable_name")): r.get("Value") for r in (cur.fetchall() or [])}
+        except Exception:
+            variables_map = {}
+
+        uptime_sec = _int(status_map.get("Uptime"))
+        max_connections = _int(variables_map.get("max_connections"))
+        threads_connected = _int(status_map.get("Threads_connected"))
+        buffer_pool_size = _num(variables_map.get("innodb_buffer_pool_size"))
+        overview.update({
+            "uptime_seconds": uptime_sec,
+            "uptime_days": round(uptime_sec / 86400, 2) if uptime_sec else 0,
+            "threads_connected": threads_connected,
+            "threads_running": _int(status_map.get("Threads_running")),
+            "connections": _int(status_map.get("Connections")),
+            "max_used_connections": _int(status_map.get("Max_used_connections")),
+            "max_connections": max_connections,
+            "connection_usage_pct": round((threads_connected / max_connections) * 100, 2) if max_connections else 0,
+            "questions": _int(status_map.get("Questions")),
+            "slow_queries": _int(status_map.get("Slow_queries")),
+            "tmp_tables": _int(status_map.get("Created_tmp_tables")),
+            "tmp_disk_tables": _int(status_map.get("Created_tmp_disk_tables")),
+            "buffer_pool_size_mb": round(buffer_pool_size / 1024 / 1024, 2) if buffer_pool_size else 0,
+        })
+
+        page_size = _num(status_map.get("Innodb_page_size"))
+        pool_total_pages = _num(status_map.get("Innodb_buffer_pool_pages_total"))
+        pool_free_pages = _num(status_map.get("Innodb_buffer_pool_pages_free"))
+        pool_dirty_pages = _num(status_map.get("Innodb_buffer_pool_pages_dirty"))
+        if page_size and pool_total_pages:
+            used_pages = max(pool_total_pages - pool_free_pages, 0)
+            overview["buffer_pool_used_mb"] = round((used_pages * page_size) / 1024 / 1024, 2)
+            overview["buffer_pool_free_mb"] = round((pool_free_pages * page_size) / 1024 / 1024, 2)
+            overview["buffer_pool_dirty_mb"] = round((pool_dirty_pages * page_size) / 1024 / 1024, 2)
+            overview["buffer_pool_used_pct"] = round((used_pages / pool_total_pages) * 100, 2)
+        else:
+            overview["buffer_pool_used_mb"] = 0
+            overview["buffer_pool_free_mb"] = 0
+            overview["buffer_pool_dirty_mb"] = 0
+            overview["buffer_pool_used_pct"] = 0
+
+        cur.execute("""
+            SELECT
+                table_schema AS schema_name,
+                COUNT(*) AS table_count,
+                COALESCE(SUM(table_rows), 0) AS approx_rows,
+                ROUND(COALESCE(SUM(data_length), 0) / 1024 / 1024, 2) AS data_mb,
+                ROUND(COALESCE(SUM(index_length), 0) / 1024 / 1024, 2) AS index_mb,
+                ROUND(COALESCE(SUM(data_free), 0) / 1024 / 1024, 2) AS free_mb,
+                ROUND(COALESCE(SUM(data_length + index_length), 0) / 1024 / 1024, 2) AS total_mb,
+                ROUND(COALESCE(SUM(data_length + index_length + data_free), 0) / 1024 / 1024, 2) AS allocated_mb,
+                MAX(update_time) AS last_update
+            FROM information_schema.TABLES
+            WHERE table_schema NOT IN ('information_schema','mysql','performance_schema','sys')
+            GROUP BY table_schema
+            ORDER BY total_mb DESC, table_schema
+        """)
+        schemas = []
+        for row in cur.fetchall() or []:
+            schema_name = row.get("schema_name") or row.get("table_schema") or row.get("TABLE_SCHEMA") or ""
+            schemas.append({
+                "schema": schema_name,
+                "table_count": _int(row.get("table_count")),
+                "approx_rows": _int(row.get("approx_rows")),
+                "data_mb": _num(row.get("data_mb")),
+                "index_mb": _num(row.get("index_mb")),
+                "free_mb": _num(row.get("free_mb")),
+                "total_mb": _num(row.get("total_mb")),
+                "allocated_mb": _num(row.get("allocated_mb")),
+                "free_pct": round((_num(row.get("free_mb")) / _num(row.get("allocated_mb"))) * 100, 2) if _num(row.get("allocated_mb")) else 0,
+                "last_update": _fmt_dt(row.get("last_update")),
+            })
+
+        cur.execute("""
+            SELECT
+                table_schema AS schema_name,
+                table_name AS object_name,
+                engine AS engine_name,
+                table_collation AS collation_name,
+                COALESCE(table_rows, 0) AS approx_rows,
+                ROUND(COALESCE(data_length, 0) / 1024 / 1024, 2) AS data_mb,
+                ROUND(COALESCE(index_length, 0) / 1024 / 1024, 2) AS index_mb,
+                ROUND(COALESCE(data_free, 0) / 1024 / 1024, 2) AS free_mb,
+                ROUND(COALESCE(data_length + index_length, 0) / 1024 / 1024, 2) AS total_mb,
+                ROUND(COALESCE(data_length + index_length + data_free, 0) / 1024 / 1024, 2) AS allocated_mb,
+                update_time AS last_update
+            FROM information_schema.TABLES
+            WHERE table_schema NOT IN ('information_schema','mysql','performance_schema','sys')
+            ORDER BY (COALESCE(data_length, 0) + COALESCE(index_length, 0)) DESC
+            LIMIT 100
+        """)
+        top_tables = []
+        for row in cur.fetchall() or []:
+            schema_name = row.get("schema_name") or row.get("table_schema") or row.get("TABLE_SCHEMA") or ""
+            table_name = row.get("object_name") or row.get("table_name") or row.get("TABLE_NAME") or ""
+            engine_name = row.get("engine_name") or row.get("engine") or row.get("ENGINE") or ""
+            collation_name = row.get("collation_name") or row.get("table_collation") or row.get("TABLE_COLLATION") or ""
+            top_tables.append({
+                "schema": schema_name,
+                "table": table_name,
+                "engine": engine_name,
+                "collation": collation_name,
+                "approx_rows": _int(row.get("approx_rows")),
+                "data_mb": _num(row.get("data_mb")),
+                "index_mb": _num(row.get("index_mb")),
+                "free_mb": _num(row.get("free_mb")),
+                "total_mb": _num(row.get("total_mb")),
+                "allocated_mb": _num(row.get("allocated_mb")),
+                "free_pct": round((_num(row.get("free_mb")) / _num(row.get("allocated_mb"))) * 100, 2) if _num(row.get("allocated_mb")) else 0,
+                "optimize_sql": f"OPTIMIZE TABLE `{schema_name}`.`{table_name}`" if schema_name and table_name else "",
+                "last_update": _fmt_dt(row.get("last_update") or row.get("update_time") or row.get("UPDATE_TIME")),
+            })
+
+        health_checks = []
+        for sql, label in (
+            ("SELECT COUNT(*) AS c, MAX(dashboard_latest_update) AS ts FROM pdt_stats_dashboard.dashboard_status", "dashboard_status"),
+            ("SELECT COUNT(*) AS c, MAX(created_at) AS ts FROM pdt_stats_dashboard.user_data", "user_data"),
+            ("SELECT COUNT(*) AS c, MAX(updated_at) AS ts FROM pdt_stats_dashboard.axiom_job_summary", "axiom_job_summary"),
+        ):
+            try:
+                cur.execute(sql)
+                row = cur.fetchone() or {}
+                health_checks.append({
+                    "name": label,
+                    "ok": True,
+                    "rows": _int(row.get("c")),
+                    "last_update": _fmt_dt(row.get("ts")),
+                    "message": "",
+                })
+            except Exception as exc:
+                health_checks.append({
+                    "name": label,
+                    "ok": False,
+                    "rows": 0,
+                    "last_update": "",
+                    "message": str(exc),
+                })
+
+        overview["database_count"] = len(schemas)
+        overview["table_count"] = sum(_int(s.get("table_count")) for s in schemas)
+        overview["total_size_mb"] = round(sum(_num(s.get("total_mb")) for s in schemas), 2)
+        overview["data_size_mb"] = round(sum(_num(s.get("data_mb")) for s in schemas), 2)
+        overview["index_size_mb"] = round(sum(_num(s.get("index_mb")) for s in schemas), 2)
+        overview["free_size_mb"] = round(sum(_num(s.get("free_mb")) for s in schemas), 2)
+        overview["allocated_size_mb"] = round(sum(_num(s.get("allocated_mb")) for s in schemas), 2)
+        overview["generated_in_ms"] = int((time.time() - now_started) * 1000)
+
+        optimization_candidates = sorted(
+            [
+                t for t in top_tables
+                if _num(t.get("free_mb")) >= 16 or _num(t.get("free_pct")) >= 20 or _num(t.get("total_mb")) >= 512
+            ],
+            key=lambda t: (_num(t.get("free_mb")), _num(t.get("total_mb"))),
+            reverse=True,
+        )[:25]
+        recommendations = []
+        if optimization_candidates:
+            recommendations.append({
+                "type": "space_reclaim",
+                "severity": "high" if _num(optimization_candidates[0].get("free_mb")) >= 256 else "medium",
+                "title": "Tables with reclaimable / fragmented space detected",
+                "message": "Review high Data Free MB tables first. Run OPTIMIZE TABLE during a maintenance window only after confirming no ingest/report job is writing to that table.",
+            })
+        if schemas:
+            largest_schema = schemas[0]
+            recommendations.append({
+                "type": "largest_schema",
+                "severity": "info",
+                "title": f"Largest schema: {largest_schema.get('schema')}",
+                "message": f"{largest_schema.get('schema')} is using {largest_schema.get('total_mb')} MB across {largest_schema.get('table_count')} tables.",
+            })
+        if top_tables:
+            largest_table = top_tables[0]
+            recommendations.append({
+                "type": "largest_table",
+                "severity": "info",
+                "title": f"Largest table: {largest_table.get('schema')}.{largest_table.get('table')}",
+                "message": f"This table is using {largest_table.get('total_mb')} MB. Check retention, duplicate historical rows, and whether old report/cache data can be archived.",
+            })
+
+        return jsonify({
+            "success": True,
+            "overview": overview,
+            "schemas": schemas,
+            "top_tables": top_tables,
+            "optimization_candidates": optimization_candidates,
+            "recommendations": recommendations,
+            "health_checks": health_checks,
+        })
+    except Exception as e:
+        logger.error(f"[admin_db_health] failed: {e}")
+        logger.debug(traceback.format_exc())
+        return jsonify({"success": False, "error": str(e)}), 500
+    finally:
+        try:
+            cur.close()
+        except Exception:
+            pass
+        try:
+            conn.close()
+        except Exception:
+            pass
 
 
 @app.route('/admin/all_targets_status')
@@ -9679,7 +9963,7 @@ def main():
     _start_mcp_server_thread()
 
     HOST = os.environ.get('BUDDY_HOST', '0.0.0.0')
-    PORT = int(os.environ.get('BUDDY_PORT', '80'))
+    PORT = int(os.environ.get('BUDDY_PORT', '50'))
 
     # Use Waitress (production WSGI) when running as .exe or in production.
     # Falls back to Flask dev server only if waitress is not installed.

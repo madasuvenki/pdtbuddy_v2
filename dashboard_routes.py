@@ -9739,7 +9739,12 @@ def api_build_report_export_excel():
         match = _re.search(r'(\d{5,9})', str(cr_value or ''))
         return f'https://orbit/CR/{match.group(1)}' if match else ''
 
-    cr_headers = ['S.No.', 'CR-ID', 'Occurrence', 'CR Title', 'CR Area', 'CR Subsystem', 'CR Functionality', 'CR Date', 'CR SI', 'CR Status', 'CR Age']
+    cr_headers = [
+        'S.No.', 'CR-ID', 'Occurrence', 'CR Priority', 'Crash Type',
+        'CR Title', 'Parent CR', 'CR Area', 'CR Subsystem', 'CR Functionality',
+        'CR Status', 'CR Age', 'Assignee', 'CR SI', 'Created Date',
+        'Ready Date', 'Built Date', 'CR Notes (Latest)'
+    ]
     ws = _safe_sheet('CR_Summary')
     _write_headers(ws, cr_headers)
     for idx, row in enumerate(cr_rows if isinstance(cr_rows, list) else [], start=1):
@@ -9751,14 +9756,21 @@ def api_build_report_export_excel():
             idx,
             _br_export_text(row.get('cr') or row.get('CR-ID')),
             count,
+            _br_export_text(row.get('priority') or row.get('cr_priority') or row.get('CR Priority')),
+            _br_export_text(row.get('crash_type') or row.get('Crash Type')),
             _br_export_text(row.get('title') or row.get('CR Title')),
+            _br_export_text(row.get('parent_cr') or row.get('Parent CR') or ('None' if row.get('is_dup') else '')),
             _br_export_text(row.get('area') or row.get('CR Area')),
             _br_export_text(row.get('sub') or row.get('subsystem') or row.get('CR SubSystem') or row.get('CR Subsystem')),
             _br_export_text(row.get('func') or row.get('functionality') or row.get('CR Functionality')),
-            _br_export_text(row.get('date') or row.get('created_date') or row.get('Created Date') or row.get('CR Date')),
-            _br_export_text(row.get('si') or row.get('CR SI')),
             _br_export_text(row.get('status') or row.get('CR Status')),
             _br_export_text(row.get('age') or row.get('cr_age') or row.get('CR Age')),
+            _br_export_text(row.get('cr_assignee') or row.get('assignee') or row.get('Assignee')),
+            _br_export_text(row.get('si') or row.get('CR SI')),
+            _br_export_text(row.get('date') or row.get('created_date') or row.get('Created Date') or row.get('CR Date')),
+            _br_export_text(row.get('ready_date') or row.get('Ready Date')),
+            _br_export_text(row.get('built_date') or row.get('Built Date')),
+            _br_export_text(row.get('cr_notes') or row.get('CR Notes (Latest)') or row.get('CR Notes') or row.get('latest_cr_notes')),
         ]
         ws.append(values)
         excel_row = ws.max_row

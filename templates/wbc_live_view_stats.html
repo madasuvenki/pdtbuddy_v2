@@ -1116,6 +1116,24 @@ function _premiumLink(url, text, kind){
 }
 function _extractJiraKeys(v){return String(v||'').match(/\b[A-Z][A-Z0-9]+-\d+\b/gi)||[];}
 function _extractCrTokens(v){return String(v||'').match(/\b(?:CR\s*[-:]?\s*)?\d{5,9}\b/gi)||[];}
+function _wbcNormalizeCrSearchKey(v){
+  const m=String(v||'').match(/\b(?:CR\s*[-:]?\s*)?(\d{5,9})\b/i);
+  return m ? ('CR'+m[1]) : '';
+}
+function _wbcCrSearchBare(v){
+  const key=_wbcNormalizeCrSearchKey(v);
+  return key.replace(/^CR/i,'');
+}
+function _wbcIsCrOccurrenceCol(c){
+  const n=_normColName(c);
+  return n==='cr_occurrence'||n==='cr_occurrences'||n==='occurrence'||n==='occurrences'||n==='instance'||n==='instances'||n==='cr_instance'||n==='cr_instances'||n==='cr_count'||/^cr_.*occurr/.test(n);
+}
+function _wbcCrOccurrenceLinkHtml(val, crValue){
+  const label=String(val==null?'':val).trim()||'0';
+  const crKey=_wbcNormalizeCrSearchKey(crValue);
+  if(!crKey) return esc(label);
+  return `<a href="#tabJiras" data-cr="${esc(crKey)}" onclick="return _wbcOpenAllJirasForCr(this.dataset.cr,event)" title="Show all JIRAs related to ${esc(crKey)}" style="display:inline-flex;align-items:center;gap:4px;margin:1px 4px 1px 0;padding:2px 9px;border-radius:999px;border:1px solid #bfdbfe;background:linear-gradient(135deg,#eff6ff,#eef2ff);color:#1d4ed8;font-weight:950;font-size:11px;text-decoration:none;white-space:nowrap;box-shadow:0 1px 4px rgba(15,23,42,.06)">${esc(label)}<i class="fas fa-arrow-right" style="font-size:8px"></i></a>`;
+}
 
 function _cellHtml(col, val){
   const v = String(val == null ? '' : val).trim();
@@ -1159,7 +1177,7 @@ function tableHtml(x, opts){
   opts = opts || {};
   const cols = (x.columns || []).filter(c => !(opts.hideCols||new Set()).has(_normColName(c)));
   const rows = x.rows || [];
-  const uid = 'tbl_'+Math.random().toString(36).slice(2,7);
+  const uid = opts.uid || ('tbl_'+Math.random().toString(36).slice(2,7));
 
   if(!rows.length){
     return `<div class="tblwrap" style="border:1px solid #e0e7ff;border-radius:14px;background:#fff"><table><thead><tr><th>#</th>${cols.map(c=>`<th>${esc(String(c).replace(/_/g,' '))}</th>`).join('')}</tr></thead><tbody><tr><td class="empty" colspan="99">No data/config.</td></tr></tbody></table></div>`;
@@ -1253,6 +1271,35 @@ function _wbcClearTbl(uid){
   });
   _wbcApplyTbl(uid);
 }
+function _wbcOpenAllJirasForCr(crValue, evt){
+  if(evt){evt.preventDefault();evt.stopPropagation();}
+  const crKey=_wbcNormalizeCrSearchKey(crValue);
+  const crBare=_wbcCrSearchBare(crKey);
+  if(!crBare) return false;
+
+  const sideBtn=document.querySelector(".nav button[onclick*=\"'jiras'\"]");
+  if(typeof sideNav==='function') sideNav('jiras', sideBtn||null);
+  else switchTab('jiras');
+
+  window.setTimeout(()=>{
+    const uid='wbc_all_jiras';
+    const d=window._wbcTblData&&window._wbcTblData[uid];
+    const q=document.getElementById(uid+'_q');
+    if(d){
+      _wbcClearTbl(uid);
+      if(q){
+        q.value=crBare;
+        _wbcApplyTbl(uid);
+        q.focus();
+      }
+    }
+    const box=document.getElementById('allJirasBox');
+    if(box&&box.scrollIntoView) box.scrollIntoView({behavior:'smooth',block:'start'});
+    const count=document.getElementById('allJirasCount');
+    if(count) count.textContent='Filtered by '+crKey;
+  }, 80);
+  return false;
+}
 function _wbcSimpleTableHtml(rows, cols, uid, opts){
   rows=rows||[]; cols=cols||[]; opts=opts||{};
   window._wbcTblData[uid]={rows,cols,sort:{col:-1,dir:1},invalid:opts.invalid||null};
@@ -1262,7 +1309,7 @@ function _wbcSimpleTableHtml(rows, cols, uid, opts){
 }
 function previewPanel(id,title,key){const p=payload.previews||{},x=p[key]||{};return `<div class="card" id="${id}"><div class="head"><span>${esc(title)}</span><span class="muted">${esc(x.error||((x.count||0)+' row(s)'))}</span></div>${tableHtml(x)}</div>`;}
 function renderPreviews(){}
-function renderHgyTabs(){const p=payload.previews||{}, bs=payload.build_summary||{};setText('openCrsCount',((p.open_crs||{}).count||0)+' row(s)');setText('openJirasCount',(((p.open_jiras||{}).count||0)+((p.jiras||{}).count||0))+' row(s)');setText('mappedJirasCount',((p.jiras||{}).count||0)+' row(s)');setText('allCrsCount',((p.all_crs||{}).count||0)+' row(s)');setText('allJirasCount',((p.jiras||{}).count||0)+' row(s)');setText('nMappedJiras',(p.jiras||{}).count||0);setText('ovKMappedJiras',(p.jiras||{}).count||0);setText('nOpenCrDets',(p.open_crs||{}).count||0);renderOpenCrsEnhanced();loadOpenCrsAnalysis();const _ojOpen=tableHtml(p.open_jiras,{hideCols:_OPEN_JIRA_HIDE_COLS});const _ojMapped=tableHtml(p.jiras);const _ojOpenCount=(p.open_jiras||{}).count||0;const _ojMappedCount=(p.jiras||{}).count||0;document.getElementById('openJirasBox').innerHTML=`<div style='font-size:11px;font-weight:900;color:#7c3aed;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #ede9fe'><i class='fas fa-lock-open' style='margin-right:5px'></i>Open / Unmapped JIRAs <span style='background:#ede9fe;color:#6d28d9;border-radius:999px;padding:1px 8px;font-size:10px'>${_ojOpenCount}</span></div>${_ojOpen}<div style='font-size:11px;font-weight:900;color:#d97706;text-transform:uppercase;letter-spacing:.06em;margin:14px 0 8px;padding-bottom:6px;border-bottom:1px solid #fef3c7'><i class='fas fa-link' style='margin-right:5px'></i>Mapped JIRAs (WPST / QSTABILITY) <span style='background:#fef3c7;color:#92400e;border-radius:999px;padding:1px 8px;font-size:10px'>${_ojMappedCount}</span></div>${_ojMapped}`;document.getElementById('mappedJirasBox').innerHTML=_ojMapped;document.getElementById('allCrsBox').innerHTML=tableHtml(p.all_crs);document.getElementById('allJirasBox').innerHTML=tableHtml(p.jiras);renderBuildSummary(bs);}
+function renderHgyTabs(){const p=payload.previews||{}, bs=payload.build_summary||{};setText('openCrsCount',((p.open_crs||{}).count||0)+' row(s)');setText('openJirasCount',(((p.open_jiras||{}).count||0)+((p.jiras||{}).count||0))+' row(s)');setText('mappedJirasCount',((p.jiras||{}).count||0)+' row(s)');setText('allCrsCount',((p.all_crs||{}).count||0)+' row(s)');setText('allJirasCount',((p.jiras||{}).count||0)+' row(s)');setText('nMappedJiras',(p.jiras||{}).count||0);setText('ovKMappedJiras',(p.jiras||{}).count||0);setText('nOpenCrDets',(p.open_crs||{}).count||0);renderOpenCrsEnhanced();loadOpenCrsAnalysis();const _ojOpen=tableHtml(p.open_jiras,{hideCols:_OPEN_JIRA_HIDE_COLS});const _ojMapped=tableHtml(p.jiras);const _ojOpenCount=(p.open_jiras||{}).count||0;const _ojMappedCount=(p.jiras||{}).count||0;document.getElementById('openJirasBox').innerHTML=`<div style='font-size:11px;font-weight:900;color:#7c3aed;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #ede9fe'><i class='fas fa-lock-open' style='margin-right:5px'></i>Open / Unmapped JIRAs <span style='background:#ede9fe;color:#6d28d9;border-radius:999px;padding:1px 8px;font-size:10px'>${_ojOpenCount}</span></div>${_ojOpen}<div style='font-size:11px;font-weight:900;color:#d97706;text-transform:uppercase;letter-spacing:.06em;margin:14px 0 8px;padding-bottom:6px;border-bottom:1px solid #fef3c7'><i class='fas fa-link' style='margin-right:5px'></i>Mapped JIRAs (WPST / QSTABILITY) <span style='background:#fef3c7;color:#92400e;border-radius:999px;padding:1px 8px;font-size:10px'>${_ojMappedCount}</span></div>${_ojMapped}`;document.getElementById('mappedJirasBox').innerHTML=_ojMapped;document.getElementById('allCrsBox').innerHTML=tableHtml(p.all_crs);document.getElementById('allJirasBox').innerHTML=tableHtml(p.jiras,{uid:'wbc_all_jiras'});renderBuildSummary(bs);}
 let _wbcBuildReportRows={};
 let _wbcTabReportRows={};
 const _WBC_EXCLUDE_COLS=new Set(['crash_type','crash_types','type','failure_type','_source_table','crash type','Crash Type','Crash Types','CrashType']);function _wbcCols(rows){const pref=['CR','CR Count','CR Title','CR Status','CR Area','CR Subsystem','CR Function','JIRA','JIRA Title','JIRA Status','Final Ticket','Final Status','Created','Serial No','Matched Build','stability_ticket','jira','jira_id','mapped_cr','cr','cr_id','jira_title','title','summary','cr_area','area','cr_status','status','jira_date','si_last_seen','last_instance','metabuild','meta_build','build'];const seen=new Set(),out=[];pref.forEach(c=>{if(!_WBC_EXCLUDE_COLS.has(c)&&(rows||[]).some(r=>Object.prototype.hasOwnProperty.call(r,c))&&!seen.has(c)){seen.add(c);out.push(c);}});(rows[0]?Object.keys(rows[0]):[]).forEach(c=>{if(!seen.has(c)&&!_WBC_EXCLUDE_COLS.has(c)&&out.length<18){seen.add(c);out.push(c);}});return out;}
@@ -1385,10 +1432,37 @@ async function downloadWbcCurrentBuildExcel(btn){
     }
   }
 }
+function _wbcMailDateOnly(value){
+  const raw=String(value==null?'':value).trim();
+  if(!raw)return '';
+  const iso=raw.match(/^(\d{4}-\d{2}-\d{2})/);
+  if(iso)return iso[1];
+  const slash=raw.match(/^(\d{1,2}\/\d{1,2}\/\d{4})/);
+  if(slash)return slash[1];
+  const d=new Date(raw);
+  if(!Number.isNaN(d.getTime())){
+    const pad=n=>String(n).padStart(2,'0');
+    return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+  }
+  const first=raw.split(/[T\s]/)[0];
+  return first||raw;
+}
+function _wbcMailColumnLabel(c){
+  return String(Array.isArray(c)?(c[0]||''):c).replace(/_/g,' ');
+}
+function _wbcIsMailDateColumn(label){
+  const l=String(label||'').toLowerCase();
+  return /\bdate\b/.test(l)||l==='created'||l.includes('last instance');
+}
+function _wbcMailCellValue(r,c){
+  const label=_wbcMailColumnLabel(c);
+  const value=Array.isArray(c)?_wbcVal(r,c):(r&&r[c]);
+  return _wbcIsMailDateColumn(label)?_wbcMailDateOnly(value):value;
+}
 function _wbcHtmlMailTable(title, cols, rows, color){
   const safeCols=(cols||[]).slice(0,12);
-  const htmlVal=(r,c)=>esc(Array.isArray(c)?_wbcVal(r,c):(r&&r[c]));
-  const headName=c=>esc(String(Array.isArray(c)?(c[0]||''):c).replace(/_/g,' '));
+  const htmlVal=(r,c)=>esc(_wbcMailCellValue(r,c));
+  const headName=c=>esc(_wbcMailColumnLabel(c));
   const visibleRows=rows&&rows.length?rows:[];
   const trs=visibleRows.map((r,i)=>`<tr><td style="border:1px solid #000;padding:9px 10px;text-align:center;color:#000;vertical-align:middle">${i+1}</td>${safeCols.map(c=>`<td style="border:1px solid #000;padding:9px 10px;vertical-align:middle;color:#000;white-space:normal;line-height:1.45">${htmlVal(r,c)}</td>`).join('')}</tr>`).join('')||`<tr><td colspan="${safeCols.length+1}" style="border:1px solid #000;padding:10px;color:#64748b">No rows</td></tr>`;
   return `<div style="height:22px;line-height:22px">&nbsp;</div><h3 style="font-family:Segoe UI,Arial;margin:0 0 10px;color:#000;text-decoration:underline">${esc(title)} :</h3><table style="border-collapse:collapse;width:100%;font-family:Segoe UI,Arial;font-size:12px;margin:0 0 30px"><thead><tr>${['S.No.'].concat(safeCols.map(headName)).map(h=>`<th style="border:1px solid #000;background:#b7e8f6;color:#000;padding:8px 10px;text-align:center;font-weight:bold">${esc(h)}</th>`).join('')}</tr></thead><tbody>${trs}</tbody></table>`;
@@ -1396,7 +1470,26 @@ function _wbcHtmlMailTable(title, cols, rows, color){
 function _wbcMailSubjectBuildToken(buildId){
   const clean=String(buildId||'WBC').trim();
   const meta=(clean.match(/^(.+?-\d{4,6})\b/)||[])[1]||clean;
-  return meta.replace(/\s+/g,'_');
+  return meta.replace(/\s+/g,' ').trim();
+}
+function _wbcMailSummaryText(){
+  const overview=(payload&&payload.overview_summary)||{};
+  const lines=[];
+  const summary=String(overview.overview||overview.summary_title||'').trim();
+  const status=String(overview.pdt_status||overview.next_steps||'').trim();
+  const highlights=String(overview.highlights||'').trim();
+  const risks=String(overview.risks||'').trim();
+  if(summary)lines.push('Summary: '+summary);
+  if(status)lines.push('PDT Status: '+status);
+  if(highlights)lines.push('Highlights: '+highlights);
+  if(risks)lines.push('Risks: '+risks);
+  return lines.join('\n');
+}
+function _wbcMailSummaryBlock(){
+  const text=_wbcMailSummaryText();
+  if(!text)return '';
+  const html=esc(text).replace(/\n/g,'<br>');
+  return `<div style="font-family:Segoe UI,Arial;font-size:12px;line-height:1.45;color:#000;margin:4px 0 18px;padding:10px 12px;border:1px solid #000;background:#fff"><b><u>Summary :</u></b><br>${html}</div>`;
 }
 function _wbcCurrentMailHtml(buildId){
   const rows=_wbcCollectCurrentReportRows();
@@ -1409,16 +1502,17 @@ function _wbcCurrentMailHtml(buildId){
   const summaryHeaders=['Target(s)','Product Line(s)','Build(s)','Hours','Crashes','Comments'];
   const summaryValues=[_wbcMailTargetName(buildId),productLine,buildId,last.hours||last.build_hours||last.pdt_hours||'',last.crash||last.total_crashes||validRows.length||'',_wbcBuildComment()];
   const summary=`<table style="border-collapse:collapse;font-family:Segoe UI,Arial;font-size:12px;margin:10px 0 22px"><thead><tr>${summaryHeaders.map(h=>`<th style="border:1px solid #000;background:#b7e8f6;color:#000;padding:6px 9px;text-align:center">${esc(h)}</th>`).join('')}</tr></thead><tbody><tr>${summaryValues.map(v=>`<td style="border:1px solid #000;padding:8px 10px;text-align:center;vertical-align:middle">${esc(v)}</td>`).join('')}</tr></tbody></table>`;
+  const overviewBlock=_wbcMailSummaryBlock();
   const crCols=[['CR-ID','CR','CR ID','cr_id','mapped_cr'],['Occurrence','CR Count','Occurrences','Instances'],['CR Title','Title','Summary'],['CR Area','Area','area','cr_area'],['CR Subsystem','CR SubSystem','Subsystem','subsystem','sub'],['CR Functionality','Functionality','CR Function','functionality','func'],['CR Date','Created','CR Date','Date','date','cr_date'],['CR SI','CR SI','CR Image','cr_image','SI','si','Image Reference','image_reference','si_last_seen','SI Last Seen','software_image','image'],['CR Status','Status','CR Status','cr_status'],['CR Age','Age','age','overall_age','age_days','Age (days)']];
-  const mappedCols=[['CR','CR-ID','CR ID','mapped_cr'],['Occurrence','CR Count','Instances','count'],['JIRA','JIRA-Ticket','Jira Ticket','stability_ticket'],['JIRA Title','Jira Title','Title','Summary'],['JIRA Status','Status'],['JIRA Resolution','Jira Resolution'],['Final Ticket'],['Final Status'],['Final Resolution'],['Created','Jira Date','Date']];
-  const openCols=[['JIRA','JIRA-Ticket','Jira Ticket','stability_ticket'],['JIRA Title','Jira Title','Title','Summary'],['JIRA Status','Status'],['JIRA Resolution','Jira Resolution'],['Final Ticket'],['Final Status'],['Final Resolution'],['Resolution Notes'],['Created','Jira Date','Date']];
-  return `<div style="font-family:Segoe UI,Arial;color:#000"><p style="margin:0 0 8px">Hi All,</p><p style="margin:0 0 12px">Please find the PDT test results on Provided E-Meta &ldquo;${esc(productLine)}&rdquo;</p><p style="margin:0 0 10px"><b><u>Build ID :</u></b> ${esc(buildId)}</p><p style="margin:0 0 14px"><b><u>Build Status :</u></b> Test in progress.</p>${summary}${_wbcHtmlMailTable('CR Details',crCols,crs,'#1f5f91')}${_wbcHtmlMailTable('JIRA Details',mappedCols,mapped,'#d97706')}${_wbcHtmlMailTable('Open JIRA Details',openCols,open,'#0891b2')}<p style="margin-top:14px">Regards</p></div>`;
+  const mappedCols=[['CR','CR-ID','CR ID','mapped_cr'],['Occurrence','CR Count','Instances','count'],['JIRA','JIRA-Ticket','Jira Ticket','stability_ticket'],['JIRA Title','Jira Title','Title','Summary'],['JIRA Status','Status'],['JIRA Resolution','Jira Resolution'],['Final Ticket'],['Final Status'],['Final Resolution'],['Jira Date','Created','created','Jira Date','jira_date','Date','date']];
+  const openCols=[['JIRA','JIRA-Ticket','Jira Ticket','stability_ticket'],['JIRA Title','Jira Title','Title','Summary'],['JIRA Status','Status'],['JIRA Resolution','Jira Resolution'],['Final Ticket'],['Final Status'],['Final Resolution'],['Resolution Notes'],['Jira Date','Created','created','Jira Date','jira_date','Date','date']];
+  return `<div style="font-family:Segoe UI,Arial;color:#000"><p style="margin:0 0 8px">Hi All,</p><p style="margin:0 0 12px">Please find the PDT test results on Provided E-Meta &ldquo;${esc(productLine)}&rdquo;</p><p style="margin:0 0 10px"><b><u>Build ID :</u></b> ${esc(buildId)}</p><p style="margin:0 0 14px"><b><u>Build Status :</u></b> Test in progress.</p>${summary}${overviewBlock}${_wbcHtmlMailTable('CR Details',crCols,crs,'#1f5f91')}${_wbcHtmlMailTable('JIRA Details',mappedCols,mapped,'#d97706')}${_wbcHtmlMailTable('Open JIRA Details',openCols,open,'#0891b2')}<p style="margin-top:14px">Regards</p></div>`;
 }
 function _wbcPlainMailTable(title, cols, rows){
   const safeCols=(cols||[]).slice(0,12);
   const line='='.repeat(Math.max(20,title.length+8));
   const label=c=>String(Array.isArray(c)?(c[0]||''):c).replace(/_/g,' ');
-  const val=(r,c)=>Array.isArray(c)?_wbcVal(r,c):(r&&r[c]);
+  const val=(r,c)=>_wbcMailCellValue(r,c);
   const body=(rows&&rows.length?rows.slice(0,40):[]).map((r,i)=>{
     return String(i+1)+'. '+safeCols.map(c=>label(c)+': '+String(val(r,c)??'').replace(/\s+/g,' ').trim()).join(' | ');
   }).join('\n');
@@ -1448,11 +1542,13 @@ function _wbcCurrentMailText(buildId){
   const summaryHeaders=['Target(s)','Product Line(s)','Build(s)','Hours','Crashes','Comments'];
   const summaryValues=[_wbcMailTargetName(buildId),productLine,buildId,hours,crashes,_wbcBuildComment()];
   const summaryTable=summaryHeaders.join('\t')+'\n'+summaryValues.join('\t')+'\n';
+  const overviewText=_wbcMailSummaryText();
   const crCols=[['CR-ID','CR','CR ID','cr_id','mapped_cr'],['Occurrence','CR Count','Occurrences','Instances'],['CR Title','Title','Summary'],['CR Area','Area','area','cr_area'],['CR Subsystem','CR SubSystem','Subsystem','subsystem','sub'],['CR Functionality','Functionality','CR Function','functionality','func'],['CR Date','Created','CR Date','Date','date','cr_date'],['CR SI','CR SI','CR Image','cr_image','SI','si','Image Reference','image_reference','si_last_seen','SI Last Seen','software_image','image'],['CR Status','Status','CR Status','cr_status'],['CR Age','Age','age','overall_age','age_days','Age (days)']];
-  const mappedCols=[['CR','CR-ID','CR ID','mapped_cr'],['CR Count','Occurrence','Instances','count'],['JIRA','JIRA-Ticket','Jira Ticket','stability_ticket'],['JIRA Title','Jira Title','Title','Summary'],['JIRA Status','Status'],['JIRA Resolution','Jira Resolution'],['Final Ticket'],['Final Status'],['Final Resolution'],['Created','Jira Date','Date']];
-  const openCols=[['JIRA','JIRA-Ticket','Jira Ticket','stability_ticket'],['JIRA Title','Jira Title','Title','Summary'],['JIRA Status','Status'],['JIRA Resolution','Jira Resolution'],['Final Ticket'],['Final Status'],['Final Resolution'],['Resolution Notes'],['Created','Jira Date','Date']];
+  const mappedCols=[['CR','CR-ID','CR ID','mapped_cr'],['CR Count','Occurrence','Instances','count'],['JIRA','JIRA-Ticket','Jira Ticket','stability_ticket'],['JIRA Title','Jira Title','Title','Summary'],['JIRA Status','Status'],['JIRA Resolution','Jira Resolution'],['Final Ticket'],['Final Status'],['Final Resolution'],['Jira Date','Created','created','Jira Date','jira_date','Date','date']];
+  const openCols=[['JIRA','JIRA-Ticket','Jira Ticket','stability_ticket'],['JIRA Title','Jira Title','Title','Summary'],['JIRA Status','Status'],['JIRA Resolution','Jira Resolution'],['Final Ticket'],['Final Status'],['Final Resolution'],['Resolution Notes'],['Jira Date','Created','created','Jira Date','jira_date','Date','date']];
   return 'Hi Team,\n\nBuild ID : '+buildId+'\n\nBuild Status : Test in progress.\n\n'
     +summaryTable+'\n'
+    +(overviewText?overviewText+'\n\n':'')
     +_wbcPlainMailTable('CR Details',crCols.length?crCols:_wbcCols(crs),crs)+'\n'
     +_wbcPlainMailTable('Mapped JIRA Details',mappedCols.length?mappedCols:_wbcCols(mapped),mapped)+'\n'
     +_wbcPlainMailTable('Open JIRA Details',openCols.length?openCols:_wbcCols(open),open)+'\nRegards';
@@ -1546,25 +1642,28 @@ async function _wbcCopyRichHtmlToClipboard(html,text){
 }
 async function composeWbcCurrentMail(){
   const buildId=_wbcActiveBuildId();
-  const subject='[WBC PDT] Report on Meta: '+_wbcMailSubjectBuildToken(buildId)+' <'+(new Date()).toLocaleDateString('en-US')+'>';
+  const subject='WBC PDT Current Meta Status Report - '+_wbcMailSubjectBuildToken(buildId)+' - '+_wbcMailDateOnly(new Date());
   const html=_wbcCurrentMailHtml(buildId);
   const text=_wbcCurrentMailText(buildId);
   const copied=await _wbcCopyRichHtmlToClipboard(html,text);
-  // Keep protocol body short. Outlook protocol often downgrades/limits HTML in
-  // the URL body; the full premium tables are copied as rich HTML for Ctrl+V.
+  // Use MAILTO as the default compose protocol so Windows opens the user's
+  // configured mail client. In classic/old Outlook deployments this reuses the
+  // already-running Outlook desktop instance and creates a new mail item there.
+  // Keep the URL body intentionally short; the full rich HTML report is already
+  // copied to the clipboard for Ctrl+V.
   const shortBody='Hi All,%0D%0A%0D%0APlease press Ctrl+V here to paste the full WBC PDT rich report tables copied from PDT Buddy.%0D%0A%0D%0ARegards';
-  const outlookUrl='ms-outlook://compose?subject='+encodeURIComponent(subject)+'&body='+shortBody;
+  const mailtoUrl='mailto:?subject='+encodeURIComponent(subject)+'&body='+shortBody;
   const a=document.createElement('a');
-  a.href=outlookUrl;
+  a.href=mailtoUrl;
   a.style.display='none';
   document.body.appendChild(a);
   a.click();
   setTimeout(()=>a.remove(),1000);
   setTimeout(()=>{
     if(copied){
-      alert('Outlook desktop compose opened. The FULL rich HTML report is copied. Click inside the Outlook mail body and press Ctrl+V to paste the premium tables.');
+      alert('Classic/default Outlook compose opened. The FULL rich HTML report is copied. Click inside the mail body and press Ctrl+V to paste the premium tables.');
     }else{
-      alert('Outlook desktop compose opened. Browser clipboard access was blocked; copy the report from PDT Buddy manually.');
+      alert('Classic/default Outlook compose opened. Browser clipboard access was blocked; copy the report from PDT Buddy manually.');
     }
   },900);
 }
@@ -3324,7 +3423,7 @@ function renderOpenCrsEnhanced(){
     const dbCells = cols.map(c=>{
       const longCol=/analysis|scenario|comment|title|details|summary/i.test(String(c));
       const maxWidth=longCol?'420':'180';
-      const html=_cellHtml(c,r[c]);
+      const html=_wbcIsCrOccurrenceCol(c)?_wbcCrOccurrenceLinkHtml(r[c],crBare):_cellHtml(c,r[c]);
       return `<td style="max-width:${maxWidth}px;white-space:normal">${longCol?`<div class="wbc-opencr-long">${html}</div>`:html}</td>`;
     }).join('');
     const actionCell = CAN_EDIT ? `<td><button class="btn" onclick="openOcdEdit('${esc(crBare)}')" style="padding:4px 10px;font-size:11px"><i class="fas fa-pen"></i> Edit</button></td>` : '';

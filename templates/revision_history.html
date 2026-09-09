@@ -72,6 +72,14 @@
     .item{position:relative;padding:9px 12px 9px 34px;border-radius:13px;background:#fbfdff;border:1px solid #edf2f7;color:#24344d;font-size:13px;line-height:1.48}
     .item:before{content:"✓";position:absolute;left:11px;top:8px;width:17px;height:17px;border-radius:999px;display:grid;place-items:center;background:linear-gradient(135deg,var(--brand),var(--violet));color:#fff;font-size:11px;font-weight:1000}
     .jira{display:inline-block;margin-right:5px;padding:2px 8px;border-radius:999px;background:#f5f3ff;color:#6d28d9;border:1px solid #ddd6fe;font-size:11px;font-weight:900;white-space:nowrap}
+    .releaseIndex{margin:18px 0 24px;border-radius:22px;background:rgba(255,255,255,.94);border:1px solid rgba(203,213,225,.9);box-shadow:0 16px 42px rgba(15,23,42,.10);overflow:hidden}
+    .releaseIndexHead{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:16px 20px;background:linear-gradient(90deg,#f8fafc,#eef2ff,#ecfeff)}
+    .releaseIndexTitle{font-size:15px;font-weight:1000;color:#102033}.releaseIndexSub{font-size:12px;color:#64748b;font-weight:750;margin-top:3px}
+    .releaseTableWrap{overflow:auto;padding:14px 16px 18px}
+    .releaseTable{width:100%;border-collapse:collapse;font-size:12px;background:#fff;border:1px solid #dbe5f3;border-radius:14px;overflow:hidden}
+    .releaseTable th{padding:9px 10px;text-align:left;border:1px solid rgba(255,255,255,.25);background:linear-gradient(135deg,#1e3a8a,#7c3aed);color:#fff;font-size:11px;text-transform:uppercase;letter-spacing:.05em}
+    .releaseTable td{padding:8px 10px;border:1px solid #e2e8f0;color:#24344d;vertical-align:top}
+    .releaseTable tr:nth-child(even) td{background:#fbfdff}
     code{background:#f1f5f9;border:1px solid #e2e8f0;border-radius:7px;padding:1px 5px;color:#334155}
     .note{margin-top:22px;padding:15px 16px;border-radius:18px;background:linear-gradient(135deg,#ecfdf5,#f8fafc);border:1px solid #bbf7d0;color:#24513c;font-size:13px;line-height:1.6}
     .footer{text-align:center;margin-top:26px;color:#64748b;font-size:12px;font-weight:800}
@@ -113,6 +121,54 @@
         <button class="btn" type="button" onclick="document.querySelectorAll('details.rev').forEach(d=>d.open=false)">Collapse All</button>
       </div>
     </div>
+
+    <section class="releaseIndex">
+      <div class="releaseIndexHead">
+        <div>
+          <div class="releaseIndexTitle"><i class="fas fa-table-list"></i> QIPLPDT Jira Release Index</div>
+          <div class="releaseIndexSub">Single tracking table for all QIPLPDT tickets captured in PDT Buddy revision history; update this table for every future release.</div>
+        </div>
+        <span class="pill"><i class="fas fa-code-branch"></i> v1 → v2.13</span>
+      </div>
+      <div class="releaseTableWrap">
+        <table class="releaseTable">
+          <thead>
+            <tr>
+              <th style="width:6%;text-align:center;">S.No</th>
+              <th style="width:16%;">Jira</th>
+              <th>Title / Delivered Scope</th>
+              <th style="width:14%;text-align:center;">Release Version</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td style="text-align:center;">1</td><td><span class="jira">QIPLPDT-10652</span></td><td>CR Overview page with CR age, status, and target-level CR insights.</td><td style="text-align:center;">Rev 2</td></tr>
+            <tr><td style="text-align:center;">2</td><td><span class="jira">QIPLPDT-10651</span></td><td>Compute BU MTBF support for Hamoa data plotting.</td><td style="text-align:center;">Rev 2</td></tr>
+            <tr><td style="text-align:center;">3</td><td><span class="jira">QIPLPDT-10660</span></td><td>Hawi data integration for CR/JIRA/MTBF reporting.</td><td style="text-align:center;">Rev 2</td></tr>
+            <tr><td style="text-align:center;">4</td><td><span class="jira">QIPLPDT-10750</span></td><td>Additional Hawi integration support for reporting continuity.</td><td style="text-align:center;">Rev 2</td></tr>
+            <tr><td style="text-align:center;">5</td><td><span class="jira">QIPLPDT-10904</span></td><td>External page option to remove domain in Live Status MTBF trend.</td><td style="text-align:center;">Rev 2.5</td></tr>
+            <tr><td style="text-align:center;">6</td><td><span class="jira">QIPLPDT-10905</span></td><td>WBC-exclusive data generation flow.</td><td style="text-align:center;">Rev 2.6</td></tr>
+            <tr><td style="text-align:center;">7</td><td><span class="jira">QIPLPDT-10994</span></td><td>PL-specific external page support.</td><td style="text-align:center;">Rev 2.6</td></tr>
+            <tr><td style="text-align:center;">8</td><td><span class="jira">QIPLPDT-11000</span></td><td>Daily Report columns for CR Assignee Full Name and CR Priority for Nord HGY.</td><td style="text-align:center;">Rev 2.7</td></tr>
+            <tr><td style="text-align:center;">9</td><td><span class="jira">QIPLPDT-10995</span></td><td>Latest five Mainfarm build selection with chart refresh support.</td><td style="text-align:center;">Rev 2.9</td></tr>
+            <tr><td style="text-align:center;">10</td><td><span class="jira">QIPLPDT-11018</span></td><td>Fixed sanitizer JIRAs incorrectly counted in system crashes bucket.</td><td style="text-align:center;">Rev 2.10</td></tr>
+            <tr><td style="text-align:center;">11</td><td><span class="jira">QIPLPDT-11005</span></td><td>Fixed Can't Duplicate CRs missing from valid CR average age distribution for Hamoa AL.</td><td style="text-align:center;">Rev 2.10</td></tr>
+            <tr><td style="text-align:center;">12</td><td><span class="jira">QIPLPDT-11029</span></td><td>Target Delta Studio support for Hawi and Kaanapali AU comparison stats.</td><td style="text-align:center;">Rev 2.11</td></tr>
+            <tr><td style="text-align:center;">13</td><td><span class="jira">QIPLPDT-11030</span></td><td>Merge related JIRA handling for mergePL / related-JIRA flows.</td><td style="text-align:center;">Rev 2.11</td></tr>
+            <tr><td style="text-align:center;">14</td><td><span class="jira">QIPLPDT-11045</span></td><td>Separated Wear from QLI_IOT and updated viewer/access classification.</td><td style="text-align:center;">Rev 2.11</td></tr>
+            <tr><td style="text-align:center;">15</td><td><span class="jira">QIPLPDT-11066</span></td><td>Add Hours metric to PDT Buddy WBC Summary Dashboard.</td><td style="text-align:center;">Rev 2.13</td></tr>
+            <tr><td style="text-align:center;">16</td><td><span class="jira">QIPLPDT-11067</span></td><td>PDT Buddy login page loading delay and logout timeout enhancement.</td><td style="text-align:center;">Rev 2.13</td></tr>
+            <tr><td style="text-align:center;">17</td><td><span class="jira">QIPLPDT-11068</span></td><td>WBC Open CR Analysis Data includes Last Instance Jira, Jira Date, and CR Age.</td><td style="text-align:center;">Rev 2.13</td></tr>
+            <tr><td style="text-align:center;">18</td><td><span class="jira">QIPLPDT-11069</span></td><td>WBC Open CR Details CSV export includes required CR/Jira fields and QGenie Analysis.</td><td style="text-align:center;">Rev 2.13</td></tr>
+            <tr><td style="text-align:center;">19</td><td><span class="jira">QIPLPDT-11070</span></td><td>WBC TEA Assistance and QGenie Analysis show proper analysis instead of only CR title, occurrences, and area.</td><td style="text-align:center;">Rev 2.13</td></tr>
+            <tr><td style="text-align:center;">20</td><td><span class="jira">QIPLPDT-11072</span></td><td>CSV export option for Current Meta Report in PDT Buddy.</td><td style="text-align:center;">Rev 2.13</td></tr>
+            <tr><td style="text-align:center;">21</td><td><span class="jira">QIPLPDT-11073</span></td><td>Dashboard option to generate Mail Report for Current Meta with summary included in email.</td><td style="text-align:center;">Rev 2.13</td></tr>
+            <tr><td style="text-align:center;">22</td><td><span class="jira">QIPLPDT-11083</span></td><td>Priority allocation based on SI Images by passing SI_Images.txt for CR summary table and automation API.</td><td style="text-align:center;">Rev 2.13</td></tr>
+            <tr><td style="text-align:center;">23</td><td><span class="jira">QIPLPDT-11100</span></td><td>Short date format in Compose Mail export.</td><td style="text-align:center;">Rev 2.13</td></tr>
+            <tr><td style="text-align:center;">24</td><td><span class="jira">QIPLPDT-11101</span></td><td>CR Occurrences mapping from CR to Jira for WBC.</td><td style="text-align:center;">Rev 2.13</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
 
     <section class="timeline">
       <details class="rev">
@@ -313,8 +369,11 @@
                 <tr><td style="padding:9px 10px;text-align:center;border:1px solid #e2e8f0">3</td><td style="padding:9px 10px;border:1px solid #e2e8f0"><span class="jira">QIPLPDT-11068</span></td><td style="padding:9px 10px;border:1px solid #e2e8f0">PDT Buddy WBC Open CR Analysis Data should include Last Instance Jira, Jira Date, and CR Age.</td><td style="padding:9px 10px;text-align:center;border:1px solid #e2e8f0">v2.13</td><td style="padding:9px 10px;text-align:center;border:1px solid #e2e8f0">Closed</td></tr>
                 <tr><td style="padding:9px 10px;text-align:center;border:1px solid #e2e8f0">4</td><td style="padding:9px 10px;border:1px solid #e2e8f0"><span class="jira">QIPLPDT-11067</span></td><td style="padding:9px 10px;border:1px solid #e2e8f0">PDT Buddy login page loading delay and logout timeout enhancement.</td><td style="padding:9px 10px;text-align:center;border:1px solid #e2e8f0">v2.13</td><td style="padding:9px 10px;text-align:center;border:1px solid #e2e8f0">Closed</td></tr>
                 <tr><td style="padding:9px 10px;text-align:center;border:1px solid #e2e8f0">5</td><td style="padding:9px 10px;border:1px solid #e2e8f0"><span class="jira">QIPLPDT-11066</span></td><td style="padding:9px 10px;border:1px solid #e2e8f0">Add Hours metric to PDT Buddy WBC Summary Dashboard.</td><td style="padding:9px 10px;text-align:center;border:1px solid #e2e8f0">v2.13</td><td style="padding:9px 10px;text-align:center;border:1px solid #e2e8f0">Closed</td></tr>
-                <tr><td style="padding:9px 10px;text-align:center;border:1px solid #e2e8f0">6</td><td style="padding:9px 10px;border:1px solid #e2e8f0"><span class="jira">QIPLPDT-11073</span></td><td style="padding:9px 10px;border:1px solid #e2e8f0">Add option on Dashboard to generate Mail Report for Current Meta.</td><td style="padding:9px 10px;text-align:center;border:1px solid #e2e8f0">v2.13</td><td style="padding:9px 10px;text-align:center;border:1px solid #e2e8f0">Closed</td></tr>
+                <tr><td style="padding:9px 10px;text-align:center;border:1px solid #e2e8f0">6</td><td style="padding:9px 10px;border:1px solid #e2e8f0"><span class="jira">QIPLPDT-11073</span></td><td style="padding:9px 10px;border:1px solid #e2e8f0">Add option on Dashboard to generate Mail Report for Current Meta with summary included in email.</td><td style="padding:9px 10px;text-align:center;border:1px solid #e2e8f0">v2.13</td><td style="padding:9px 10px;text-align:center;border:1px solid #e2e8f0">Closed</td></tr>
                 <tr><td style="padding:9px 10px;text-align:center;border:1px solid #e2e8f0">7</td><td style="padding:9px 10px;border:1px solid #e2e8f0"><span class="jira">QIPLPDT-11072</span></td><td style="padding:9px 10px;border:1px solid #e2e8f0">Add CSV export option for Current Meta Report in PDT Buddy.</td><td style="padding:9px 10px;text-align:center;border:1px solid #e2e8f0">v2.13</td><td style="padding:9px 10px;text-align:center;border:1px solid #e2e8f0">Closed</td></tr>
+                <tr><td style="padding:9px 10px;text-align:center;border:1px solid #e2e8f0">8</td><td style="padding:9px 10px;border:1px solid #e2e8f0"><span class="jira">QIPLPDT-11070</span></td><td style="padding:9px 10px;border:1px solid #e2e8f0">WBC TEA Assistance and QGenie Analysis show proper analysis instead of only CR title, occurrences, and area.</td><td style="padding:9px 10px;text-align:center;border:1px solid #e2e8f0">v2.13</td><td style="padding:9px 10px;text-align:center;border:1px solid #e2e8f0">Closed</td></tr>
+                <tr><td style="padding:9px 10px;text-align:center;border:1px solid #e2e8f0">9</td><td style="padding:9px 10px;border:1px solid #e2e8f0"><span class="jira">QIPLPDT-11101</span></td><td style="padding:9px 10px;border:1px solid #e2e8f0">Need CR Occurrences mapping from CR to Jira for WBC.</td><td style="padding:9px 10px;text-align:center;border:1px solid #e2e8f0">v2.13</td><td style="padding:9px 10px;text-align:center;border:1px solid #e2e8f0">Closed</td></tr>
+                <tr><td style="padding:9px 10px;text-align:center;border:1px solid #e2e8f0">10</td><td style="padding:9px 10px;border:1px solid #e2e8f0"><span class="jira">QIPLPDT-11100</span></td><td style="padding:9px 10px;border:1px solid #e2e8f0">Need Short Date in Compose Mail Export.</td><td style="padding:9px 10px;text-align:center;border:1px solid #e2e8f0">v2.13</td><td style="padding:9px 10px;text-align:center;border:1px solid #e2e8f0">Closed</td></tr>
               </tbody>
             </table>
           </div>

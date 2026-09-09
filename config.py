@@ -332,8 +332,15 @@ BU_ICONS = {
 
 # --- Report Generation Configuration ---
 REPORT_GENERATION_CONFIG = {
-    "JIRA_EXE_PATH": r"C:\Dropbox\DATA_MINING\PDT_Stats.exe", # <--- Corrected key name from app.py
-    "JIRA_OUTPUT_DIR": r"\\lab8113\Dropbox\DATA_MINING\PDT-CR_TAT", # <--- Corrected key name from app.py
+    # Chatbot JiraQuery must use the packaged EXE by default. PyInstaller
+    # tracebacks can still show "PDT_Stats.py" because that is the source file
+    # embedded inside the EXE; it does not mean chatbot launched the .py file.
+    "JIRA_EXE_PATH": os.getenv("JIRA_EXE_PATH", r"C:\Dropbox\DATA_MINING\PDT_Stats.exe"),
+    "JIRA_OUTPUT_DIR": os.getenv("JIRA_OUTPUT_DIR", r"\\lab8113\Dropbox\DATA_MINING\PDT-CR_TAT"),
+    # Optional developer override only: set JIRA_RUN_MODE=script to run source.
+    "JIRA_RUN_MODE": os.getenv("JIRA_RUN_MODE", "exe"),
+    "JIRA_SCRIPT_PATH": os.getenv("JIRA_SCRIPT_PATH", r"C:\Dropbox\DATA_MINING\PDT_Stats.py"),
+    "JIRA_PYTHON_CMD": os.getenv("JIRA_PYTHON_CMD", "py -3"),
 }
 
 # --- QGenie for ALL LLM Interactions (SQL Generation and Natural Language) ---

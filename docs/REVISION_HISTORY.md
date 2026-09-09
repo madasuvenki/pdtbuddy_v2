@@ -131,7 +131,40 @@
 
 ---
 
-## Rev 2.11 — Latest
+## QIPLPDT Jira Release Index
+
+| S.No | Jira | Title / Delivered Scope | Release Version |
+| ---: | --- | --- | --- |
+| 1 | `QIPLPDT-10652` | CR Overview page with CR age, status, and target-level CR insights. | Rev 2 |
+| 2 | `QIPLPDT-10651` | Compute BU MTBF support for Hamoa data plotting. | Rev 2 |
+| 3 | `QIPLPDT-10660` | Hawi data integration for CR/JIRA/MTBF reporting. | Rev 2 |
+| 4 | `QIPLPDT-10750` | Additional Hawi integration support for reporting continuity. | Rev 2 |
+| 5 | `QIPLPDT-10904` | External page option to remove domain in Live Status MTBF trend. | Rev 2.5 |
+| 6 | `QIPLPDT-10905` | WBC-exclusive data generation flow. | Rev 2.6 |
+| 7 | `QIPLPDT-10994` | PL-specific external page support. | Rev 2.6 |
+| 8 | `QIPLPDT-11000` | Daily Report columns for CR Assignee Full Name and CR Priority for Nord HGY. | Rev 2.7 |
+| 9 | `QIPLPDT-10995` | Latest five Mainfarm build selection with chart refresh support. | Rev 2.9 |
+| 10 | `QIPLPDT-11018` | Fixed sanitizer JIRAs incorrectly counted in system crashes bucket. | Rev 2.10 |
+| 11 | `QIPLPDT-11005` | Fixed Can't Duplicate CRs missing from valid CR average age distribution for Hamoa AL. | Rev 2.10 |
+| 12 | `QIPLPDT-11029` | Target Delta Studio support for Hawi and Kaanapali AU comparison stats. | Rev 2.11 |
+| 13 | `QIPLPDT-11030` | Merge related JIRA handling for mergePL / related-JIRA flows. | Rev 2.11 |
+| 14 | `QIPLPDT-11045` | Separated Wear from QLI_IOT and updated viewer/access classification. | Rev 2.11 |
+| 15 | `QIPLPDT-11066` | Add Hours metric to PDT Buddy WBC Summary Dashboard. | Rev 2.13 |
+| 16 | `QIPLPDT-11067` | PDT Buddy login page loading delay and logout timeout enhancement. | Rev 2.13 |
+| 17 | `QIPLPDT-11068` | WBC Open CR Analysis Data includes Last Instance Jira, Jira Date, and CR Age. | Rev 2.13 |
+| 18 | `QIPLPDT-11069` | WBC Open CR Details CSV export includes required CR/Jira fields and QGenie Analysis. | Rev 2.13 |
+| 19 | `QIPLPDT-11070` | WBC TEA Assistance and QGenie Analysis show proper analysis instead of only CR title, occurrences, and area. | Rev 2.13 |
+| 20 | `QIPLPDT-11072` | CSV export option for Current Meta Report in PDT Buddy. | Rev 2.13 |
+| 21 | `QIPLPDT-11073` | Dashboard option to generate Mail Report for Current Meta with summary included in email. | Rev 2.13 |
+| 22 | `QIPLPDT-11083` | Priority allocation based on SI Images by passing SI_Images.txt for CR summary table and automation API. | Rev 2.13 |
+| 23 | `QIPLPDT-11100` | Short date format in Compose Mail export. | Rev 2.13 |
+| 24 | `QIPLPDT-11101` | CR Occurrences mapping from CR to Jira for WBC. | Rev 2.13 |
+
+> Update this index for each future release so `/revision-history` and the Markdown revision notes stay aligned.
+
+---
+
+## Rev 2.11
 
 **Target Delta Studio**
 
@@ -155,6 +188,33 @@
 - Updated Admin Usage Dashboard classification so LDAP + target-group users are treated as internal, while scoped PDTBuddy viewer groups such as `PdtBuddy.WBC`, `PdtBuddy.IoT`, and `PdtBuddy.Wear` are treated as external.
 
 **Version:** `APP_VERSION = "v2.11"` in `app.py`
+
+---
+
+## Rev 2.13 — Latest
+
+**WBC / Dashboard Closed Ticket Updates**
+
+- `QIPLPDT-11066` — Add Hours metric to PDT Buddy WBC Summary Dashboard.
+- `QIPLPDT-11067` — PDT Buddy login page loading delay and logout timeout enhancement.
+- `QIPLPDT-11068` — WBC Open CR Analysis Data includes Last Instance Jira, Jira Date, and CR Age.
+- `QIPLPDT-11069` — WBC Open CR Details CSV export includes all required CR/Jira fields and QGenie Analysis column.
+- `QIPLPDT-11070` — WBC TEA Assistance and QGenie Analysis show proper analysis instead of only CR title, occurrences, and area.
+- `QIPLPDT-11072` — Add CSV export option for Current Meta Report in PDT Buddy.
+- `QIPLPDT-11073` — Add Dashboard option to generate Mail Report for Current Meta and include the summary in email output.
+- `QIPLPDT-11083` — Priority allocation based on SI Images by passing `SI_Images.txt` for CR summary table and automation API.
+- `QIPLPDT-11100` — Short date format in Compose Mail export.
+- `QIPLPDT-11101` — CR Occurrences mapping from CR to Jira for WBC.
+
+**Operational / Admin Updates**
+
+- Chatbot JiraQuery execution uses the packaged `PDT_Stats.exe` by default through `JIRA_EXE_PATH`.
+- Added clarification that PyInstaller traceback frames can show `PDT_Stats.py` because that source filename is embedded in the executable; this does not mean chatbot launched the `.py` file.
+- Developer source runs remain available only with explicit `JIRA_RUN_MODE=script`.
+- Admin Usage now includes a DB Health section showing MySQL connection status, schema/table usage, InnoDB buffer pool usage, connection usage, largest tables, and key PDT table freshness.
+- `/revision-history` now includes a QIPLPDT Jira release index table from Rev 1 through v2.13 for easier ongoing release tracking.
+
+**Version:** `APP_VERSION = "v2.13"` in `app.py`
 
 ---
 

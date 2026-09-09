@@ -1928,11 +1928,12 @@ def lookup_cr_info_from_db(cr_numbers, target_name, issues_dicts=None, explicit_
         assignee_col = _pick('assignee_uid', 'assignee', 'cr_assignee', 'owner', 'cr_owner')
         parent_col = _pick('parent_cr', 'parent_id', 'parentid', 'canonical_cr')
         category_col = _pick('cr_category', 'category')
+        notes_col = _pick('latest_cr_notes', 'latest_notes', 'latest_comment', 'latest_comments', 'analysis', 'debug_notes', 'cr_notes', 'notes', 'comment')
 
 
         # build SELECT
         select_cols = list(lookup_cols)
-        for c in [title_col, status_col, priority_col, image_col, area_col, sub_col, func_col, built_col, ready_col, date_col, age_col, assignee_col, parent_col, category_col]:
+        for c in [title_col, status_col, priority_col, image_col, area_col, sub_col, func_col, built_col, ready_col, date_col, age_col, assignee_col, parent_col, category_col, notes_col]:
             if c and c not in select_cols:
                 select_cols.append(c)
 
@@ -2037,6 +2038,7 @@ def lookup_cr_info_from_db(cr_numbers, target_name, issues_dicts=None, explicit_
                 'parent_cr'    : _normalize_cr_key(row.get(parent_col, '') if parent_col else ''),
                 'cr_category'  : str(row.get(category_col, '') or '') if category_col else '',
                 'image_matched': image_matched,   # True = image found in JIRA's pl_id_raw
+                'cr_notes'     : str(row.get(notes_col, '') or '') if notes_col else '',
 
                 'source'       : 'unique_crs',
             }

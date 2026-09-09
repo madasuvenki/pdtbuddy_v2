@@ -2,6 +2,73 @@
 
 ## Current Work Focus
 
+### QIPLPDT v2.13 Revision, JiraQuery EXE, WBC Analysis/Mail, and Admin DB Health — Complete (2026-09-09)
+
+**User request addressed:** Capture QIPLPDT-11070, QIPLPDT-11101, QIPLPDT-11073, QIPLPDT-11100 under release v2.13; keep revision-history updated with a QIPLPDT Jira/release table; ensure WBC TEA/QGenie analysis shows proper technical analysis; support CR occurrence → Jira mapping; fix WBC current-meta mail summary/date formatting; clarify/fix chatbot JiraQuery using `PDT_Stats.exe`; and add an Admin Usage DB Health tab for MySQL usage/memory/optimization details.
+
+**Changes made / confirmed:**
+- `app.py`
+  - `APP_VERSION` is now `v2.13`.
+  - Added `/admin/db_health` JSON endpoint for admins. It reports MySQL server/runtime details, connection usage, InnoDB buffer pool usage, schema/table size summaries, table fragmentation/free-space candidates, key PDT table freshness checks, and optimization guidance.
+  - JiraQuery report worker continues to parse generated Excel output and now has supporting configuration/code paths for `.exe`-first execution from chatbot/report flows.
+- `config.py` / `src/chatbot_engine.py`
+  - JiraQuery/PDT Stats command resolution now prefers `PDT_Stats.exe` by default where available, with Python script fallback for development.
+  - Important note: PyInstaller tracebacks can still show `PDT_Stats.py` because the EXE embeds/runs that script internally; this does not mean Flask launched the `.py` file.
+- `templates/admin_usage.html`
+  - Admin Usage is now a full-width top-tab page.
+  - `DB Health` is a top tab/default admin tab.
+  - Added DB cards, memory/runtime panel, key-table checks, schema usage table, largest-table table, data-free/allocated MB columns, optimization candidates, and guidance cards.
+  - Follow-up fix: DB Health now aliases/falls back schema/table/engine/collation result keys from `information_schema.TABLES`, so the largest-table and optimization-candidate tables show the real schema/table names and valid `OPTIMIZE TABLE \`schema\`.\`table\`` SQL instead of `-` / `None.None`.
+- `templates/revision_history.html` / `docs/REVISION_HISTORY.md`
+  - Added v2.13 details and a QIPLPDT Jira-to-release matrix/table including QIPLPDT-11070, QIPLPDT-11101, QIPLPDT-11073, and QIPLPDT-11100.
+- WBC changes already present/validated in current codebase:
+  - TEA/QGenie analysis uses TEA-first technical data and avoids title/occurrence/area-only summaries.
+  - CR Occurrence links map CRs to filtered All JIRAs rows.
+  - Compose Mail uses current meta summary/report content and short/date-only mail fields.
+
+**Validation:**
+- `py -3 -c "import py_compile; from pathlib import Path; from jinja2 import Environment; [py_compile.compile(p, doraise=True) for p in ['app.py','config.py','src/chatbot_engine.py']]; env=Environment(); [env.parse(Path(p).read_text(encoding='utf-8')) for p in ['templates/admin_usage.html','templates/revision_history.html']]; print('VALIDATION_OK')"` returned `VALIDATION_OK`.
+- Follow-up DB Health alias fix validation: `py -3 -c "import py_compile; py_compile.compile('app.py', doraise=True); print('APP_PY_OK')"` returned `APP_PY_OK`.
+
+### WBC Live View Open CR Occurrence → All JIRAs Filter Link — Complete (2026-09-08)
+
+**User request addressed:** On WBC Live View Status Open CRs, the `CR Occurrence` value should behave as a hyperlink. Clicking it should redirect to the JIRAs / All JIRAs tab, search for the related CR, and show only matching JIRA rows.
+
+**Changes made:**
+- `templates/wbc_live_view_stats.html`
+  - Confirmed Open CR rendering uses `_wbcIsCrOccurrenceCol(c) ? _wbcCrOccurrenceLinkHtml(...) : _cellHtml(...)`, so `CR Occurrence` cells render as clickable pills when a CR number is available.
+  - Updated `_wbcOpenAllJirasForCr()` to activate the sidebar `JIRAs` tab through `sideNav('jiras', ...)` instead of only calling `switchTab('jiras')`.
+  - The click handler now clears existing `wbc_all_jiras` filters, sets the All JIRAs global search box to the bare CR number, applies `_wbcApplyTbl('wbc_all_jiras')`, focuses the search box, scrolls to `allJirasBox`, and updates the tab count label to `Filtered by CRxxxxxxx`.
+  - Increased the post-navigation delay slightly so the All JIRAs DOM/table registry is available before applying the filter.
+
+**Validation:**
+- Jinja parse and marker validation passed:
+  - `WBC_TEMPLATE_JINJA_OK`
+  - `MARKERS_OK`
+
+### WBC Live View Compose Mail + All JIRAs Row Limit Fix — Complete (2026-09-08)
+
+**User request addressed:** WBC Live View page needed three updates: Compose Mail subject should use `WBC PDT Current Meta Status Report - <Meta Name> - <Date>`, mail CR/JIRA date fields should show only the date portion and not timestamps, and the All JIRAs tab should load all configured JIRA table rows instead of only the first 100.
+
+**Changes made:**
+- `templates/wbc_live_view_stats.html`
+  - Added `_wbcMailDateOnly()`, `_wbcMailColumnLabel()`, `_wbcIsMailDateColumn()`, and `_wbcMailCellValue()` helpers.
+  - Rich HTML mail tables and plain-text fallback tables now format date-like mail columns as date-only values.
+  - Mail JIRA/CR date columns now prefer `Jira Date` / `CR Date` aliases and include lowercase/raw DB aliases such as `created`, `jira_date`, and `date`.
+  - Updated `_wbcMailSubjectBuildToken()` to keep a readable meta/build name instead of underscore-heavy text.
+  - Updated `composeWbcCurrentMail()` subject to:
+    - `WBC PDT Current Meta Status Report - <Meta Name> - <YYYY-MM-DD>`
+  - Follow-up: changed Compose Mail launch from `ms-outlook://compose` to `mailto:` so Windows opens the user's configured/default mail client. This is intended to reuse already-running classic/old Outlook desktop and open a new mail item there, while still copying the full rich HTML report to clipboard for paste.
+- `wbc_live_view_stats_routes.py`
+  - `_preview_rows_filtered()` now treats `limit <= 0` as "no SQL LIMIT" and fetches all matching rows.
+  - `_target_payload()` now calls `_preview_rows_filtered(target_jiras_table, 0)` for `previews.jiras`, so the WBC All JIRAs tab receives all rows from the configured target JIRAs table instead of 100.
+
+**Validation:**
+- `py -3 -m py_compile wbc_live_view_stats_routes.py` executed successfully.
+- Jinja parsing for `templates/wbc_live_view_stats.html` returned `WBC_TEMPLATE_JINJA_OK`.
+- Follow-up Jinja parsing after the classic/default Outlook `mailto:` launch update also returned `WBC_TEMPLATE_JINJA_OK`.
+- Note: an earlier combined validation command was malformed by shell escaping (`amp`), so Python route compilation was rerun separately and passed.
+
 ### WBC Live View PPT Current-Meta + Open/Analysis CR Download Fix — Complete (2026-09-06)
 
 **User request addressed:** WBC Live View PPT preview/download should match the required UI slide set: slide 1 is the current-meta status page with current meta + consolidated CR/JIRA details + visible MTBF trend, and slide 2 onward contains Overall Open/Analysis CR details from the configured Unique CR DB table, paginated 18 CRs per slide (for example 22 open CRs => 2 Open/Analysis CR slides).

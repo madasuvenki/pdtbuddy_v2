@@ -1340,19 +1340,40 @@ class ChatbotEngine:
         return "Currently running reports:\n" + "\n".join(running_tasks) if running_tasks else "No reports are currently running."
 
     def process_jiraquery_report(self, target_name: str, context: dict, raw_cmd_args: str = None):
-        """Trigger the legacy JiraQuery report. If raw_cmd_args is given, use it directly."""
+        """Trigger JiraQuery through the packaged PDT_Stats.exe by default.
+
+        Note: PyInstaller-created EXEs often report traceback frames using the
+        original source filename, e.g. "PDT_Stats.py". That traceback text does
+        not mean the chatbot launched the Python source file; it is how the EXE
+        reports errors from embedded source code.
+        """
         import threading, uuid, time as _time
         from config import REPORT_GENERATION_CONFIG
-        jira_exe = REPORT_GENERATION_CONFIG.get('JIRA_EXE_PATH', '')
-        out_dir  = REPORT_GENERATION_CONFIG.get('JIRA_OUTPUT_DIR', '')
-        if not jira_exe or not out_dir:
-            return jsonify({"response": "JiraQuery report is not configured on this server (JIRA_EXE_PATH / JIRA_OUTPUT_DIR missing).", "context": context})
-        if not os.path.exists(jira_exe):
-            return jsonify({"response": f"JiraQuery executable not found at `{jira_exe}`. Please contact admin.", "context": context})
+
+        jira_exe = (REPORT_GENERATION_CONFIG.get('JIRA_EXE_PATH') or '').strip()
+        jira_script = (REPORT_GENERATION_CONFIG.get('JIRA_SCRIPT_PATH') or '').strip()
+        python_cmd = (REPORT_GENERATION_CONFIG.get('JIRA_PYTHON_CMD') or 'py -3').strip()
+        run_mode = str(REPORT_GENERATION_CONFIG.get('JIRA_RUN_MODE') or 'exe').strip().lower()
+        out_dir = (REPORT_GENERATION_CONFIG.get('JIRA_OUTPUT_DIR') or '').strip()
+
+        if not out_dir:
+            return jsonify({"response": "JiraQuery report is not configured on this server (JIRA_OUTPUT_DIR missing).", "context": context})
+
+        cmd_args = raw_cmd_args if raw_cmd_args else f'"{target_name}" "{out_dir}"'
+
+        if run_mode == 'script':
+            if not jira_script or not os.path.exists(jira_script):
+                return jsonify({"response": f"JiraQuery source script not found at `{jira_script or 'JIRA_SCRIPT_PATH not set'}`. Set JIRA_RUN_MODE=exe to use the packaged executable.", "context": context})
+            runner_label = "PDT_Stats.py developer override"
+            cmd = f'{python_cmd} "{jira_script}" {cmd_args}'
+        else:
+            if not jira_exe or not os.path.exists(jira_exe):
+                return jsonify({"response": f"JiraQuery executable not found at `{jira_exe or 'JIRA_EXE_PATH not set'}`. Chatbot uses PDT_Stats.exe by default; set JIRA_RUN_MODE=script only for developer source runs.", "context": context})
+            runner_label = "PDT_Stats.exe"
+            cmd = f'"{jira_exe}" {cmd_args}'
 
         task_id = str(uuid.uuid4())[:8]
-        prefix  = 'PDT_CR_TAT_Overall_Report'   # actual file prefix the EXE uses
-        cmd     = f'"{jira_exe}" {raw_cmd_args}' if raw_cmd_args else f'"{jira_exe}" "{target_name}" "{out_dir}"'
+        prefix  = 'PDT_CR_TAT_Overall_Report'   # actual file prefix the script/EXE uses
 
         # Register in the SHARED app-level REPORT_TASKS (same dict report_worker uses)
         task_entry = {
@@ -1379,8 +1400,9 @@ class ChatbotEngine:
         cmd_display = f"`{raw_cmd_args[:80]}{'...' if len(raw_cmd_args or '')>80 else ''}`" if raw_cmd_args else f"**{target_name}**"
         context["jiraquery_task_id"] = task_id
         context["jiraquery_poll_url"] = f"/api/report_task_status/{task_id}"
+        context["jiraquery_runner"] = runner_label
         return jsonify({
-            "response": f"&#9989; JiraQuery report started for {cmd_display} (Task `{task_id}`).",
+            "response": f"&#9989; JiraQuery report started for {cmd_display} using {runner_label} (Task `{task_id}`).",
             "context": context,
             "ui": {
                 "type": "progress_poll",

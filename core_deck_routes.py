@@ -565,7 +565,177 @@ def _target_program_tokens(target_name: str, info: dict) -> List[str]:
     return out
 
 
-def _matches_target(row: dict, target_name: str) -> bool:
+_CORE_DECK_PL_COL_CANDIDATES = [
+    'PL-ID', 'pl-id', 'PL_ID', 'pl_id', 'PL ID', 'PL', 'PLID',
+    'Product Line', 'Product_Line', 'product_line', 'productline',
+    'Program Line', 'program_line', 'chipset', 'software_product',
+    'software product',
+]
+
+
+def _core_deck_config_entries(target_name: str, deck_config: Optional[Any] = None) -> List[Any]:
+    """Return Core Deck config entries from the request payload or saved state.
+
+    The Add Core Slide Builds picker is loaded before the preview/save POST, so
+    the endpoint must be able to use both:
+      - unsaved page config sent by the browser, and
+      - saved Core Deck state for the target.
+    """
+    raw_cfg = deck_config
+    if raw_cfg is None:
+        state = _load_state(target_name) or {}
+        raw_cfg = state.get('deck_config') or ((state.get('saved_preview') or {}).get('deck_config') or {})
+
+    if isinstance(raw_cfg, str):
+        try:
+            raw_cfg = json.loads(raw_cfg)
+        except Exception:
+            raw_cfg = {}
+
+    entries: List[Any] = []
+    if isinstance(raw_cfg, dict):
+        for deck in ('IVI', 'FLEX', 'ADAS'):
+            vals = raw_cfg.get(deck) or raw_cfg.get(deck.lower()) or []
+            if isinstance(vals, str):
+                vals = [v.strip() for v in re.split(r'[,;\n]+', vals) if v.strip()]
+            if isinstance(vals, list):
+                entries.extend(vals)
+            elif vals:
+                entries.append(vals)
+    elif isinstance(raw_cfg, list):
+        entries.extend(raw_cfg)
+
+    if not entries and target_name:
+        entries.append(target_name)
+    return entries
+
+
+def _pl_term_variants(value: Any) -> List[str]:
+    """Return safe, specific Axiom match terms from a JIRA PL-ID/SP value."""
+    text = _safe_str(value)
+    if not text:
+        return []
+
+    variants: List[str] = []
+    for part in re.split(r'[,;\r\n]+', text):
+        part = re.sub(r'^[\s\'"`\[\](){}]+|[\s\'"`\[\](){}]+$', '', _safe_str(part))
+        if not part:
+            continue
+        leaf = part.split('\\')[-1].split('/')[-1]
+        for cand in (part, leaf):
+            cand = _safe_str(cand)
+            if not cand:
+                continue
+            variants.append(cand)
+            # Strip common trailing revision suffixes while retaining the
+            # version-bearing product line, e.g. Foo.LE.1.0.r1 -> Foo.LE.1.0.
+            variants.append(re.sub(r'\.(?:r|rc|c)\d+$', '', cand, flags=re.IGNORECASE).strip())
+
+    out: List[str] = []
+    seen = set()
+    for cand in variants:
+        compact = re.sub(r'[^A-Za-z0-9]+', '', cand)
+        # Avoid broad terms like "IVI" or "1.0"; PL/SP values should contain
+        # both letters and digits and be reasonably specific.
+        if len(compact) < 6 or not re.search(r'[A-Za-z]', compact) or not re.search(r'\d', compact):
+            continue
+        key = compact.upper()
+        if key not in seen:
+            seen.add(key)
+            out.append(cand)
+    return out
+
+
+def _target_axiom_pl_terms(target_name: str, deck_config: Optional[Any] = None) -> List[str]:
+    """Read configured JIRA/OpenJIRA PL-ID values and use them as Axiom SP terms."""
+    terms: List[str] = []
+    seen = set()
+
+    def _add(value: Any) -> None:
+        for term in _pl_term_variants(value):
+            key = re.sub(r'[^A-Za-z0-9]+', '', term).upper()
+            if key and key not in seen:
+                seen.add(key)
+                terms.append(term)
+
+    entries = _core_deck_config_entries(target_name, deck_config=deck_config)
+
+    # Include explicit target/name values only when they look like real SP/PL
+    # identifiers; generic deck labels such as IVI/FLEX are filtered out by
+    # _pl_term_variants().
+    for entry in entries:
+        if isinstance(entry, dict):
+            for key in ('pl_id', 'PL-ID', 'software_product', 'sp_name', 'target', 'name'):
+                _add(entry.get(key))
+        else:
+            _add(entry)
+
+    # Main path: read PL-ID/software_product values from configured JIRA tables.
+    for entry in entries:
+        try:
+            src = _resolve_config_source(entry)
+            schema = _safe_str(src.get('schema')).strip('`')
+            if not schema:
+                continue
+            conn = dc.get_mysql_connection_db(database_name=schema)
+            if not conn:
+                continue
+            cur = conn.cursor(dictionary=True)
+            try:
+                for table_key in ('jiras_table_name', 'openjiras_table_name', 'closed_jiras_table_name'):
+                    table = _safe_str(src.get(table_key)).strip('`')
+                    if not table:
+                        continue
+                    fq_table = _bt(schema, table)
+                    cols = _table_cols(cur, fq_table)
+                    pl_col = _first_existing_ci(cols, _CORE_DECK_PL_COL_CANDIDATES)
+                    if not pl_col:
+                        continue
+                    safe_col = pl_col.replace('`', '``')
+                    cur.execute(
+                        f"SELECT DISTINCT `{safe_col}` AS pl FROM {fq_table} "
+                        f"WHERE `{safe_col}` IS NOT NULL AND TRIM(`{safe_col}`) <> '' "
+                        "LIMIT 500"
+                    )
+                    for row in cur.fetchall() or []:
+                        _add(row.get('pl'))
+            finally:
+                try:
+                    cur.close()
+                    conn.close()
+                except Exception:
+                    pass
+        except Exception:
+            continue
+
+    return terms
+
+
+def _row_matches_axiom_pl_terms(row: dict, pl_terms: Optional[List[str]]) -> bool:
+    """Match an Axiom row using PL-ID/SP values read from JIRA/OpenJIRA tables."""
+    if not pl_terms:
+        return False
+    fields = [
+        row.get('software_product'), row.get('softwareProduct'),
+        row.get('product_flavor'), row.get('productFlavor'),
+        row.get('build_name'), row.get('build_id'), row.get('build'),
+    ]
+    hay_values = [_safe_str(v).upper() for v in fields if _safe_str(v)]
+    hay_compact = [re.sub(r'[^A-Z0-9]+', '', v) for v in hay_values]
+    for term in pl_terms:
+        t = _safe_str(term).upper()
+        tc = re.sub(r'[^A-Z0-9]+', '', t)
+        if len(tc) < 6:
+            continue
+        for hay in hay_values:
+            if hay == t or hay.startswith(t) or t in hay:
+                return True
+        if any(tc and tc in hc for hc in hay_compact):
+            return True
+    return False
+
+
+def _matches_target(row: dict, target_name: str, pl_terms: Optional[List[str]] = None) -> bool:
     """Return True only when this Axiom row belongs to target_name.
 
     Matching is done exclusively on software_product (the most reliable
@@ -584,7 +754,7 @@ def _matches_target(row: dict, target_name: str) -> bool:
     """
     sp = _safe_str(row.get('software_product') or row.get('softwareProduct')).upper()
     if not sp:
-        return False
+        return _row_matches_axiom_pl_terms(row, pl_terms)
 
     info = dc.get_target_info(target_name) or {}
 
@@ -627,12 +797,14 @@ def _matches_target(row: dict, target_name: str) -> bool:
     # require them to appear at the start of software_product after the chip.
     if not accepted_prefixes:
         program_tokens = _target_program_tokens(target_name, info)
-        return any(
+        matched = any(
             re.search(r'\.' + re.escape(t) + r'(?:\.|$)', sp)
             for t in program_tokens if t
         )
+        return matched or _row_matches_axiom_pl_terms(row, pl_terms)
 
-    return any(sp.startswith(p) or sp == p for p in accepted_prefixes)
+    matched = any(sp.startswith(p) or sp == p for p in accepted_prefixes)
+    return matched or _row_matches_axiom_pl_terms(row, pl_terms)
 
 
 def _auto_alias(meta_id: str, rows: List[dict]) -> str:
@@ -672,7 +844,7 @@ def _deck_type_from_build(build_id: str, software_product: str = '') -> str:
     return 'IVI'
 
 
-def _target_build_flavor_options(target_name: str, limit: int = 1000) -> dict:
+def _target_build_flavor_options(target_name: str, limit: int = 1000, deck_config: Optional[Any] = None) -> dict:
     """Return SWPDT/Axiom rows grouped by exact build ID + product flavor.
 
     This is intentionally different from weekly JIRA build options: Axiom may
@@ -685,8 +857,9 @@ def _target_build_flavor_options(target_name: str, limit: int = 1000) -> dict:
     assigned_chips: Dict[tuple, set] = defaultdict(set)
     chip_observed_keys = set()
     max_device_counts: Dict[tuple, int] = defaultdict(int)
+    pl_terms = _target_axiom_pl_terms(target_name, deck_config=deck_config)
     for row in _flatten_swpdt_entries(payload):
-        if not _matches_target(row, target_name):
+        if not _matches_target(row, target_name, pl_terms):
             continue
         full_build_id = _entry_build_id(row)
         build_id = _build_tail(full_build_id)
@@ -745,12 +918,18 @@ def _target_build_flavor_options(target_name: str, limit: int = 1000) -> dict:
         item['device_count'] = len(chips) if (chips or key in chip_observed_keys) else int(max_device_counts.get(key) or 0)
     rows = list(grouped.values())
     rows.sort(key=lambda r: (r.get('latest_submitted') or '', _meta_sort_key(r.get('meta_id'))), reverse=True)
-    return {'source_path': source_path, 'build_options': rows[:max(1, min(int(limit or 1000), 5000))], 'matched_options': len(rows)}
+    return {
+        'source_path': source_path,
+        'build_options': rows[:max(1, min(int(limit or 1000), 5000))],
+        'matched_options': len(rows),
+        'match_terms': pl_terms,
+    }
 
 
 def _latest_target_metas(target_name: str, limit: int = 5) -> dict:
     payload, source_path = _load_swpdt_payload()
-    entries = [e for e in _flatten_swpdt_entries(payload) if _matches_target(e, target_name)]
+    pl_terms = _target_axiom_pl_terms(target_name)
+    entries = [e for e in _flatten_swpdt_entries(payload) if _matches_target(e, target_name, pl_terms)]
     grouped: Dict[str, List[dict]] = defaultdict(list)
     for row in entries:
         build_id = _entry_build_id(row)
@@ -808,8 +987,9 @@ def _selected_build_axiom_details(target_name: str, selected_builds: List[str]) 
     out: Dict[str, dict] = {}
     chip_sets: Dict[str, set] = defaultdict(set)
     max_device_counts: Dict[str, int] = defaultdict(int)
+    pl_terms = _target_axiom_pl_terms(target_name)
     for row in _flatten_swpdt_entries(payload):
-        if not _matches_target(row, target_name):
+        if not _matches_target(row, target_name, pl_terms):
             continue
         build_id = _entry_build_id(row)
         tail = _build_tail(build_id).upper()
@@ -2467,7 +2647,14 @@ def core_deck_build_options():
     limit = int(request.args.get('limit') or 1000)
     if not target:
         return jsonify({'ok': False, 'error': 'target is required'}), 400
-    data = _target_build_flavor_options(target, limit=limit)
+    deck_config = None
+    raw_deck_config = _safe_str(request.args.get('deck_config') or request.args.get('config'))
+    if raw_deck_config:
+        try:
+            deck_config = json.loads(raw_deck_config)
+        except Exception as exc:
+            return jsonify({'ok': False, 'error': f'Invalid deck_config JSON: {exc}'}), 400
+    data = _target_build_flavor_options(target, limit=limit, deck_config=deck_config)
     return jsonify({'ok': True, 'target': target, **data})
 
 
@@ -2491,8 +2678,9 @@ def _selected_job_ids_for_flavor_enrichment(target_name: str, selected_rows: Lis
             jid = _safe_str(jid)
             if jid and _needs_fetch(jid) and jid not in selected_job_ids:
                 selected_job_ids.append(jid)
+    pl_terms = _target_axiom_pl_terms(target_name)
     for row in _flatten_swpdt_entries(payload):
-        if not _matches_target(row, target_name):
+        if not _matches_target(row, target_name, pl_terms):
             continue
         build_id = _entry_build_id(row)
         if _build_tail(build_id).upper() not in selected_build_tails:
@@ -2510,11 +2698,12 @@ def _build_flavor_rows_for_job_ids(target_name: str, payload: dict, job_ids: Lis
     assigned_chips: Dict[tuple, set] = defaultdict(set)
     chip_observed_keys = set()
     max_device_counts: Dict[tuple, int] = defaultdict(int)
+    pl_terms = _target_axiom_pl_terms(target_name)
     for row in _flatten_swpdt_entries(payload):
         jid = _safe_str(row.get('job_id') or row.get('jobId') or row.get('id'))
         if wanted and jid not in wanted:
             continue
-        if not _matches_target(row, target_name):
+        if not _matches_target(row, target_name, pl_terms):
             continue
         full_build_id = _entry_build_id(row)
         build_id = _build_tail(full_build_id)

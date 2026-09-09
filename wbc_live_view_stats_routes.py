@@ -958,7 +958,10 @@ def _preview_rows_filtered(fq_table: str, limit: int = 100, open_cr_only: bool =
         where_sql = _where_open_cr(cols) if open_cr_only else ""
         cur.execute(f"SELECT COUNT(*) AS cnt FROM {_bt(schema, table)}{where_sql}")
         total = _safe_int((cur.fetchone() or {}).get("cnt"))
-        cur.execute(f"SELECT {', '.join('`'+c+'`' for c in selected)} FROM {_bt(schema, table)}{where_sql} LIMIT %s", (limit,))
+        if limit and int(limit) > 0:
+            cur.execute(f"SELECT {', '.join('`'+c+'`' for c in selected)} FROM {_bt(schema, table)}{where_sql} LIMIT %s", (int(limit),))
+        else:
+            cur.execute(f"SELECT {', '.join('`'+c+'`' for c in selected)} FROM {_bt(schema, table)}{where_sql}")
         def _fmt_val(v):
             if v is None: return ""
             if isinstance(v, datetime): return v.date().isoformat() if v.hour == 0 and v.minute == 0 and v.second == 0 else v.isoformat()
@@ -1181,6 +1184,100 @@ def _wbc_apply_pdt_scenarios_to_open_cr_preview(preview: Dict[str, Any], jiras_t
         )
         if scenario:
             row["PDT Scenario"] = scenario
+    preview["columns"] = cols
+    preview["rows"] = rows
+    return preview
+
+
+def _wbc_jira_occurrence_map(jiras_table: str) -> Dict[str, List[str]]:
+    """Build CR -> Jira ticket list from the configured WBC target JIRAs table."""
+    if not jiras_table:
+        return {}
+    conn = get_mysql_connection_db(database_name=_WBC_SCHEMA) or get_mysql_connection_db(bu_key=None)
+    if not conn:
+        return {}
+    cur = conn.cursor(dictionary=True)
+    try:
+        cols = _table_cols(cur, jiras_table)
+        if not cols:
+            return {}
+        cr_cols: List[str] = []
+        for aliases in (
+            ["mapped_cr", "mapped_crs", "mapped cr", "mapped CR"],
+            ["cr", "cr_id", "crid", "cr number", "cr_number", "CR"],
+            ["cr_current_ticket", "Change Request", "change_request"],
+            ["final_ticket", "Final Ticket"],
+        ):
+            col = _first_col(cols, aliases)
+            if col and col not in cr_cols:
+                cr_cols.append(col)
+        jira_col = _first_col(cols, ["stability_ticket", "jira", "jira_id", "jira_key", "ticket", "key", "JIRA", "JIRA-Ticket"])
+        if not cr_cols or not jira_col:
+            return {}
+        date_col = _first_col(cols, ["jira_date", "last_instance", "updated", "created", "created_date", "date"])
+        selected = cr_cols + [jira_col]
+        if date_col and date_col not in selected:
+            selected.append(date_col)
+        schema, table = _split_table(jiras_table)
+        order_sql = f" ORDER BY `{date_col}` DESC" if date_col else ""
+        cur.execute(
+            f"SELECT {', '.join('`'+c+'`' for c in selected)} FROM {_bt(schema, table)} "
+            f"WHERE `{jira_col}` IS NOT NULL AND TRIM(`{jira_col}`)<>''{order_sql} LIMIT 100000"
+        )
+        out: Dict[str, List[str]] = {}
+        for row in cur.fetchall() or []:
+            ticket = str(row.get(jira_col) or "").strip().upper()
+            if not ticket:
+                continue
+            keys = set()
+            for col in cr_cols:
+                keys.update(_wbc_cr_scenario_keys(row.get(col)))
+            for key in keys:
+                bucket = out.setdefault(key, [])
+                if ticket not in bucket:
+                    bucket.append(ticket)
+        return out
+    except Exception:
+        return {}
+    finally:
+        try:
+            cur.close(); conn.close()
+        except Exception:
+            pass
+
+
+def _wbc_apply_cr_jira_mapping_to_open_cr_preview(preview: Dict[str, Any], jiras_table: str) -> Dict[str, Any]:
+    """Annotate Open CR rows with mapped Jira tickets and Jira occurrence count."""
+    preview = preview if isinstance(preview, dict) else {}
+    rows = preview.get("rows") or []
+    cols = list(preview.get("columns") or [])
+    if not rows:
+        return preview
+    jira_map = _wbc_jira_occurrence_map(jiras_table)
+    if not jira_map:
+        return preview
+    cr_col = _first_col(cols, ["mapped_cr", "mapped_crs", "CR", "CR-ID", "CR ID", "cr", "cr_id", "crid", "unique_cr", "cr_number", "stability_ticket"])
+    if not cr_col:
+        return preview
+    mapped_col = "Mapped JIRAs"
+    occ_col = _first_col(cols, ["CR Occurrence", "cr_occurrence", "Occurrence", "Occurrences", "Instances", "Instance"])
+    if mapped_col not in cols:
+        cols.append(mapped_col)
+    if not occ_col:
+        occ_col = "CR Occurrence"
+        if occ_col not in cols:
+            cols.append(occ_col)
+    for row in rows:
+        keys = _wbc_cr_scenario_keys(row.get(cr_col))
+        tickets: List[str] = []
+        for key in keys:
+            for ticket in jira_map.get(key, []):
+                if ticket not in tickets:
+                    tickets.append(ticket)
+        if tickets:
+            row[mapped_col] = ", ".join(tickets[:25])
+            if not str(row.get(occ_col) or "").strip():
+                row[occ_col] = len(tickets)
     preview["columns"] = cols
     preview["rows"] = rows
     return preview
@@ -2138,8 +2235,11 @@ def _target_payload(target_key: str, force_running_report: bool = False) -> Dict
 
     unique_table = db_cfg.get("unique_crs_table") or db_cfg.get("overall_crs_table") or ""
     target_jiras_table = db_cfg.get("jiras_table") or db_cfg.get("target_table") or ""
-    open_crs_preview = _wbc_fill_open_cr_priority_from_orbit(_wbc_apply_pdt_scenarios_to_open_cr_preview(
-        _preview_rows_filtered(unique_table, 2000, open_cr_only=True),
+    open_crs_preview = _wbc_fill_open_cr_priority_from_orbit(_wbc_apply_cr_jira_mapping_to_open_cr_preview(
+        _wbc_apply_pdt_scenarios_to_open_cr_preview(
+            _preview_rows_filtered(unique_table, 2000, open_cr_only=True),
+            target_jiras_table,
+        ),
         target_jiras_table,
     ))
     build_summary = _build_summary_from_jiras(target_jiras_table, db_cfg.get("openjiras_table") or "")
@@ -2173,7 +2273,7 @@ def _target_payload(target_key: str, force_running_report: bool = False) -> Dict
             "total_crs": _count_from_table(unique_table, ["mapped_cr", "mapped_crs", "cr", "crid", "stability_ticket"]),
         },
         "previews": {
-            "jiras": _preview_rows_filtered(target_jiras_table, 100),
+            "jiras": _preview_rows_filtered(target_jiras_table, 0),
             "open_jiras": _preview_rows_filtered(db_cfg.get("openjiras_table") or "", 100),
             "open_crs": open_crs_preview,
             "all_crs": _preview_rows_filtered(unique_table, 150),
