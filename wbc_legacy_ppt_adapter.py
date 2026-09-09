@@ -717,16 +717,71 @@ def _ppt_add_mini_mtbf_chart(slide, data, x=0.30, y=3.52, w=5.90, h=1.48):
                   size=3.6, color=RGBColor(0x45, 0x52, 0x63), align=PP_ALIGN.CENTER)
 
 
-def _ppt_current_cr_rows(data, max_rows=3):
+_PPT_STATUS_CR_ROWS_FIRST = 4
+
+
+def _ppt_cr_detail_font_sizes(row_count):
+    """Auto-scale CR Details continuation font from the number of CR rows."""
+    count = int(row_count or 0)
+    if count <= 8:
+        return 5.25, 5.45
+    if count <= 12:
+        return 4.85, 5.05
+    if count <= 18:
+        return 4.35, 4.55
+    if count <= 24:
+        return 3.85, 4.10
+    return 3.45, 3.75
+
+
+def _ppt_cr_continuation_chunk_size(total_rows):
+    """Pack more CR rows per continuation slide as the CR count grows."""
+    count = int(total_rows or 0)
+    if count <= 18:
+        return 18
+    if count <= 48:
+        return 24
+    return 28
+
+
+def _ppt_cr_lookup_key(value):
+    return re.sub(r"^CR", "", safe_text(value).upper()).strip()
+
+
+def _ppt_open_or_all_cr_age_lookup(data):
+    """Map CR -> CR Age from Open CRs / All CRs tables when that age is already available."""
+    lookup = {}
+    for table_name in ("open_cr", "overall_cr", "all_crs"):
+        table = data.get(table_name, {}) or {}
+        rows = table.get("rows") or []
+        if not rows:
+            continue
+        k_cr = _ppt_find_key(table, ["CR", "CR-ID", "CR ID", "mapped_cr", "cr_id", "unique_cr", "cr_number"])
+        k_age = _ppt_find_key(table, ["CR Age", "cr_age", "Age", "overall_age", "age_days", "Age (days)", "days_open"])
+        if not k_cr or not k_age:
+            continue
+        for row in rows:
+            cr_key = _ppt_cr_lookup_key(row.get(k_cr))
+            age = _ppt_safe(row.get(k_age))
+            if cr_key and age and not lookup.get(cr_key):
+                lookup[cr_key] = age
+    return lookup
+
+
+def _ppt_current_cr_rows(data, max_rows=_PPT_STATUS_CR_ROWS_FIRST):
     table = data.get("current_cr", {}) or {}
     rows = table.get("rows") or []
-    k_cr = _ppt_find_key(table, ["CR-ID", "CR ID", "CR", "mapped_cr", "cr_id", "unique_cr"])
+    k_cr = _ppt_find_key(table, ["CR", "CR-ID", "CR ID", "mapped_cr", "cr_id", "unique_cr"])
+    k_jira_date = _ppt_find_key(table, ["Jira Date -last instance", "Jira Date last instance", "Last Instance Jira Date", "Jira Date", "last instance", "updated"])
     k_occ = _ppt_find_key(table, ["CR Count", "CR Occurrence", "Occurrence", "Occur", "Instance", "Instances"])
     k_title = _ppt_find_key(table, ["CR Title", "Title", "Summary"])
     k_area = _ppt_find_key(table, ["CR Area", "Area"])
     k_sub = _ppt_find_key(table, ["CR SubSystem", "CR Subsystem", "Subsystem", "Sub System"])
     k_func = _ppt_find_key(table, ["CR Functionality", "CR Function", "Functionality"])
+    k_date = _ppt_find_key(table, ["CR Date", "Date", "Created Date", "Reported Date"])
     k_status = _ppt_find_key(table, ["CR Status", "Status"])
+    k_age = _ppt_find_key(table, ["CR Age", "Age"])
+    cr_age_lookup = _ppt_open_or_all_cr_age_lookup(data)
     grouped = []
     by_cr: Dict[str, Dict[str, Any]] = {}
     for r in rows:
@@ -743,10 +798,20 @@ def _ppt_current_cr_rows(data, max_rows=3):
     for idx, r in enumerate(grouped[:max_rows], start=1):
         occ = r.get("_ppt_occ_total")
         occ_text = str(int(occ)) if float(occ or 0).is_integer() else str(occ)
+        cr_value = _ppt_get(r, k_cr)
+        cr_age = _ppt_get(r, k_age) or cr_age_lookup.get(_ppt_cr_lookup_key(cr_value), "")
         out.append([
-            str(idx), _ppt_get(r, k_cr), occ_text or _ppt_get(r, k_occ, "1"),
-            _ppt_trunc(_ppt_get(r, k_title), 130), _ppt_get(r, k_area),
-            _ppt_get(r, k_sub), _ppt_trunc(_ppt_get(r, k_func), 30), _ppt_get(r, k_status),
+            str(idx),
+            cr_value,
+            _ppt_get(r, k_jira_date),
+            occ_text or _ppt_get(r, k_occ, "1"),
+            _ppt_trunc(_ppt_get(r, k_title), 130),
+            _ppt_get(r, k_area),
+            _ppt_get(r, k_sub),
+            _ppt_trunc(_ppt_get(r, k_func), 30),
+            _ppt_get(r, k_date),
+            _ppt_get(r, k_status),
+            cr_age,
         ])
     return out
 
@@ -867,10 +932,10 @@ def _ppt_build_first_slide(prs, data):
     # Right half: current meta CRs and top open JIRAs.
     _ppt_add_section_title(slide, 6.50, 0.42, "CR Details", w=1.0)
     _ppt_add_table(slide, 6.55, 0.74, 6.45, 1.48,
-                   ["S.No.", "CR-ID", "Occurrence", "CR Title", "CR Area", "CR\nSubSystem", "CR Functionality", "CR Status"],
-                   _ppt_current_cr_rows(data, max_rows=3),
-                   col_widths=[0.45, 0.75, 0.55, 2.45, 0.7, 0.82, 0.98, 0.68],
-                   font_size=4.55, header_size=4.7, title_cols_left={3})
+                   ["S.No.", "CR", "Jira Date -last\ninstance", "CR Occurrence", "CR Title", "CR Area", "CR\nSubSystem", "CR Functionality", "CR Date", "CR Status", "CR Age"],
+                   _ppt_current_cr_rows(data, max_rows=_PPT_STATUS_CR_ROWS_FIRST),
+                   col_widths=[0.42, 0.70, 0.90, 0.78, 4.70, 0.86, 0.92, 1.05, 0.78, 0.78, 0.48],
+                   font_size=3.7, header_size=3.85, title_cols_left={4})
 
     _ppt_add_section_title(slide, 6.50, 2.38, "Jira Details", w=1.0)
     _ppt_add_table(slide, 6.55, 2.68, 6.45, 1.50,
@@ -1057,9 +1122,30 @@ def _ppt_build_mtbf_chart_slide(prs, data):
 
 
 
+def _ppt_build_current_running_cr_slide(prs, data, rows, page_num=1, total_pages=1):
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+    title = "CR Details Continued:" if total_pages == 1 else f"CR Details Continued: ({page_num}/{total_pages})"
+    font_size, header_size = _ppt_cr_detail_font_sizes(len(rows))
+    _ppt_add_section_title(slide, 0.18, 0.16, title, w=3.0)
+    _ppt_add_table(
+        slide,
+        0.15,
+        0.58,
+        13.05,
+        6.70,
+        ["S.No", "CR", "Jira Date -last\ninstance", "CR Occurrence", "CR Title", "CR Area", "CR SubSystem", "CR Functionality", "CR Date", "CR Status", "CR Age"],
+        rows,
+        col_widths=[0.42, 0.70, 0.90, 0.78, 4.70, 0.86, 0.92, 1.05, 0.78, 0.78, 0.48],
+        font_size=font_size,
+        header_size=header_size,
+        title_cols_left={4},
+    )
+    return slide
+
+
 def _ppt_build_open_cr_slide(prs, data, rows, page_num=1, total_pages=1):
     slide = prs.slides.add_slide(prs.slide_layouts[6])
-    title = "Overall Open/Analysis CRs:" if total_pages == 1 else f"Overall Open/Analysis CRs: ({page_num}/{total_pages})"
+    title = "Open CRs:" if total_pages == 1 else f"Open CRs: ({page_num}/{total_pages})"
     _ppt_add_section_title(slide, 0.18, 0.16, title, w=2.3)
     _ppt_add_table(
         slide,
@@ -1098,18 +1184,44 @@ def build_ppt(data: Dict[str, Any], include_cover: bool = False, include_thankq:
         _ppt_add_text(cover, 0.98, 5.22, 9.1, 0.24, f"Date: {datetime.now().strftime('%d/%m/%Y')}", size=12, color=_PPT_WHITE)
 
     status_slides = data.get("status_slides") if isinstance(data.get("status_slides"), list) else []
+    current_slide_sources = []
     if status_slides:
         for status_data in status_slides:
-            _ppt_build_first_slide(prs, {**data, **(status_data or {})})
+            merged_status_data = {**data, **(status_data or {})}
+            current_slide_sources.append(merged_status_data)
+            _ppt_build_first_slide(prs, merged_status_data)
     else:
+        current_slide_sources.append(data)
         _ppt_build_first_slide(prs, data)
+
+    # Add continuation CR detail slides after the summary slide.  The first
+    # slide already shows the first 4 CRs in the right-side CR Details table;
+    # continuation slides must start with the remaining CRs only, then the
+    # deck proceeds to Overall Open/Analysis CR slides.
+    current_cr_rows_all = []
+    seen_current_cr_rows = set()
+    for current_source in current_slide_sources:
+        for row in _ppt_current_cr_rows(current_source, max_rows=10000):
+            row_key = "|".join(str(v or "").strip().upper() for v in row[1:3]) or "|".join(str(v or "") for v in row)
+            if row_key in seen_current_cr_rows:
+                continue
+            seen_current_cr_rows.add(row_key)
+            current_cr_rows_all.append([str(len(current_cr_rows_all) + 1)] + row[1:])
+    current_cr_rows_continuation = current_cr_rows_all[_PPT_STATUS_CR_ROWS_FIRST:]
+    current_chunk_size = _ppt_cr_continuation_chunk_size(len(current_cr_rows_continuation))
+    current_chunks = [
+        current_cr_rows_continuation[i:i + current_chunk_size]
+        for i in range(0, len(current_cr_rows_continuation), current_chunk_size)
+    ]
+    for idx, chunk in enumerate(current_chunks, start=1):
+        _ppt_build_current_running_cr_slide(prs, data, chunk, idx, len(current_chunks))
 
     open_rows = _ppt_open_cr_rows(data)
     if not open_rows:
-        open_rows = [["", "", "", "", "No Open/Analysis CRs", "", "", "", "", "", "", ""]]
+        open_rows = [["", "", "", "", "No Open CRs", "", "", "", "", "", "", ""]]
     chunk_size = 18
 
-    chunks = [open_rows[:chunk_size]]
+    chunks = [open_rows[i:i + chunk_size] for i in range(0, len(open_rows), chunk_size)]
     for idx, chunk in enumerate(chunks, start=1):
         _ppt_build_open_cr_slide(prs, data, chunk, idx, len(chunks))
 

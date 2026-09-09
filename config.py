@@ -123,10 +123,21 @@ LIVE_STATUS_DEFAULT_VIEWER_GROUP_ACCESS = {
         "join_url": "https://lists.qualcomm.com/ListManager?match=eq&field=default&query=PdtBuddy.Wear",
     },
     "PdtBuddy.Nord": {
-        "label": "Nord",
-        "targets": ["Nord"],
-        "target_patterns": ["NORD"],
+        # Historical external Gen5/Nord viewer group. SECA LE IVI 1.0 is part
+        # of the same Automotive Gen5 live-status family, so members must see
+        # both older NORD jobs and newly added SECA jobs.
+        "label": "Automotive Gen5",
+        "targets": ["Nord_HQX", "Nord_HGY", "seca_le_ivi_1_0"],
+        "target_patterns": ["NORD", "SECA"],
+        "group_aliases": ["PdtBuddy.Gen5", "Gen5", "gen5"],
         "join_url": "https://lists.qualcomm.com/ListManager?match=eq&field=default&query=PdtBuddy.Nord",
+    },
+    "PdtBuddy.Gen5": {
+        "label": "Automotive Gen5",
+        "targets": ["Nord_HQX", "Nord_HGY", "seca_le_ivi_1_0"],
+        "target_patterns": ["NORD", "SECA"],
+        "group_aliases": ["PdtBuddy.Nord", "Gen5", "gen5"],
+        "join_url": "https://lists.qualcomm.com/ListManager?match=eq&field=default&query=PdtBuddy.Gen5",
     },
     "PdtBuddy.IVIGen4.5": {
         "label": "Gen4.5",
@@ -171,7 +182,7 @@ LIVE_STATUS_TEST_USER_GROUPS = {
     # TEMP TEST: treat akacham as member of these LDAP groups without changing LDAP.
     # Remove after validating /live_status_view grouped target cards.
 
-    'akacham': ['PdtBuddy.IoT', 'PdtBuddy.Nord', 'PdtBuddy.IVIGen4.5','PdtBuddy.WBC'],
+    'akacham': ['PdtBuddy.IoT', 'PdtBuddy.Nord', 'PdtBuddy.Gen5', 'PdtBuddy.IVIGen4.5', 'PdtBuddy.WBC'],
     
 
 }

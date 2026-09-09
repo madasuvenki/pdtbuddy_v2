@@ -171,6 +171,58 @@
 </head>
 <style>.wbc-bwr-item .tag{background:unset!important;border:unset!important;color:unset!important;font-size:11px!important;font-weight:900!important;padding:3px 9px!important}
 #wbcBwrPanel .tag:first-of-type{background:#eef2ff!important;border:1.5px solid #6366f1!important;color:#4338ca!important;font-size:11px!important;font-weight:900!important;padding:5px 12px!important;border-radius:8px!important}</style>
+<style>
+  /* WBC data tabs: use the available page height instead of capping tables at ~420/520px.
+     This removes the large blank area below Open JIRAs / Mapped JIRAs / All CRs / JIRAs tables
+     on tall screens while keeping the sticky table header and internal scroll behavior. */
+  #tabOpenjiras .body,
+  #tabMappedjiras .body,
+  #tabAllcrs .body,
+  #tabJiras .body,
+  #tabBuilds .body,
+  #tabExcel .card,
+  #tabOpencrs .body,
+  #tabOpencrdets .body {
+    padding-bottom: 8px !important;
+  }
+
+  #tabOpenjiras .tblwrap,
+  #tabMappedjiras .tblwrap,
+  #tabAllcrs .tblwrap,
+  #tabJiras .tblwrap,
+  #tabBuilds .tblwrap,
+  #tabExcel .tblwrap,
+  #tabOpencrs .tblwrap,
+  #tabOpencrdets .tblwrap,
+  #wbcInlineReport .tblwrap,
+  #runningReportBox .tblwrap,
+  #buildSummaryBox .tblwrap {
+    max-height: calc(100vh - 245px) !important;
+    overflow: auto !important;
+  }
+
+  /* Open JIRAs contains two stacked tables; give the larger mapped table more room
+     but avoid forcing short tables to create artificial blank space. */
+  #tabOpenjiras #openJirasBox > .tblwrap:last-child {
+    max-height: calc(100vh - 330px) !important;
+  }
+
+  @media (max-height: 760px) {
+    #tabOpenjiras .tblwrap,
+    #tabMappedjiras .tblwrap,
+    #tabAllcrs .tblwrap,
+    #tabJiras .tblwrap,
+    #tabBuilds .tblwrap,
+    #tabExcel .tblwrap,
+    #tabOpencrs .tblwrap,
+    #tabOpencrdets .tblwrap,
+    #wbcInlineReport .tblwrap,
+    #runningReportBox .tblwrap,
+    #buildSummaryBox .tblwrap {
+      max-height: calc(100vh - 190px) !important;
+    }
+  }
+</style>
 <body>
 <div class="shell">
   <aside class="side">
@@ -1135,7 +1187,7 @@ function _wbcCrOccurrenceLinkHtml(val, crValue){
   return `<a href="#tabJiras" data-cr="${esc(crKey)}" onclick="return _wbcOpenAllJirasForCr(this.dataset.cr,event)" title="Show all JIRAs related to ${esc(crKey)}" style="display:inline-flex;align-items:center;gap:4px;margin:1px 4px 1px 0;padding:2px 9px;border-radius:999px;border:1px solid #bfdbfe;background:linear-gradient(135deg,#eff6ff,#eef2ff);color:#1d4ed8;font-weight:950;font-size:11px;text-decoration:none;white-space:nowrap;box-shadow:0 1px 4px rgba(15,23,42,.06)">${esc(label)}<i class="fas fa-arrow-right" style="font-size:8px"></i></a>`;
 }
 
-function _cellHtml(col, val){
+function _cellHtml(col, val, row){
   const v = String(val == null ? '' : val).trim();
   if(!v || v === '--' || v === 'None') return esc(v||'--');
   const colL = col.toLowerCase().replace(/[\s\-]/g,'_').replace(/_+/g,'_');
@@ -1147,6 +1199,14 @@ function _cellHtml(col, val){
 
   const jiraKeys = _extractJiraKeys(v);
   const crTokens = _extractCrTokens(v);
+
+  // Occurrence/count columns in All CRs, Build Report, Open CRs, etc. should
+  // jump to the All JIRAs tab filtered by that CR, same behavior as Open CRs.
+  if(_wbcIsCrOccurrenceCol(col)){
+    const rowObj = row && typeof row === 'object' ? row : {};
+    const crValue = _wbcCrKey(rowObj) || _wbcVal(rowObj, ['CR','CR-ID','CR ID','cr','mapped_cr','cr_id','unique_cr','cr_number','Change Request']);
+    if(crValue) return _wbcCrOccurrenceLinkHtml(v, crValue);
+  }
 
   // JIRA hyperlink: link only explicit ticket/id columns, plus non-title cells that are pure JIRA keys.
   if(_JIRA_COLS.has(colL) || (/^[A-Z][A-Z0-9]+-\d+$/i.test(v) && jiraKeys.length)){
@@ -2052,14 +2112,14 @@ function _wbcReportTableHtml(rows, cols, uid){
 }
 function _wbcCurrentCrDisplayRows(rows){
   const colDefs=[
-    ['CR-ID',['CR','CR-ID','CR ID','CRID','cr','mapped_cr','cr_id','unique_cr','cr_number']],
-    ['Occurrence',['CR Count','Occurrence','Occurrences','Instances','count']],
+    ['CR',['CR','CR-ID','CR ID','CRID','cr','mapped_cr','cr_id','unique_cr','cr_number']],
+    ['Jira Date -last instance',['Jira Date -last instance','Jira Date last instance','Last Instance Jira Date','Jira Date','jira_date','last_instance','updated']],
+    ['CR Occurrence',['CR Count','CR Occurrence','Occurrence','Occurrences','Instances','Instance','count']],
     ['CR Title',['CR Title','cr_title','Title','title','Summary','summary']],
     ['CR Area',['CR Area','cr_area','Area','area']],
-    ['CR Subsystem',['CR Subsystem','CR SubSystem','cr_subsystem','Subsystem','subsystem','sub']],
+    ['CR SubSystem',['CR SubSystem','CR Subsystem','cr_subsystem','Subsystem','subsystem','sub']],
     ['CR Functionality',['CR Functionality','CR Function','cr_functionality','Functionality','functionality','func']],
     ['CR Date',['CR Date','Created','created','Date','date','cr_date']],
-    ['CR SI',['CR SI','SI','si','Image Reference','image_reference','si_last_seen','SI Last Seen','software_image','Software Image']],
     ['CR Status',['CR Status','cr_status','Status','status']],
     ['CR Age',['CR Age','cr_age','Age','age','overall_age','age_days','Age (days)','days_open']]
   ];
@@ -2069,7 +2129,7 @@ function _wbcCurrentCrDisplayRows(rows){
     return out;
   });
 }
-const _WBC_CURRENT_CR_DISPLAY_COLS=['CR-ID','Occurrence','CR Title','CR Area','CR Subsystem','CR Functionality','CR Date','CR SI','CR Status','CR Age'];
+const _WBC_CURRENT_CR_DISPLAY_COLS=['CR','Jira Date -last instance','CR Occurrence','CR Title','CR Area','CR SubSystem','CR Functionality','CR Date','CR Status','CR Age'];
 function _wbcSwitchReportTab(uid, tab){
   ['crs','mapped','open','all'].forEach(t=>{
     const pane=document.getElementById(`${uid}_${t}`), btn=document.getElementById(`${uid}_btn_${t}`), badge=document.getElementById(`${uid}_badge_${t}`);
@@ -2545,6 +2605,16 @@ function _wbcOpenCrRowsWithAnalysis(){
   });
   if(!visibleBaseCols.length)visibleBaseCols.push(...baseCols.filter(c=>!hiddenOpenCrCols.has(_normColName(c))).slice(0,10));
   const crCol=_wbcFindCol(baseCols,['CR','CR ID','CR-ID','mapped_cr','cr_id','unique_cr'])||baseCols[0]||'CR';
+  const uniqueBaseRows=[];
+  const seenOpenCrs=new Set();
+  (baseRows||[]).forEach(r=>{
+    const crBare=String(r&&r[crCol]||'').replace(/^CR/i,'').trim().toUpperCase();
+    if(crBare){
+      if(seenOpenCrs.has(crBare))return;
+      seenOpenCrs.add(crBare);
+    }
+    uniqueBaseRows.push(r);
+  });
   const ageCol=_wbcFindCol(baseCols,['CR Age','cr_age','overall_age','Age','age_days','days_open']);
   const scenarioSrcCol=_wbcFindCol(baseCols,['SCENARIO DETAILS','Scenario Details','scenario_details','PDT Scenario','pdt_scenario','Scenario','scenario','TestCase','Test Case','test_case']);
   const analyses=(_ocdData&&_ocdData.analyses)||{};
@@ -2564,7 +2634,7 @@ function _wbcOpenCrRowsWithAnalysis(){
   cols.splice(insertAt,0,'PDT SCENARIO');
   cols.splice(insertAt+1,0,'CR Age');
   mustCols.forEach(c=>{if(!cols.includes(c))cols.push(c);});
-  const rows=baseRows.map(r=>{
+  const rows=uniqueBaseRows.map(r=>{
     const crBare=String(r[crCol]||'').replace(/^CR/i,'').trim();
     const analysis=analyses[crBare]||{};
     const out={__cr_bare:crBare};
@@ -2587,7 +2657,7 @@ function _wbcOpenCrRowsWithAnalysis(){
       'IS REGRESSION': analysis.is_regression?'Yes':'No'
     };
   });
-  return {cols,rows,crCol:'__cr_bare'};
+  return {cols,rows,crCol:'__cr_bare',rawCount:baseRows.length,dedupedCount:Math.max(0,baseRows.length-uniqueBaseRows.length)};
 }
 function downloadOpenCrsCsv(){
   const data=_wbcOpenCrRowsWithAnalysis();
@@ -2769,6 +2839,18 @@ function _pptGetItemRows(item){
 }
 function _pptOpenCrDetailLookup(previews){
   const out={};
+  const ageNames=['CR Age','cr_age','Age','age','overall_age','age_days','Age (days)','days_open'];
+  const hasVal=v=>String(v??'').trim()!=='';
+  const mergeRow=(oldRow,newRow)=>{
+    const merged={...(oldRow||{})};
+    Object.keys(newRow||{}).forEach(k=>{
+      if(hasVal(newRow[k])&&!hasVal(merged[k]))merged[k]=newRow[k];
+    });
+    const newAge=_wbcVal(newRow,ageNames);
+    const oldAge=_wbcVal(merged,ageNames);
+    if(hasVal(newAge)&&!hasVal(oldAge))merged['CR Age']=newAge;
+    return merged;
+  };
   const add=(preview)=>{
     const rows=(preview&&preview.rows)||[];
     rows.forEach(r=>{
@@ -2776,8 +2858,9 @@ function _pptOpenCrDetailLookup(previews){
       if(!cr)return;
       const bare=cr.replace(/^CR/i,'').trim().toUpperCase();
       if(bare){
-        out[bare]=r;
-        out['CR'+bare]=r;
+        const merged=mergeRow(out[bare],r);
+        out[bare]=merged;
+        out['CR'+bare]=merged;
       }
     });
   };
@@ -2862,6 +2945,7 @@ function _pptRenderThankYouSlide(){
     <div style="font-size:52px;font-weight:800;color:#111827">Thank You</div>
   </div>`;
 }
+const WBC_PPT_STATUS_CR_ROWS_FIRST = 4;
 function _pptRenderStatusSlide(item, ctx){
   const project=ctx.project, counts=ctx.counts, overview=ctx.overview, previews=ctx.previews, chartRows=ctx.chartRows;
   const currentMeta=item.meta_id||item.build_id||project;
@@ -2877,19 +2961,22 @@ function _pptRenderStatusSlide(item, ctx){
     const _openSourceAll=itemRows.filter(_pptIsOpenJiraRow);
     const _openAll=_openSourceAll.length?_openSourceAll:itemRows.filter(r=>_wbcRowType(r)==='open');
     const _mappedAll=itemRows.filter(r=>_wbcRowType(r)==='mapped_jira');
-    const crGrouped=_wbcGroupByCr(_crAll,r=>_wbcCrKey(r)).slice(0,3);
+    const crGrouped=_wbcGroupByCr(_crAll,r=>_wbcCrKey(r));
     const openUniq=_pptUniqueJiraRows(_openAll).slice(0,5);
     const mappedUniq=_wbcGroupByCr(_mappedAll,r=>_wbcCrKey(r)||_wbcIssueKey(r)).slice(0,5);
     const jiraUniq=openUniq.length?openUniq:mappedUniq;
     crRows=crGrouped.map((r,i)=>[
       String(i+1),
       _pptVal(r,['CR','CR-ID','CR ID','mapped_cr','cr','cr_id','unique_cr','cr_number']),
+      _pptVal(r,['Jira Date -last instance','Jira Date last instance','Last Instance Jira Date','Jira Date','jira_date','last_instance','updated']),
       _pptVal(r,['CR Count','CR Occurrence','Occurrence','Occurrences','Instances','Instance','count'])||'1',
       _pptVal(r,['CR Title','cr_title','Title','title','Summary','summary']),
       _pptVal(r,['CR Area','cr_area','Area','area']),
-      _pptVal(r,['CR SubSystem','CR Subsystem','CR Subsystem','cr_subsystem','Subsystem','subsystem','sub']),
+      _pptVal(r,['CR SubSystem','CR Subsystem','CR SubSystem','cr_subsystem','Subsystem','subsystem','sub']),
       _pptVal(r,['CR Functionality','CR Function','cr_functionality','Functionality','functionality','func']),
-      _pptVal(r,['CR Status','cr_status','Status','status'])
+      _pptVal(r,['CR Date','Created','created','Date','date','cr_date']),
+      _pptVal(r,['CR Status','cr_status','Status','status']),
+      _pptVal(r,['CR Age','cr_age','Age','age','overall_age','age_days','Age (days)','days_open'])
     ]);
     jiraRows=jiraUniq.map((r,i)=>[
       String(i+1),
@@ -2899,7 +2986,7 @@ function _pptRenderStatusSlide(item, ctx){
       _pptVal(r,['JIRA Status','Jira Status','status','Status','Final Status','final_status'])
     ]);
   } else {
-    crRows=_pptRows(previews.open_crs||previews.crs||previews.all_crs,[['CR-ID','CR ID','CR','mapped_cr','cr_id'],['Occurrence','Instances','Instance'],['CR Title','Title','Summary'],['CR Area','Area'],['CR SubSystem','Subsystem'],['CR Functionality','Functionality'],['CR Status','Status']],3,true);
+    crRows=_pptRows(previews.open_crs||previews.crs||previews.all_crs,[['CR-ID','CR ID','CR','mapped_cr','cr_id'],['Jira Date -last instance','Jira Date','jira_date','last_instance','updated'],['Occurrence','Instances','Instance'],['CR Title','Title','Summary'],['CR Area','Area'],['CR SubSystem','Subsystem'],['CR Functionality','Functionality'],['CR Date','Date','created','cr_date'],['CR Status','Status'],['CR Age','Age','age','cr_age','overall_age']],WBC_PPT_STATUS_CR_ROWS_FIRST,true);
     jiraRows=_pptRows(previews.open_jiras,[['JIRA-Ticket','JIRA ID','jira','stability_ticket'],['Instances','Occurrence','Instance'],['Jira Title','Title','Summary'],['Status','Jira Status']],5,true);
   }
   const metaChartRows=(chartRows||[]).filter(r=>String(r.crm_build_id||r.meta_id||r.build_id||'').toLowerCase().includes(String(currentMeta).toLowerCase())||String(currentMeta).toLowerCase().includes(String(r.crm_build_id||r.meta_id||r.build_id||'').toLowerCase()));
@@ -2918,7 +3005,7 @@ function _pptRenderStatusSlide(item, ctx){
     <div style="position:absolute;left:24px;top:518px;color:#156082;text-decoration:underline;font-weight:bold;font-size:10px">Weekly Stability Stats (SW PDT)</div>
     <div style="position:absolute;left:470px;top:15px;height:510px;border-left:1px dashed #000"></div>
     <div style="position:absolute;left:490px;top:60px;color:#156082;text-decoration:underline;font-weight:bold;font-size:12px">CR Details</div>
-    <div style="position:absolute;left:495px;top:95px;width:430px">${_pptPreviewTable(['S.No.','CR-ID','Occurrence','CR Title','CR Area','CR SubSystem','CR Functionality','CR Status'],crRows,[.45,.75,.55,2.45,.7,.82,.98,.68])}</div>
+    <div style="position:absolute;left:495px;top:95px;width:430px">${_pptPreviewTable(['S.No.','CR','Jira Date -last instance','CR Occurrence','CR Title','CR Area','CR SubSystem','CR Functionality','CR Date','CR Status','CR Age'],crRows.slice(0,WBC_PPT_STATUS_CR_ROWS_FIRST),[.42,.70,.90,.78,4.70,.86,.92,1.05,.78,.78,.48],[4])}</div>
     <div style="position:absolute;left:490px;top:250px;color:#156082;text-decoration:underline;font-weight:bold;font-size:12px">Jira Details</div>
     <div style="position:absolute;left:495px;top:278px;width:430px">${_pptPreviewTable(['S.No.','JIRA-Ticket','Instances','Jira Title','Status'],jiraRows,[.45,1,.65,3.5,.65])}</div>
     <div style="position:absolute;left:500px;top:365px;width:405px;height:150px;overflow:hidden">${_pptRampupHtml(project)}</div>
@@ -2936,14 +3023,24 @@ function renderPptPreview(){
   const primaryItem=selectedItems[0]||{};
   const welcomeMeta=primaryItem.meta_id||primaryItem.build_id||project;
   const welcomeDate=(counts.latest_mtbf_date||((chartRows[chartRows.length-1]||{}).date)||new Date().toLocaleDateString('en-US'));
+  const ctx={project,counts,excel,chartRows,overview,previews};
+  const currentTable=(_pptStatusTablesForItem(primaryItem,previews).current_cr)||{columns:[],rows:[]};
+  const currentHeaders=['S.No.','CR','Jira Date -last instance','CR Occurrence','CR Title','CR Area','CR SubSystem','CR Functionality','CR Date','CR Status','CR Age'];
+  const currentRows=(currentTable.rows||[]).map((r,i)=>currentHeaders.map((h,ci)=>ci===0?String(i+1):((r&&r[h]!=null)?r[h]:'')));
+  const currentContinuationRows=currentRows.slice(WBC_PPT_STATUS_CR_ROWS_FIRST);
+  const currentChunks=[];
+  for(let i=0;i<currentContinuationRows.length;i+=18)currentChunks.push(currentContinuationRows.slice(i,i+18));
+  const currentSlideHtml=currentChunks.map((chunk,idx)=>`<div class="wbc-ppt-slide" style="width:960px;height:540px;background:#fff;margin:0 auto;color:#000;font-family:Arial;border:1px solid #cbd5e1;padding:13px 11px;overflow:hidden"><div style="color:#156082;text-decoration:underline;font-weight:bold;margin:0 0 18px 2px;font-size:12px">CR Details Continued:${currentChunks.length>1?' ('+(idx+1)+'/'+currentChunks.length+')':''}</div>${_pptPreviewTable(currentHeaders,chunk,[.42,.70,.90,.78,4.70,.86,.92,1.05,.78,.78,.48],[4])}</div>`).join('');
   const openRows=_pptRows(previews.open_crs||previews.all_crs,[['CR-ID','CR ID','CR','mapped_cr','cr_id'],['Jira Date -last instance','Jira Date','updated'],['Occurrence','Instances','Instance'],['CR Title','Title','Summary'],['CR Area','Area'],['CR SubSystem','Subsystem'],['CR Functionality','Functionality'],['CR Date','Date'],['CR Status','Status'],['CR Age','Age'],['Priority','CR Priority','priority','cr_priority','pdt_priority','PdtPriority','PDTPriority','cr_pdt_priority','Severity','severity']],2000,true);
-  const openChunks=[openRows.slice(0,18)];
+  const openChunks=[];
+  for(let i=0;i<openRows.length;i+=18)openChunks.push(openRows.slice(i,i+18));
   if(!openChunks.length)openChunks.push([]);
   const openSlideHtml=openChunks.map((chunk,idx)=>`<div class="wbc-ppt-slide" style="width:960px;height:540px;background:#fff;margin:0 auto;color:#000;font-family:Arial;border:1px solid #cbd5e1;padding:13px 11px;overflow:hidden"><div style="color:#156082;text-decoration:underline;font-weight:bold;margin:0 0 18px 2px;font-size:12px">Overall Open/Analysis CRs:${openChunks.length>1?' ('+(idx+1)+'/'+openChunks.length+')':''}</div>${_pptPreviewTable(['S.No','CR','Jira Date -last instance','CR Occurrence','CR Title','CR Area','CR SubSystem','CR Functionality','CR Date','CR Status','CR Age','Priority'],chunk,[.42,.70,.90,.78,4.70,.86,.92,1.05,.78,.78,.48,.48],[4])}</div>`).join('');
-  const ctx={project,counts,excel,chartRows,overview,previews};
-  box.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px;color:#cbd5e1;font-size:11px;font-weight:900"><span>${primaryItem.merged_count||selectedItems.length||1} selected meta${(primaryItem.merged_count||selectedItems.length||1)===1?'':'s'} merged as 1 current-meta slide + ${openChunks.length} Open/Analysis CR table slide${openChunks.length===1?'':'s'} regenerated below</span><span>Download uses this same slide set</span></div><div style="display:grid;gap:18px;min-width:960px">
+  const currentContinuationSummary=currentChunks.length?` + ${currentChunks.length} CR Details continuation slide${currentChunks.length===1?'':'s'}`:'';
+  box.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px;color:#cbd5e1;font-size:11px;font-weight:900"><span>${primaryItem.merged_count||selectedItems.length||1} selected meta${(primaryItem.merged_count||selectedItems.length||1)===1?'':'s'} merged as 1 current-meta slide${currentContinuationSummary} + ${openChunks.length} Open CR slide${openChunks.length===1?'':'s'} regenerated below</span><span>Download uses this same slide set</span></div><div style="display:grid;gap:18px;min-width:960px">
     ${_pptRenderWelcomeSlide(welcomeMeta,welcomeDate)}
     ${_pptRenderStatusSlide(primaryItem,ctx)}
+    ${currentSlideHtml}
     ${openSlideHtml}
     ${_pptRenderThankYouSlide()}
   </div>`;
@@ -2973,19 +3070,22 @@ function _pptStatusTablesForItem(item, previews){
     const _openSourceAll=hydratedRows.filter(_pptIsOpenJiraRow);
     const _openAll=_openSourceAll.length?_openSourceAll:hydratedRows.filter(r=>_wbcRowType(r)==='open');
     const _mappedAll=hydratedRows.filter(r=>_wbcRowType(r)==='mapped_jira');
-    const crGrouped=_wbcGroupByCr(_crAll,r=>_wbcCrKey(r)).slice(0,3);
+    const crGrouped=_wbcGroupByCr(_crAll,r=>_wbcCrKey(r));
     const openUniq=_pptUniqueJiraRows(_openAll).slice(0,5);
     const mappedUniq=_wbcGroupByCr(_mappedAll,r=>_wbcCrKey(r)||_wbcIssueKey(r)).slice(0,5);
     const jiraUniq=openUniq.length?openUniq:mappedUniq;
     crRows=crGrouped.map((r,i)=>[
       String(i+1),
       _pptVal(r,['CR','CR-ID','CR ID','mapped_cr','cr','cr_id','unique_cr','cr_number']),
+      _pptVal(r,['Jira Date -last instance','Jira Date last instance','Last Instance Jira Date','Jira Date','jira_date','last_instance','updated']),
       _pptVal(r,['CR Count','CR Occurrence','Occurrence','Occurrences','Instances','Instance','count'])||'1',
       _pptVal(r,['CR Title','cr_title','Title','title','Summary','summary']),
       _pptVal(r,['CR Area','cr_area','Area','area']),
       _pptVal(r,['CR SubSystem','CR Subsystem','CR SubSystem','cr_subsystem','Subsystem','subsystem','sub']),
       _pptVal(r,['CR Functionality','CR Function','cr_functionality','Functionality','functionality','func']),
-      _pptVal(r,['CR Status','cr_status','Status','status'])
+      _pptVal(r,['CR Date','Created','created','Date','date','cr_date']),
+      _pptVal(r,['CR Status','cr_status','Status','status']),
+      _pptVal(r,['CR Age','cr_age','Age','age','overall_age','age_days','Age (days)','days_open'])
     ]);
     jiraRows=jiraUniq.map((r,i)=>[
       String(i+1),
@@ -2995,11 +3095,11 @@ function _pptStatusTablesForItem(item, previews){
       _pptVal(r,['JIRA Status','Jira Status','status','Status','Final Status','final_status'])
     ]);
   } else {
-    crRows=_pptRows(previews.open_crs||previews.crs||previews.all_crs,[['CR-ID','CR ID','CR','mapped_cr','cr_id'],['Occurrence','Instances','Instance'],['CR Title','Title','Summary'],['CR Area','Area'],['CR SubSystem','Subsystem'],['CR Functionality','Functionality'],['CR Status','Status']],3,true);
+    crRows=_pptRows(previews.open_crs||previews.crs||previews.all_crs,[['CR-ID','CR ID','CR','mapped_cr','cr_id'],['Jira Date -last instance','Jira Date','jira_date','last_instance','updated'],['Occurrence','Instances','Instance'],['CR Title','Title','Summary'],['CR Area','Area'],['CR SubSystem','Subsystem'],['CR Functionality','Functionality'],['CR Date','Date','created','cr_date'],['CR Status','Status'],['CR Age','Age','age','cr_age','overall_age']],WBC_PPT_STATUS_CR_ROWS_FIRST,true);
     jiraRows=_pptRows(previews.open_jiras,[['JIRA-Ticket','JIRA ID','jira','stability_ticket'],['Instances','Occurrence','Instance'],['Jira Title','Title','Summary'],['Status','Jira Status']],5,true);
   }
   return {
-    current_cr:_pptCanonicalTable(['S.No.','CR-ID','Occurrence','CR Title','CR Area','CR SubSystem','CR Functionality','CR Status'],crRows),
+    current_cr:_pptCanonicalTable(['S.No.','CR','Jira Date -last instance','CR Occurrence','CR Title','CR Area','CR SubSystem','CR Functionality','CR Date','CR Status','CR Age'],crRows),
     current_jira:_pptCanonicalTable(['S.No.','JIRA-Ticket','Instances','Jira Title','Status'],jiraRows)
   };
 }
@@ -3009,7 +3109,9 @@ function _pptBuildDownloadData(metaIds, buildIds){
   const builds={columns:[{title:'CRM Build ID',key:'crm_build_id'},{title:'Date',key:'date'},{title:'Hours+',key:'hours'},{title:'crash',key:'crash'},{title:'MTBF',key:'mtbf'}],rows:buildRows};
   const mtbf_chart={categories:buildRows.map(r=>r.crm_build_id),hours:buildRows.map(r=>r.hours),crashes:buildRows.map(r=>r.crash),mtbf:buildRows.map(r=>r.mtbf)};
   const openPreview=previews.open_crs||previews.all_crs||{columns:[],rows:[]};
+  const allCrPreview=previews.all_crs||previews.crs||previews.open_crs||{columns:[],rows:[]};
   const open_cr=_pptObjTable((openPreview.rows||[]).slice(0,2000),openPreview.columns||[]);
+  const all_crs=_pptObjTable((allCrPreview.rows||[]).slice(0,2000),allCrPreview.columns||[]);
   const items=_pptBuildPreviewItems(metaIds, buildIds);
   const status_slides=items.slice(0,1).map(item=>{
     const currentMeta=item.meta_id||item.build_id||project;
@@ -3061,6 +3163,8 @@ function _pptBuildDownloadData(metaIds, buildIds){
     current_cr:(status_slides[0]&&status_slides[0].current_cr)||{columns:[],rows:[]},
     current_jira:(status_slides[0]&&status_slides[0].current_jira)||{columns:[],rows:[]},
     open_cr,
+    overall_cr: all_crs,
+    all_crs,
     status_slides
   };
 }
@@ -3386,6 +3490,11 @@ function renderOpenCrsEnhanced(){
   const data = _wbcOpenCrRowsWithAnalysis();
   const cols = data.cols||[];
   const rows = data.rows||[];
+  const dupHidden = Number(data.dedupedCount||0);
+  if(rows.length || Number(data.rawCount||0)){
+    setText('openCrsCount', rows.length+' row(s)'+(dupHidden?(' • '+dupHidden+' duplicate CR row(s) hidden'):''));
+    setText('nOpenCrs', rows.length);
+  }
   if(!cols.length && !rows.length){
     box.innerHTML = '<div class="empty" style="padding:48px"><i class="fas fa-folder-open" style="font-size:28px;color:#c7d2fe;display:block;margin-bottom:12px"></i>No Open CRs data. Configure the Unique CRs table in Config.</div>';
     return;

@@ -224,7 +224,17 @@ def _current_live_status_viewer_scope():
             group_name = str(group_name or '').strip()
             if not group_name:
                 continue
-            if not _live_status_user_in_group(uid, group_name):
+            group_aliases = []
+            if isinstance(scope, dict):
+                raw_aliases = scope.get('group_aliases') or scope.get('aliases') or []
+                if isinstance(raw_aliases, str):
+                    raw_aliases = [raw_aliases]
+                try:
+                    group_aliases = [str(g or '').strip() for g in raw_aliases if str(g or '').strip()]
+                except Exception:
+                    group_aliases = []
+            group_names_to_check = [group_name] + [g for g in group_aliases if g != group_name]
+            if not any(_live_status_user_in_group(uid, candidate_group) for candidate_group in group_names_to_check):
                 continue
             matched_groups.append(group_name)
             scope = scope or {}
