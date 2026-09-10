@@ -8,7 +8,10 @@ from typing import Any, Dict, List, Optional
 from flask import Blueprint, jsonify, render_template, render_template_string, request
 
 from live_status_view_api import (
+    _MTBF_NONSAFE_IVI_DOMAIN,
+    _MTBF_SAFE_IVI_DOMAIN,
     _adas_mtbf_folder,
+    _canonical_mtbf_domain_name,
     _get_target_domains,
     _load_adas_mtbf,
     _sort_adas_rows_by_date,
@@ -19,7 +22,7 @@ from live_status_view_api import (
 public_auto_gen5_bp = Blueprint("public_auto_gen5_bp", __name__)
 
 _DEFAULT_TARGET = "nord_hqx"
-_DEFAULT_DOMAIN_ORDER = ["ADAS", "FLEX", "IVI"]
+_DEFAULT_DOMAIN_ORDER = ["ADAS", "FLEX", _MTBF_NONSAFE_IVI_DOMAIN, _MTBF_SAFE_IVI_DOMAIN, "IVI"]
 # SECA LE IVI 1.0 — folder is SECA_LE_IVI_1_0, file is mtbf_ivi_10.json (SP key "10")
 _KNOWN_TARGETS = ["nord_hqx", "nord_hgy", "seca_le_ivi_1_0"]
 
@@ -118,12 +121,12 @@ def _ordered_domains(target_name: str) -> List[str]:
 
 
 def _resolve_domain(target_name: str, domain: str) -> Optional[str]:
-    query = str(domain or "").strip().upper()
+    query = _canonical_mtbf_domain_name(domain, target_name)
     if not query:
         return None
     for item in _ordered_domains(target_name):
-        if str(item).upper() == query:
-            return str(item).upper()
+        if _canonical_mtbf_domain_name(item, target_name) == query:
+            return _canonical_mtbf_domain_name(item, target_name)
     return None
 
 
@@ -215,7 +218,7 @@ def _discover_sps_for_target(target_name: str) -> List[Dict[str, Any]]:
                 m = sp_pattern.match(fname)
                 if not m:
                     continue
-                domain_raw = m.group(1).upper()
+                domain_raw = _canonical_mtbf_domain_name(m.group(1), target_name)
                 sp_k = m.group(2)
                 if sp_k not in sp_map:
                     sp_map[sp_k] = {
@@ -226,6 +229,11 @@ def _discover_sps_for_target(target_name: str) -> List[Dict[str, Any]]:
                     }
                 if domain_raw not in sp_map[sp_k]["domains"]:
                     sp_map[sp_k]["domains"].append(domain_raw)
+                if (
+                    domain_raw == _MTBF_NONSAFE_IVI_DOMAIN
+                    and _MTBF_SAFE_IVI_DOMAIN not in sp_map[sp_k]["domains"]
+                ):
+                    sp_map[sp_k]["domains"].append(_MTBF_SAFE_IVI_DOMAIN)
         except Exception:
             pass
 
@@ -237,7 +245,7 @@ def _discover_sps_for_target(target_name: str) -> List[Dict[str, Any]]:
         base_domains = _get_target_domains(target_name)
         rank = {d: i for i, d in enumerate(_DEFAULT_DOMAIN_ORDER)}
         sorted_domains = sorted(
-            [str(d).upper() for d in base_domains],
+            [_canonical_mtbf_domain_name(d, target_name) for d in base_domains],
             key=lambda d: (rank.get(d, 99), d),
         )
         sp_map[default_k] = {
@@ -439,7 +447,7 @@ def api_public_auto_gen5_search():
     if request.method == "OPTIONS":
         return "", 204
     target_name = _target_arg()
-    domain = str(request.args.get("domain") or "").strip().upper()
+    domain = _canonical_mtbf_domain_name(request.args.get("domain") or "", target_name)
     sp = _sp_arg()
     query = str(request.args.get("q") or request.args.get("query") or "").strip()
     limit = max(1, int(request.args.get("limit") or 50))
@@ -451,7 +459,7 @@ def api_public_auto_gen5_search():
             resolved = _resolve_domain(target_name, dom)
             if not resolved:
                 continue
-            data = _load_adas_mtbf(target_name, resolved, sp)
+            data = _sp_load(target_name, resolved, sp) if _sp_key(sp) else _load_adas_mtbf(target_name, resolved)
             for row in _sort_adas_rows_by_date(data.get("rows") or []):
                 pub_row = _public_row(row, resolved)
                 haystack = json.dumps(pub_row, ensure_ascii=False, default=str).lower()
@@ -518,7 +526,7 @@ def api_public_auto_gen5_sp(sp: str):
     if request.method == "OPTIONS":
         return "", 204
     target_name = _target_arg()
-    domain_filter = str(request.args.get("domain") or "").strip().upper()
+    requested_domain = str(request.args.get("domain") or "").strip()
     last_n = int(request.args.get("last_n") or 0)
     sp_k = _sp_key(sp)
     sp_cpl = _sp_key_to_cpl(sp_k)
@@ -532,6 +540,14 @@ def api_public_auto_gen5_sp(sp: str):
                 "target":       target_name,
                 "requested_sp": sp,
                 "available_sps": [{"cpl": e["cpl"], "sp_key": e["sp_key"], "domains": e["domains"]} for e in all_sps],
+            }), 404
+        domain_filter = _resolve_domain(target_name, requested_domain) if requested_domain else ""
+        if requested_domain and not domain_filter:
+            return jsonify({
+                "ok":               False,
+                "message":          f"Domain '{requested_domain}' not available for target '{target_name}'.",
+                "available_domains": sp_entry["domains"] or _ordered_domains(target_name),
+                "domains":          [],
             }), 404
         domains_to_fetch = [domain_filter] if domain_filter else sp_entry["domains"]
         result_domains: List[Dict[str, Any]] = []

@@ -23,9 +23,13 @@ _LOCAL_EXCLUSIONS_FILE = os.path.join(_LOCAL_ROOT, "live_status_view_exclusions.
 # Path: \\Sphere\pdtqipl_internal\PDTBuddy\managed_excel\AUTO\MTBF\<FOLDER>\mtbf_<view>.json
 # Nord_HQX -> folder Nord_HQX, Nord_HGY -> folder Nord_HGY
 # ---------------------------------------------------------------------------
-_ADAS_MTBF_VIEWS_DEFAULT = ["ADAS", "IVI", "FLEX"]
+_MTBF_SAFE_IVI_DOMAIN = "SAFE-IVI"
+_MTBF_NONSAFE_IVI_DOMAIN = "NONSAFE-IVI"
+_ADAS_MTBF_VIEWS_LEGACY_DEFAULT = ["ADAS", "IVI", "FLEX"]
+_ADAS_MTBF_VIEWS_SPLIT_DEFAULT = ["ADAS", "FLEX", _MTBF_NONSAFE_IVI_DOMAIN, _MTBF_SAFE_IVI_DOMAIN]
+_ADAS_MTBF_VIEWS_DEFAULT = _ADAS_MTBF_VIEWS_LEGACY_DEFAULT
 _COMPUTE_MTBF_VIEWS_DEFAULT = ["Glymur", "Mahua"]
-_ADAS_MTBF_VIEWS = _ADAS_MTBF_VIEWS_DEFAULT  # kept for legacy compat
+_ADAS_MTBF_VIEWS = _ADAS_MTBF_VIEWS_SPLIT_DEFAULT  # kept for legacy compat
 _ADAS_MTBF_HEADERS = ["S.No", "Date", "Meta-ID", "Hours", "System Crashes", "SSR Crashes", "Process Crashes", "Total Crashes", "MTBF", "Comments"]
 
 
@@ -50,6 +54,60 @@ def _read_domains_file(target_name: str) -> Dict[str, List[str]]:
         except Exception:
             pass
     return {"domains": [], "hidden": []}
+
+
+def _is_ivi_split_target(target_name: str) -> bool:
+    """Return True for Auto Gen5 targets where IVI MTBF is split into NonSafe/Safe IVI."""
+    if _is_compute_mtbf_target(target_name):
+        return False
+    slug = str(target_name or "").strip().upper().replace(".", "_").replace("-", "_")
+    return slug.startswith("NORD_") or slug in {"NORD_HQX", "NORD_HGY"}
+
+
+def _canonical_mtbf_domain_name(domain: Any, target_name: str = "") -> str:
+    """Normalize domain names while preserving backwards-compatible IVI aliases.
+
+    For Nord Auto Gen5 MTBF, the legacy IVI bucket is now exposed as
+    NONSAFE-IVI. SAFEIVI/SAFE_IVI/SAFE-IVI requests map to SAFE-IVI.
+    """
+    raw = str(domain or "").strip().upper().replace(" ", "-")
+    compact = re.sub(r"[^A-Z0-9]+", "", raw)
+    if compact in {"SAFEIVI", "SAFETYIVI"}:
+        return _MTBF_SAFE_IVI_DOMAIN
+    if compact in {"NONSAFEIVI", "NONSAFETYIVI"}:
+        return _MTBF_NONSAFE_IVI_DOMAIN
+    if compact == "IVI" and _is_ivi_split_target(target_name):
+        return _MTBF_NONSAFE_IVI_DOMAIN
+    return raw
+
+
+def _default_mtbf_views_for_target(target_name: str) -> List[str]:
+    if _is_compute_mtbf_target(target_name):
+        return list(_COMPUTE_MTBF_VIEWS_DEFAULT)
+    if _is_ivi_split_target(target_name):
+        return list(_ADAS_MTBF_VIEWS_SPLIT_DEFAULT)
+    return list(_ADAS_MTBF_VIEWS_LEGACY_DEFAULT)
+
+
+def _is_safe_ivi_mtbf_row(row: Dict[str, Any]) -> bool:
+    """Detect Safe IVI rows from build/meta/flavor text without matching NonSafe."""
+    text = " ".join(
+        str((row or {}).get(key) or "")
+        for key in ("meta_id", "build", "build_id", "build_full", "full_build", "product_flavor", "comments")
+    ).upper()
+    compact = re.sub(r"[^A-Z0-9]+", "", text)
+    if "NONSAFEIVI" in compact or "NONSAFETYIVI" in compact:
+        return False
+    return "SAFEIVI" in compact or "SAFETYIVI" in compact
+
+
+def _filter_ivi_rows_for_domain(rows: List[Dict[str, Any]], domain: str) -> List[Dict[str, Any]]:
+    domain_clean = _canonical_mtbf_domain_name(domain)
+    if domain_clean not in {_MTBF_NONSAFE_IVI_DOMAIN, _MTBF_SAFE_IVI_DOMAIN}:
+        return list(rows or [])
+    want_safe = domain_clean == _MTBF_SAFE_IVI_DOMAIN
+    filtered = [dict(row) for row in (rows or []) if _is_safe_ivi_mtbf_row(row) == want_safe]
+    return _sort_adas_rows_by_date(filtered)
 
 
 def _write_domains_file(target_name: str, custom: List[str], hidden: List[str]) -> None:
@@ -85,42 +143,51 @@ def _is_compute_mtbf_target(target_name: str) -> bool:
 def _get_target_domains(target_name: str) -> List[str]:
     """Return ordered MTBF view list for target.
 
-    AUTO-style targets use ADAS/IVI/FLEX/custom domains. Compute targets use
-    the same views as the internal Compute MTBF page: Glymur/Mahua.
+    AUTO-style Nord targets expose IVI as two API/UI domains:
+    NONSAFE-IVI (legacy IVI rows) and SAFE-IVI (rows whose build/meta contains
+    SAFEIVI). Other targets keep the legacy ADAS/IVI/FLEX defaults. Compute
+    targets use the same views as the internal Compute MTBF page: Glymur/Mahua.
     """
-    defaults = _COMPUTE_MTBF_VIEWS_DEFAULT if _is_compute_mtbf_target(target_name) else _ADAS_MTBF_VIEWS_DEFAULT
+    defaults = _default_mtbf_views_for_target(target_name)
     cfg = _read_domains_file(target_name)
-    custom = cfg["domains"]
-    hidden = set(cfg["hidden"])
+    custom = [_canonical_mtbf_domain_name(d, target_name) for d in cfg["domains"]]
+    hidden = {_canonical_mtbf_domain_name(d, target_name) for d in cfg["hidden"]}
     # Merge: default first (unless hidden), then any custom not already in default
     merged = [d for d in defaults if d.upper() not in hidden and d not in hidden]
     for d in custom:
         if d not in merged and d not in hidden:
             merged.append(d)
-    # Auto-discover domains from SP JSON files in the MTBF folder
-    # e.g. mtbf_safe-ivi_5170.json -> SAFE-IVI, mtbf_csp_5170.json -> CSP
+    # Auto-discover domains from SP JSON files in the MTBF folder.
+    # e.g. mtbf_safe-ivi_5170.json -> SAFE-IVI, mtbf_ivi_5770.json -> NONSAFE-IVI on Nord.
     try:
         folder = _adas_mtbf_folder(target_name)
-        sp_pattern = re.compile(r'^mtbf_([a-z0-9_\-]+)_\d{4,8}\.json$', re.IGNORECASE)
+        sp_pattern = re.compile(r'^mtbf_([a-z0-9_\-]+)_\d{2,8}\.json$', re.IGNORECASE)
         for fname in os.listdir(folder):
             m = sp_pattern.match(fname)
             if m:
-                dom = m.group(1).upper()
+                dom = _canonical_mtbf_domain_name(m.group(1), target_name)
                 if dom not in merged and dom not in hidden:
                     merged.append(dom)
+                if (
+                    _is_ivi_split_target(target_name)
+                    and dom == _MTBF_NONSAFE_IVI_DOMAIN
+                    and _MTBF_SAFE_IVI_DOMAIN not in merged
+                    and _MTBF_SAFE_IVI_DOMAIN not in hidden
+                ):
+                    merged.append(_MTBF_SAFE_IVI_DOMAIN)
     except Exception:
         pass
     # Safety net: never return a fully empty domain list (would break
     # downstream code that assumes allowed[0] exists). This only triggers
     # if the user has hidden every single domain, defaults included.
-    return merged or list(_ADAS_MTBF_VIEWS_DEFAULT)
+    return merged or defaults or list(_ADAS_MTBF_VIEWS_LEGACY_DEFAULT)
 
 
 def _add_target_domain(target_name: str, new_domain: str) -> List[str]:
     """Add a domain for target. If it's a default domain (ADAS/IVI/FLEX) that
     was previously deleted/hidden, this un-hides it. Otherwise adds it as a
     new custom domain. Returns updated domain list."""
-    new_domain = str(new_domain or "").strip().upper()
+    new_domain = _canonical_mtbf_domain_name(new_domain, target_name)
     if not new_domain or len(new_domain) > 20:
         raise ValueError("Domain name must be 1-20 characters.")
     # Only allow alphanumeric + underscore/hyphen
@@ -134,9 +201,9 @@ def _add_target_domain(target_name: str, new_domain: str) -> List[str]:
     custom = cfg["domains"]
     hidden = cfg["hidden"]
 
-    if new_domain in _ADAS_MTBF_VIEWS_DEFAULT:
+    if new_domain in _default_mtbf_views_for_target(target_name):
         # Re-show a previously deleted default domain
-        hidden = [d for d in hidden if d != new_domain]
+        hidden = [d for d in hidden if _canonical_mtbf_domain_name(d, target_name) != new_domain]
     elif new_domain not in custom:
         custom.append(new_domain)
 
@@ -148,7 +215,7 @@ def _remove_target_domain(target_name: str, domain: str, delete_data: bool = Fal
     """Remove (hide) a domain for target - works for default (ADAS/IVI/FLEX)
     domains as well as custom domains. At least one domain must always remain
     visible."""
-    domain = str(domain or "").strip().upper()
+    domain = _canonical_mtbf_domain_name(domain, target_name)
     if not domain:
         raise ValueError("Domain name is required.")
 
@@ -163,9 +230,9 @@ def _remove_target_domain(target_name: str, domain: str, delete_data: bool = Fal
     hidden = cfg["hidden"]
 
     # Capture the exact JSON path before removing it from the allowed domain list.
-    data_path = os.path.join(_adas_mtbf_folder(target_name), f"mtbf_{domain.lower()}.json")
+    data_path = _adas_mtbf_json_path(target_name, domain)
 
-    if domain in _ADAS_MTBF_VIEWS_DEFAULT:
+    if domain in _default_mtbf_views_for_target(target_name):
         if domain not in hidden:
             hidden.append(domain)
     else:
@@ -209,16 +276,96 @@ def _sp_key(sp: str) -> str:
     return re.sub(r'[^0-9]', '', str(sp or ''))[:8]
 
 
-def _adas_mtbf_json_path(target_name: str, view: str, sp: str = '') -> str:
-    view_clean = str(view or "ADAS").strip().upper()
-    allowed = _get_target_domains(target_name)
-    if view_clean not in allowed:
-        view_clean = allowed[0]
+def _raw_adas_mtbf_json_path(target_name: str, view: str, sp: str = '') -> str:
+    folder = _adas_mtbf_folder(target_name)
+    sp_k = _sp_key(sp)
+    view_slug = _canonical_mtbf_domain_name(view, target_name).lower()
+    if sp_k:
+        return os.path.join(folder, f"mtbf_{view_slug}_{sp_k}.json")
+    return os.path.join(folder, f"mtbf_{view_slug}.json")
+
+
+def _legacy_ivi_mtbf_json_path(target_name: str, sp: str = '') -> str:
     folder = _adas_mtbf_folder(target_name)
     sp_k = _sp_key(sp)
     if sp_k:
-        return os.path.join(folder, f"mtbf_{view_clean.lower()}_{sp_k}.json")
-    return os.path.join(folder, f"mtbf_{view_clean.lower()}.json")
+        return os.path.join(folder, f"mtbf_ivi_{sp_k}.json")
+    return os.path.join(folder, "mtbf_ivi.json")
+
+
+def _read_adas_mtbf_file(path: str, target_name: str, view: str) -> Optional[Dict[str, Any]]:
+    if not os.path.exists(path):
+        return None
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            data = json.load(fh)
+        if isinstance(data, dict):
+            data.setdefault("target", target_name)
+            data.setdefault("view", view)
+            data["rows"] = _normalise_adas_mtbf_rows(data.get("rows") or [])
+            return data
+    except Exception:
+        pass
+    return None
+
+
+def _write_adas_mtbf_file(path: str, payload: Dict[str, Any]) -> bool:
+    tmp = path + ".tmp"
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(tmp, "w", encoding="utf-8") as fh:
+            json.dump(payload, fh, indent=2, ensure_ascii=False)
+        os.replace(tmp, path)
+        return True
+    except Exception:
+        return False
+
+
+def _ensure_split_ivi_mtbf_files(target_name: str, sp: str = '') -> None:
+    """Create SAFE-IVI/NONSAFE-IVI JSON files from a legacy IVI file when needed."""
+    if not _is_ivi_split_target(target_name):
+        return
+    legacy_path = _legacy_ivi_mtbf_json_path(target_name, sp)
+    if not os.path.exists(legacy_path):
+        return
+    safe_path = _raw_adas_mtbf_json_path(target_name, _MTBF_SAFE_IVI_DOMAIN, sp)
+    nonsafe_path = _raw_adas_mtbf_json_path(target_name, _MTBF_NONSAFE_IVI_DOMAIN, sp)
+    if os.path.exists(safe_path) and os.path.exists(nonsafe_path):
+        return
+    legacy = _read_adas_mtbf_file(legacy_path, target_name, "IVI")
+    if not legacy:
+        return
+    rows = _sort_adas_rows_by_date(legacy.get("rows") or [])
+    safe_rows = _filter_ivi_rows_for_domain(rows, _MTBF_SAFE_IVI_DOMAIN)
+    nonsafe_rows = _filter_ivi_rows_for_domain(rows, _MTBF_NONSAFE_IVI_DOMAIN)
+    base_payload = {
+        "target": target_name,
+        "headers": list(_ADAS_MTBF_HEADERS),
+        "updated_at": legacy.get("updated_at") or datetime.utcnow().isoformat() + "Z",
+        "split_from": os.path.basename(legacy_path),
+    }
+    if not os.path.exists(nonsafe_path):
+        nonsafe_payload = dict(base_payload)
+        nonsafe_payload["view"] = _MTBF_NONSAFE_IVI_DOMAIN
+        if sp:
+            nonsafe_payload["sp"] = sp
+        nonsafe_payload["rows"] = nonsafe_rows
+        _write_adas_mtbf_file(nonsafe_path, nonsafe_payload)
+    if not os.path.exists(safe_path):
+        safe_payload = dict(base_payload)
+        safe_payload["view"] = _MTBF_SAFE_IVI_DOMAIN
+        if sp:
+            safe_payload["sp"] = sp
+        safe_payload["rows"] = safe_rows
+        _write_adas_mtbf_file(safe_path, safe_payload)
+
+
+def _adas_mtbf_json_path(target_name: str, view: str, sp: str = '') -> str:
+    view_clean = _canonical_mtbf_domain_name(view or "ADAS", target_name)
+    allowed = _get_target_domains(target_name)
+    if view_clean not in allowed:
+        view_clean = allowed[0]
+    return _raw_adas_mtbf_json_path(target_name, view_clean, sp)
 
 
 def _mtbf_build_core(value: Any) -> str:
@@ -312,26 +459,31 @@ def _normalise_adas_mtbf_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]
 
 
 def _load_adas_mtbf(target_name: str, view: str, sp: str = '') -> Dict[str, Any]:
-    path = _adas_mtbf_json_path(target_name, view, sp)
-    if os.path.exists(path):
-        try:
-            with open(path, "r", encoding="utf-8") as fh:
-                data = json.load(fh)
-            if isinstance(data, dict):
-                data.setdefault("target", target_name)
-                data.setdefault("view", view)
-                data["rows"] = _normalise_adas_mtbf_rows(data.get("rows") or [])
-                return data
-        except Exception:
-            pass
+    view_clean = _canonical_mtbf_domain_name(view or "ADAS", target_name)
+    if view_clean in {_MTBF_NONSAFE_IVI_DOMAIN, _MTBF_SAFE_IVI_DOMAIN}:
+        _ensure_split_ivi_mtbf_files(target_name, sp)
+    path = _adas_mtbf_json_path(target_name, view_clean, sp)
+    data = _read_adas_mtbf_file(path, target_name, view_clean)
+    if data is not None:
+        data["view"] = view_clean
+        return data
+    # For Nord Gen5, legacy IVI files are split virtually if the new domain
+    # files do not exist yet. SAFEIVI rows move to SAFE-IVI; remaining IVI rows
+    # are exposed as NONSAFE-IVI.
+    if view_clean in {_MTBF_NONSAFE_IVI_DOMAIN, _MTBF_SAFE_IVI_DOMAIN}:
+        legacy = _read_adas_mtbf_file(_legacy_ivi_mtbf_json_path(target_name, sp), target_name, "IVI")
+        if legacy is not None:
+            legacy["view"] = view_clean
+            legacy["rows"] = _filter_ivi_rows_for_domain(legacy.get("rows") or [], view_clean)
+            legacy["_source_view"] = "IVI"
+            return legacy
     # Base file missing and no SP given: fall back to the latest SP file for
     # this domain so /api/domain/<domain> always returns data when only
     # SP-suffixed files exist (e.g. mtbf_adas_5770.json, mtbf_adas_5170.json).
     if not _sp_key(sp):
         folder = _adas_mtbf_folder(target_name)
-        view_clean = str(view or "ADAS").strip().upper()
         pat = re.compile(
-            r"^mtbf_" + re.escape(view_clean.lower()) + r"_(\d{4,8})\.json$",
+            r"^mtbf_" + re.escape(view_clean.lower()) + r"_(\d{2,8})\.json$",
             re.IGNORECASE,
         )
         candidates = []
@@ -346,18 +498,31 @@ def _load_adas_mtbf(target_name: str, view: str, sp: str = '') -> Dict[str, Any]
             # Pick the file with the lowest SP key (base/first SP = correct fallback)
             candidates.sort(key=lambda x: x[0], reverse=False)
             fallback_path = candidates[0][1]
+            data = _read_adas_mtbf_file(fallback_path, target_name, view_clean)
+            if data is not None:
+                data["view"] = view_clean
+                data["_fallback_sp_key"] = candidates[0][0]
+                return data
+        if view_clean in {_MTBF_NONSAFE_IVI_DOMAIN, _MTBF_SAFE_IVI_DOMAIN}:
+            legacy_candidates = []
+            legacy_pat = re.compile(r"^mtbf_ivi_(\d{2,8})\.json$", re.IGNORECASE)
             try:
-                with open(fallback_path, "r", encoding="utf-8") as fh:
-                    data = json.load(fh)
-                if isinstance(data, dict):
-                    data.setdefault("target", target_name)
-                    data.setdefault("view", view)
-                    data["rows"] = _normalise_adas_mtbf_rows(data.get("rows") or [])
-                    data["_fallback_sp_key"] = candidates[0][0]
-                    return data
+                for fname in os.listdir(folder):
+                    m = legacy_pat.match(fname)
+                    if m:
+                        legacy_candidates.append((m.group(1), os.path.join(folder, fname)))
             except Exception:
                 pass
-    return {"target": target_name, "view": view, "headers": list(_ADAS_MTBF_HEADERS), "rows": []}
+            if legacy_candidates:
+                legacy_candidates.sort(key=lambda x: x[0], reverse=False)
+                legacy = _read_adas_mtbf_file(legacy_candidates[0][1], target_name, "IVI")
+                if legacy is not None:
+                    legacy["view"] = view_clean
+                    legacy["rows"] = _filter_ivi_rows_for_domain(legacy.get("rows") or [], view_clean)
+                    legacy["_fallback_sp_key"] = legacy_candidates[0][0]
+                    legacy["_source_view"] = "IVI"
+                    return legacy
+    return {"target": target_name, "view": view_clean, "headers": list(_ADAS_MTBF_HEADERS), "rows": []}
 
 
 def _sort_adas_rows_by_date(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -373,7 +538,7 @@ def _sort_adas_rows_by_date(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 
 
 def _save_adas_mtbf(target_name: str, view: str, payload: Dict[str, Any], sp: str = '') -> Dict[str, Any]:
-    view_clean = str(view or "ADAS").strip().upper()
+    view_clean = _canonical_mtbf_domain_name(view or "ADAS", target_name)
     allowed = _get_target_domains(target_name)
     if view_clean not in allowed:
         view_clean = allowed[0]
@@ -1087,7 +1252,7 @@ def api_live_status_view_meta_rows(target_name: str):
 def api_adas_mtbf_get(target_name: str):
     """GET ADAS MTBF rows for a target + view (ADAS/IVI/FLEX/custom) + optional sp."""
     allowed = _get_target_domains(target_name)
-    view = (request.args.get("view") or "ADAS").strip().upper()
+    view = _canonical_mtbf_domain_name(request.args.get("view") or "ADAS", target_name)
     if view not in allowed:
         view = allowed[0]
     sp = (request.args.get("sp") or "").strip()  # e.g. 5.1.9.0
@@ -1119,7 +1284,7 @@ def api_adas_mtbf_add(target_name: str):
     """Add a new ADAS MTBF row."""
     payload = request.get_json(force=True, silent=True) or {}
     allowed = _get_target_domains(target_name)
-    view = str(payload.get("view") or "ADAS").strip().upper()
+    view = _canonical_mtbf_domain_name(payload.get("view") or "ADAS", target_name)
     if view not in allowed:
         view = allowed[0]
     sp = str(payload.get("sp") or "").strip()
@@ -1154,7 +1319,7 @@ def api_adas_mtbf_edit(target_name: str):
     """Edit an existing ADAS MTBF row by id."""
     payload = request.get_json(force=True, silent=True) or {}
     allowed = _get_target_domains(target_name)
-    view = str(payload.get("view") or "ADAS").strip().upper()
+    view = _canonical_mtbf_domain_name(payload.get("view") or "ADAS", target_name)
     if view not in allowed:
         view = allowed[0]
     sp = str(payload.get("sp") or "").strip()
@@ -1190,7 +1355,7 @@ def api_adas_mtbf_delete(target_name: str):
     """Delete an ADAS MTBF row by id."""
     payload = request.get_json(force=True, silent=True) or {}
     allowed = _get_target_domains(target_name)
-    view = str(payload.get("view") or "ADAS").strip().upper()
+    view = _canonical_mtbf_domain_name(payload.get("view") or "ADAS", target_name)
     if view not in allowed:
         view = allowed[0]
     sp = str(payload.get("sp") or "").strip()
@@ -1225,7 +1390,7 @@ def api_adas_mtbf_chart(target_name: str):
     """Return chart data for selected crash types and filter (last5/last10/all)."""
     payload = request.get_json(force=True, silent=True) or {}
     allowed = _get_target_domains(target_name)
-    view = str(payload.get("view") or "ADAS").strip().upper()
+    view = _canonical_mtbf_domain_name(payload.get("view") or "ADAS", target_name)
     if view not in allowed:
         view = allowed[0]
     crash_types = payload.get("crash_types") or ["system"]
@@ -1257,7 +1422,7 @@ def api_adas_mtbf_domains_get(target_name: str):
 def api_adas_mtbf_domains_add(target_name: str):
     """Add a new custom domain for a target."""
     payload = request.get_json(force=True, silent=True) or {}
-    domain = str(payload.get("domain") or "").strip().upper()
+    domain = _canonical_mtbf_domain_name(payload.get("domain") or "", target_name)
     try:
         domains = _add_target_domain(target_name, domain)
         return jsonify({"ok": True, "target": target_name, "domain": domain, "domains": domains,
@@ -1274,7 +1439,7 @@ def api_adas_mtbf_domains_delete(target_name: str):
     """Delete/hide a domain for a target (default ADAS/IVI/FLEX or custom).
     At least one domain must always remain visible for the target."""
     payload = request.get_json(force=True, silent=True) or {}
-    domain = str(payload.get("domain") or "").strip().upper()
+    domain = _canonical_mtbf_domain_name(payload.get("domain") or "", target_name)
     delete_data = bool(payload.get("delete_data") or False)
     try:
         domains = _remove_target_domain(target_name, domain, delete_data=delete_data)
@@ -1642,10 +1807,22 @@ def api_running_builds_db(target_name: str):
                     or (state.get('saved_preview') or {}).get('deck_config')
                     or {}
                 )
-                domains = ([domain_filter] if domain_filter in ('ADAS', 'FLEX', 'IVI')
-                           else ['ADAS', 'FLEX', 'IVI'])
+                def _cfg_domain_keys(value: str) -> List[str]:
+                    d = _canonical_mtbf_domain_name(value, target_name)
+                    if d == _MTBF_SAFE_IVI_DOMAIN:
+                        return ['SAFE-IVI', 'safe-ivi', 'SAFE_IVI', 'safe_ivi', 'IVI', 'ivi']
+                    if d == _MTBF_NONSAFE_IVI_DOMAIN:
+                        return ['NONSAFE-IVI', 'nonsafe-ivi', 'NONSAFE_IVI', 'nonsafe_ivi', 'IVI', 'ivi']
+                    return [d, d.lower()]
+
+                domains = ([domain_filter] if domain_filter in ('ADAS', 'FLEX', _MTBF_NONSAFE_IVI_DOMAIN, _MTBF_SAFE_IVI_DOMAIN)
+                           else ['ADAS', 'FLEX', _MTBF_NONSAFE_IVI_DOMAIN, _MTBF_SAFE_IVI_DOMAIN])
                 for dom in domains:
-                    for entry in (deck_config.get(dom) or deck_config.get(dom.lower()) or []):
+                    entries = []
+                    for cfg_key in _cfg_domain_keys(dom):
+                        for entry in (deck_config.get(cfg_key) or []):
+                            entries.append(entry)
+                    for entry in entries:
                         if isinstance(entry, str):
                             prefix = entry.strip().strip('`')
                             if schema and prefix:
@@ -1667,9 +1844,14 @@ def api_running_builds_db(target_name: str):
             if not tables and schema:
                 try:
                     tgt_prefix = target_name.strip().lower().replace('-', '_')
-                    domain_kws = ([domain_filter.lower()]
-                                  if domain_filter in ('ADAS', 'FLEX', 'IVI')
-                                  else ['adas', 'flex', 'ivi'])
+                    if domain_filter == _MTBF_SAFE_IVI_DOMAIN:
+                        domain_kws = ['safe_ivi', 'safe-ivi', 'ivi']
+                    elif domain_filter == _MTBF_NONSAFE_IVI_DOMAIN:
+                        domain_kws = ['nonsafe_ivi', 'nonsafe-ivi', 'ivi']
+                    else:
+                        domain_kws = ([domain_filter.lower()]
+                                      if domain_filter in ('ADAS', 'FLEX', 'IVI')
+                                      else ['adas', 'flex', 'nonsafe_ivi', 'safe_ivi', 'ivi'])
                     conn_fb = get_mysql_connection_db(bu_key=None)
                     if conn_fb:
                         cur_fb = conn_fb.cursor()
@@ -1808,20 +1990,18 @@ def api_running_builds_db(target_name: str):
         return s[:60] or 'Unknown'
 
     def _infer_domain(row: Dict) -> str:
-        """Infer domain from software_product field."""
-        sp = str(row.get('software_product') or '').upper()
-        if '_FLEX.' in sp:
+        """Infer domain from software_product/build fields."""
+        hay = ' '.join(str(row.get(k) or '') for k in ('software_product', 'build_name', 'build_id', 'product_flavor')).upper()
+        compact = re.sub(r'[^A-Z0-9]+', '', hay)
+        if '_FLEX.' in hay or '.FLEX.' in hay or 'FLEX' in compact:
             return 'FLEX'
-        if '_ADAS.' in sp:
+        if '_ADAS.' in hay or '.ADAS.' in hay or 'ADAS' in compact:
             return 'ADAS'
-        if '_IVI.' in sp:
-            return 'IVI'
-        bn = str(row.get('build_name') or '').upper()
-        if '_FLEX.' in bn or '.FLEX.' in bn:
-            return 'FLEX'
-        if '_ADAS.' in bn or '.ADAS.' in bn:
-            return 'ADAS'
-        return 'IVI'
+        if 'SAFEIVI' in compact and 'NONSAFEIVI' not in compact:
+            return _MTBF_SAFE_IVI_DOMAIN
+        if '_IVI.' in hay or '.IVI.' in hay or 'IVI' in compact:
+            return _MTBF_NONSAFE_IVI_DOMAIN if _is_ivi_split_target(target_name) else 'IVI'
+        return _MTBF_NONSAFE_IVI_DOMAIN if _is_ivi_split_target(target_name) else 'IVI'
 
     try:
         from dashboard_common import get_target_info, get_bu_for_target
@@ -1836,7 +2016,7 @@ def api_running_builds_db(target_name: str):
             or 'NORD_' in _tgt_upper
             or 'NORD.' in _tgt_upper
         )
-        domain_filter = str(request.args.get('domain') or '').strip().upper()  # ADAS/FLEX/IVI/''
+        domain_filter = _canonical_mtbf_domain_name(request.args.get('domain') or '', target_name)  # ADAS/FLEX/NONSAFE-IVI/SAFE-IVI/''
         sp_filter     = str(request.args.get('sp') or '').strip()  # e.g. 5.1.9.0
         # target_table: the exact jiras/overallcrs table selected in the Config modal.
         # When provided, PL values are read directly from this table - no discovery needed.
@@ -2224,7 +2404,7 @@ def _sp_mtbf_json_path(target_name: str, domain: str, sp_name: str) -> str:
     If the compact-key file exists it is preferred; otherwise fall back to slug.
     """
     folder = _adas_mtbf_folder(target_name)
-    domain_clean = str(domain or 'ADAS').strip().upper()
+    domain_clean = _canonical_mtbf_domain_name(domain or 'ADAS', target_name)
     # Compact numeric key: 5.7.7.0 -> 5770
     sp_k = _sp_key(sp_name)
     if sp_k:
@@ -2237,25 +2417,37 @@ def _sp_mtbf_json_path(target_name: str, domain: str, sp_name: str) -> str:
 
 
 def _load_sp_mtbf(target_name: str, domain: str, sp_name: str) -> Dict[str, Any]:
-    path = _sp_mtbf_json_path(target_name, domain, sp_name)
+    domain_clean = _canonical_mtbf_domain_name(domain, target_name)
+    if domain_clean in {_MTBF_NONSAFE_IVI_DOMAIN, _MTBF_SAFE_IVI_DOMAIN}:
+        _ensure_split_ivi_mtbf_files(target_name, sp_name)
+    path = _sp_mtbf_json_path(target_name, domain_clean, sp_name)
     if os.path.exists(path):
         try:
             with open(path, 'r', encoding='utf-8') as fh:
                 data = json.load(fh)
             if isinstance(data, dict):
                 data.setdefault('target', target_name)
-                data.setdefault('domain', domain)
+                data.setdefault('domain', domain_clean)
                 data.setdefault('sp_name', sp_name)
                 data['rows'] = _normalise_adas_mtbf_rows(data.get('rows') or [])
                 return data
         except Exception:
             pass
-    return {'target': target_name, 'domain': domain, 'sp_name': sp_name,
+    if domain_clean in {_MTBF_NONSAFE_IVI_DOMAIN, _MTBF_SAFE_IVI_DOMAIN}:
+        legacy_path = _legacy_ivi_mtbf_json_path(target_name, sp_name)
+        legacy = _read_adas_mtbf_file(legacy_path, target_name, 'IVI')
+        if legacy is not None:
+            legacy['domain'] = domain_clean
+            legacy['sp_name'] = sp_name
+            legacy['rows'] = _filter_ivi_rows_for_domain(legacy.get('rows') or [], domain_clean)
+            legacy['_source_domain'] = 'IVI'
+            return legacy
+    return {'target': target_name, 'domain': domain_clean, 'sp_name': sp_name,
             'headers': list(_ADAS_MTBF_HEADERS), 'rows': []}
 
 
 def _save_sp_mtbf(target_name: str, domain: str, sp_name: str, payload: Dict[str, Any]) -> Dict[str, Any]:
-    domain_clean = str(domain or 'ADAS').strip().upper()
+    domain_clean = _canonical_mtbf_domain_name(domain or 'ADAS', target_name)
     data = dict(payload) if isinstance(payload, dict) else {}
     data['target'] = target_name
     data['domain'] = domain_clean
@@ -2352,7 +2544,7 @@ def api_sp_list(target_name: str):
 def _sp_request_scope(target_name: str, payload: Optional[Dict[str, Any]] = None) -> Tuple[str, str]:
     payload = payload or {}
     allowed = _get_target_domains(target_name)
-    domain = str(payload.get('domain') or request.args.get('domain') or 'ADAS').strip().upper()
+    domain = _canonical_mtbf_domain_name(payload.get('domain') or request.args.get('domain') or 'ADAS', target_name)
     if domain not in allowed:
         domain = allowed[0]
     sp_name = str(payload.get('sp_name') or request.args.get('sp_name') or '').strip()

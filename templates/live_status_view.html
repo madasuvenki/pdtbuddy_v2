@@ -66,6 +66,8 @@
     .cr-nav-domain-btn.active-ADAS{background:#1d4ed8;color:#fff;border-color:#3b82f6;box-shadow:0 2px 8px rgba(59,130,246,.35)}
     .cr-nav-domain-btn.active-FLEX{background:#6d28d9;color:#fff;border-color:#8b5cf6;box-shadow:0 2px 8px rgba(139,92,246,.35)}
     .cr-nav-domain-btn.active-IVI{background:#065f46;color:#fff;border-color:#10b981;box-shadow:0 2px 8px rgba(16,185,129,.35)}
+    .cr-nav-domain-btn.active-NONSAFE-IVI{background:#065f46;color:#fff;border-color:#10b981;box-shadow:0 2px 8px rgba(16,185,129,.35)}
+    .cr-nav-domain-btn.active-SAFE-IVI{background:#0f766e;color:#fff;border-color:#14b8a6;box-shadow:0 2px 8px rgba(20,184,166,.35)}
     .cr-nav-tools{display:flex;gap:5px;padding:6px 16px 4px}
     .cr-nav-tool-btn{flex:1;padding:4px 6px;border-radius:7px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);color:#94a3b8;font-size:10px;font-weight:800;cursor:pointer;transition:all .15s;white-space:nowrap}
     .cr-nav-tool-btn:hover{background:rgba(255,255,255,.12);color:#e2e8f0}
@@ -218,8 +220,9 @@
           <label style="font-size:11px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.07em">View</label>
           <select id="adasViewSelect" onchange="adasSwitchView()" style="border:1.5px solid #cbd5e1;border-radius:10px;padding:6px 10px;font-size:12px;font-weight:700;color:#0f172a;background:#fff;outline:none">
             <option value="ADAS">ADAS</option>
-            <option value="IVI">IVI</option>
             <option value="FLEX">FLEX</option>
+            <option value="NONSAFE-IVI">NonSafe IVI</option>
+            <option value="SAFE-IVI">Safe IVI</option>
           </select>
         </div>
         <div style="width:1px;height:22px;background:#e2e8f0;flex-shrink:0"></div>
@@ -360,7 +363,10 @@
               <input type="radio" name="adasModalView" value="FLEX" style="display:none" onchange="_adasModalViewChanged(this)"> <i class="fas fa-microchip"></i> FLEX
             </label>
             <label style="display:inline-flex;align-items:center;gap:5px;padding:5px 13px;border-radius:999px;border:2px solid #059669;background:#fff;color:#059669;font-size:12px;font-weight:900;cursor:pointer;transition:all .15s">
-              <input type="radio" name="adasModalView" value="IVI" style="display:none" onchange="_adasModalViewChanged(this)"> <i class="fas fa-display"></i> IVI
+              <input type="radio" name="adasModalView" value="NONSAFE-IVI" style="display:none" onchange="_adasModalViewChanged(this)"> <i class="fas fa-display"></i> NonSafe IVI
+            </label>
+            <label style="display:inline-flex;align-items:center;gap:5px;padding:5px 13px;border-radius:999px;border:2px solid #0d9488;background:#fff;color:#0d9488;font-size:12px;font-weight:900;cursor:pointer;transition:all .15s">
+              <input type="radio" name="adasModalView" value="SAFE-IVI" style="display:none" onchange="_adasModalViewChanged(this)"> <i class="fas fa-shield-alt"></i> Safe IVI
             </label>
           </div>
         </div>
@@ -498,7 +504,8 @@
         <div class="cr-nav-domain-bar">
           <button class="cr-nav-domain-btn active-ADAS" id="crNavDomADAS" onclick="crNavSetDomain('ADAS')"><i class="fas fa-car"></i> ADAS</button>
           <button class="cr-nav-domain-btn" id="crNavDomFLEX" onclick="crNavSetDomain('FLEX')"><i class="fas fa-microchip"></i> FLEX</button>
-          <button class="cr-nav-domain-btn" id="crNavDomIVI"  onclick="crNavSetDomain('IVI')"><i class="fas fa-display"></i> IVI</button>
+          <button class="cr-nav-domain-btn" id="crNavDomIVI"  onclick="crNavSetDomain('NONSAFE-IVI')"><i class="fas fa-display"></i> NonSafe IVI</button>
+          <button class="cr-nav-domain-btn" id="crNavDomSAFEIVI" onclick="crNavSetDomain('SAFE-IVI')"><i class="fas fa-shield-alt"></i> Safe IVI</button>
         </div>
 
         <!-- Quick actions -->
@@ -674,7 +681,7 @@
 </main>
 
 <script>
-const TARGET = {{ target_name|tojson }};
+const TARGET = JSON.parse('{{ target_name|tojson|safe }}');
 const LSV_BU = "{{ bu_key|default('') }}";
 const LSV_IS_COMPUTE = String(LSV_BU || '').toUpperCase() === 'COMPUTE' || /^(COMPUTE|GLYMUR|MAHUA|KALAMBO)/i.test(String(TARGET || ''));
 const LSV_JIRA_PDT_FILTER_ID = "{{ jira_pdt_filter_id|default('76997') }}";
@@ -696,6 +703,13 @@ let crAiSummaryCache = {};
 
 function esc(v){ return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function norm(v){ return String(v || '').trim().toUpperCase().replace(/\s+/g, ''); }
+function _canonicalMtbfDomain(value){
+  const raw = String(value || '').trim().toUpperCase().replace(/\s+/g, '-');
+  const compact = raw.replace(/[^A-Z0-9]+/g, '');
+  if(compact === 'SAFEIVI' || compact === 'SAFETYIVI') return 'SAFE-IVI';
+  if(compact === 'NONSAFEIVI' || compact === 'NONSAFETYIVI' || compact === 'IVI') return 'NONSAFE-IVI';
+  return raw;
+}
 function num(v){ const n = Number(v || 0); return Number.isFinite(n) ? n : 0; }
 function fmt(v){ return v == null || v === '' ? '?' : esc(v); }
 
@@ -1141,7 +1155,7 @@ loadMetaRows();
 const ADAS_API_BASE = `/api/live_status_view/${encodeURIComponent(TARGET)}/adas_mtbf`;
 let _adasRows      = [];    // all rows for current view
 let _adasChart     = null;  // Chart.js instance
-let _adasView      = 'ADAS'; // current view: ADAS / IVI / FLEX — each has its own JSON
+let _adasView      = 'ADAS'; // current view: ADAS / FLEX / NONSAFE-IVI / SAFE-IVI — each has its own JSON
 let _adasSp        = (new URLSearchParams(window.location.search)).get('sp') || ''; // active SP CPL e.g. 5.7.7.0
 let _adasSpList=[];
 async function _adasLoadSpList(){
@@ -1229,7 +1243,7 @@ async function adasLoadData(force){
 
 // Switch view → reload JSON for that view
 function adasSwitchView(){
-  _adasView = document.getElementById('adasViewSelect')?.value || 'ADAS';
+  _adasView = _canonicalMtbfDomain(document.getElementById('adasViewSelect')?.value || 'ADAS');
   adasLoadData(true);
 }
 
@@ -1467,8 +1481,8 @@ function adasOpenAddModal(){
 // ── Open Add-Build modal pre-filled from a Current Report running-build row ──
 function crAddBuildFromRow(metaId, buildFull, domain){
   // Resolve domain: use passed domain, else current domain filter, else ADAS
-  const validDomains = ['ADAS','IVI','FLEX'];
-  const targetDomain = String(domain || _crCurrentDomain || 'ADAS').toUpperCase();
+  const validDomains = ['ADAS','FLEX','NONSAFE-IVI','SAFE-IVI'];
+  const targetDomain = _canonicalMtbfDomain(domain || _crCurrentDomain || 'ADAS');
   const resolvedDomain = validDomains.includes(targetDomain) ? targetDomain : 'ADAS';
 
   // Sync _adasView and the ADAS panel view-selector dropdown
@@ -1494,7 +1508,7 @@ _adasLoadSpList();
   }
 
   // Show the view-selector row so the user can confirm / change the domain
-  const domainColors = {ADAS:'#2563eb', FLEX:'#7c3aed', IVI:'#059669'};
+  const domainColors = {ADAS:'#2563eb', FLEX:'#7c3aed', 'NONSAFE-IVI':'#059669', 'SAFE-IVI':'#0d9488'};
   const viewRow = document.getElementById('adasModalViewRow');
   if(viewRow){
     viewRow.style.display = 'block';
@@ -1533,7 +1547,7 @@ function _adasModalViewChanged(radio){
   _adasView = newView;
   const viewSelect = document.getElementById('adasViewSelect');
   if(viewSelect) viewSelect.value = newView;
-  const domainColors = {ADAS:'#2563eb', FLEX:'#7c3aed', IVI:'#059669'};
+  const domainColors = {ADAS:'#2563eb', FLEX:'#7c3aed', 'NONSAFE-IVI':'#059669', 'SAFE-IVI':'#0d9488'};
   document.querySelectorAll('input[name="adasModalView"]').forEach(r => {
     const lbl = r.closest('label');
     if(!lbl) return;
@@ -1710,8 +1724,10 @@ function _crRowBuilds(row){
 
 function _crInferDomain(row){
   const text = JSON.stringify(row || '').toLowerCase();
-  if(/\bivi\b|infotainment|cockpit/.test(text)) return 'IVI';
+  const compact = text.toUpperCase().replace(/[^A-Z0-9]+/g, '');
   if(/\bflex\b|compute|desktop/.test(text)) return 'FLEX';
+  if(compact.includes('SAFEIVI') && !compact.includes('NONSAFEIVI')) return 'SAFE-IVI';
+  if(/\bivi\b|infotainment|cockpit/.test(text) || compact.includes('NONSAFEIVI')) return 'NONSAFE-IVI';
   return 'ADAS';
 }
 
@@ -1805,11 +1821,16 @@ function _crEnsureSelectedGroups(){
 }
 // ── domain nav button ────────────────────────────────────────────────────────
 function crNavSetDomain(domain){
-  _crCurrentDomain = domain;
-  ['ADAS','FLEX','IVI'].forEach(d => {
-    const btn = document.getElementById('crNavDom'+d);
+  _crCurrentDomain = _canonicalMtbfDomain(domain);
+  [
+    {domain:'ADAS', id:'crNavDomADAS'},
+    {domain:'FLEX', id:'crNavDomFLEX'},
+    {domain:'NONSAFE-IVI', id:'crNavDomIVI'},
+    {domain:'SAFE-IVI', id:'crNavDomSAFEIVI'}
+  ].forEach(item => {
+    const btn = document.getElementById(item.id);
     if(!btn) return;
-    btn.className = 'cr-nav-domain-btn' + (d === domain ? ' active-'+d : '');
+    btn.className = 'cr-nav-domain-btn' + (item.domain === _crCurrentDomain ? ' active-'+item.domain : '');
   });
   crRenderBuildSidebar();
   _crRenderBuildCards();

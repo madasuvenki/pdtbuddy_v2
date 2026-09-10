@@ -817,8 +817,7 @@ function switchPlat(plat) {
   // Reset ALL live-data caches so every tab reloads with the new platform's tables
   resetLiveApiTabs();
   dbPayload = null;
-  // Reload platform-specific shared PL merge rules and JQL tabs
-  loadMtbfPlMerges().then(function(){ renderCharts(); renderTable(); });
+  // Reload JQL tabs for the new platform domain (HQX vs HGY are separate)
   _g45Tabs = [];
   gen45SjqlLoad();
   if (activeSp) {
@@ -1272,10 +1271,10 @@ document.addEventListener("tabswitch", function(e){
   if(e.detail && e.detail.tab === "current") gen45SjqlLoad();
 });
 const PUBLIC_API='/public/auto-gen45/api';
-const TARGET=JSON.parse('{{ target_name|tojson|safe }}');
-const CAN_EDIT=JSON.parse('{{ can_edit|tojson|safe }}');
-const IS_ADMIN=JSON.parse('{{ is_admin|tojson|safe }}');
-const JIRA_FILTER_ID=JSON.parse('{{ jira_pdt_filter_id|tojson|safe }}');
+const TARGET={{ target_name|tojson }};
+const CAN_EDIT={{ can_edit|tojson }};
+const IS_ADMIN={{ is_admin|tojson }};
+const JIRA_FILTER_ID={{ jira_pdt_filter_id|tojson }};
 const CFG_API=`/api/automotive_live_view_stats/${encodeURIComponent(TARGET)}`;
 let spList=[], activeSp='', activeProgram='', spPayload=null, dbPayload=null, mtbfChart=null, activeMtbfBuild='';
 let config={sheet_tables:{}}, dbTables=[];
@@ -1363,7 +1362,7 @@ function switchTab(tab){
     if(tab==='buildreport') bwrLoad(false);
     if(tab==='weekly') renderWeekly();
   }
-async function loadSps(force){document.getElementById('spList').innerHTML='<div class="empty" style="color:#bfdbfe"><i class="fas fa-circle-notch fa-spin"></i><p>Loading SPs...</p></div>';try{await loadConfig(false);await loadMtbfPlMerges();const d=await getJson(`${PUBLIC_API}/sps`);spList=d.available_sps||[];setText('generatedAt','Updated '+String(d.generated_at||'').slice(0,19));renderSpList();if(!activeSp&&spList[0]) selectSp(spList[0].sp);}catch(e){document.getElementById('spList').innerHTML='<div class="empty" style="color:#fecaca">'+esc(e.message||e)+'</div>';}}
+async function loadSps(force){document.getElementById('spList').innerHTML='<div class="empty" style="color:#bfdbfe"><i class="fas fa-circle-notch fa-spin"></i><p>Loading SPs...</p></div>';try{await loadConfig(false);const d=await getJson(`${PUBLIC_API}/sps`);spList=d.available_sps||[];setText('generatedAt','Updated '+String(d.generated_at||'').slice(0,19));renderSpList();if(!activeSp&&spList[0]) selectSp(spList[0].sp);}catch(e){document.getElementById('spList').innerHTML='<div class="empty" style="color:#fecaca">'+esc(e.message||e)+'</div>';}}
 function spCfg(sp){const st=config.sheet_tables||{}, key=String(sp||'').trim(), digits=key.replace(/\D+/g,'');const keys=[key,'SP '+key,'SP'+key,digits,'SP '+digits,'SP'+digits].filter(Boolean);for(const k of keys){if(st[k])return st[k];}return {};}
 function renderSpList(){
   const q=(document.getElementById('spSearch').value||'').toLowerCase();
@@ -1947,49 +1946,14 @@ function renderCurrentBuildReport(build, rowData, fromCache, cacheEntry){
   _crRenderTable();
 }
 function rawBuildId(r){return r.build_s||r.builds||r.build||r.build_id||r.meta_id||r.meta||'-';}
-let mtbfPlAliasRules=[];
-let mtbfPlAliasPlatform='';
-function _mtbfPlMergeApi(){
-  return `${CFG_API}/mtbf_pl_merges?platform=${encodeURIComponent(_activePlat==='HGY'?'HGY':'HQX')}`;
-}
-async function loadMtbfPlMerges(){
-  try{
-    const d=await getJson(_mtbfPlMergeApi());
-    mtbfPlAliasRules=(d.rules||[]).filter(x=>x&&x.match&&x.name);
-    mtbfPlAliasPlatform=d.platform||(_activePlat==='HGY'?'HGY':'HQX');
-  }catch(e){
-    mtbfPlAliasRules=[];
-    mtbfPlAliasPlatform=_activePlat==='HGY'?'HGY':'HQX';
-  }
-}
-function _mtbfRuleScopeSp(rule){
-  return String((rule&&rule.sp)||'').trim().toLowerCase();
-}
-function _mtbfRuleScopeTarget(rule){
-  return String((rule&&rule.target)||'').trim().toLowerCase();
-}
-function _mtbfActiveScopeSp(){
-  return String(activeSp||'').trim().toLowerCase();
-}
-function _mtbfActiveScopeTarget(){
-  return String(TARGET||'').trim().toLowerCase();
-}
-function _mtbfRuleIsCurrentScope(rule){
-  if(!rule||!rule.match||!rule.name)return false;
-  const rsp=_mtbfRuleScopeSp(rule);
-  const rt=_mtbfRuleScopeTarget(rule);
-  // New UI-created rules are SP scoped. Legacy unscoped rules are intentionally
-  // hidden from this modal/chart to prevent one SP's PL merge leaking into
-  // other SPs such as 8775/8620.
-  if(!rsp)return false;
-  if(rsp!==_mtbfActiveScopeSp())return false;
-  return !rt || rt===_mtbfActiveScopeTarget();
-}
+const _MTBF_PL_ALIAS_STORE='auto_gen45_mtbf_pl_aliases';
+const _MTBF_PL_ALIAS_DEFAULTS=[
+  {match:'Snapdragon_Auto.HQX.4.5.7.0.2.r1',name:'Snapdragon_Auto.HQX.4.5.7.0'}
+];
 function _loadMtbfPlAliases(){
-  return (mtbfPlAliasRules||[]).filter(_mtbfRuleIsCurrentScope);
-}
-function _mtbfSavedRulesOnly(){
-  return (mtbfPlAliasRules||[]).filter(x=>x&&x.match&&x.name);
+  let saved=[];
+  try{saved=JSON.parse(localStorage.getItem(_MTBF_PL_ALIAS_STORE)||'[]')||[];}catch(e){saved=[];}
+  return _MTBF_PL_ALIAS_DEFAULTS.concat(saved).filter(x=>x&&x.match&&x.name);
 }
 function _canonicalAutoGen45Pl(v){
   let s=String(v==null?'':v).trim();
@@ -2020,64 +1984,29 @@ function _rawMtbfProductLines(){
   });
   return Array.from(seen.values()).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
 }
-function _mtbfActivePlRawKey(){
-  return String(activeMtbfBuild||'').trim().toLowerCase();
-}
-function _mtbfCurrentRawPlKeys(){
-  return new Set(_rawMtbfProductLines().map(v=>String(v||'').trim().toLowerCase()).filter(Boolean));
-}
-function _mtbfPlFamilyKey(v){
-  let s=String(v||'').trim().toLowerCase();
-  if(!s)return '';
-  s=s.replace(/^ci[_-]+/,'');
-  const m=s.match(/snapdragon_auto\.(hqx|hgy)\.(\d+\.\d+\.\d+\.\d+)/i);
-  if(m)return 'snapdragon_auto.'+m[1].toLowerCase()+'.'+m[2];
-  s=s.replace(/-\d{3,}.*$/,'');
-  s=s.replace(/(\.\d+)?\.r\d+$/i,'');
-  return s;
-}
-function _mtbfCurrentPlFamilies(){
-  return new Set(_rawMtbfProductLines().map(_mtbfPlFamilyKey).filter(Boolean));
-}
-function _mtbfRuleBelongsToActivePl(rule){
-  if(!_mtbfRuleIsCurrentScope(rule))return false;
-  const name=String((rule&&rule.name)||'').trim().toLowerCase();
-  const match=String((rule&&rule.match)||'').trim().toLowerCase();
-  if(!name||!match)return false;
-  const ruleFamily=_mtbfPlFamilyKey(match)||_mtbfPlFamilyKey(name);
-  const activeKey=_mtbfActivePlRawKey();
-  const activeFamily=_mtbfPlFamilyKey(activeKey);
-  if(activeFamily&&ruleFamily)return ruleFamily===activeFamily;
-  if(activeKey)return name===activeKey || match===activeKey || match.indexOf(activeKey)>=0;
-  const families=_mtbfCurrentPlFamilies();
-  if(ruleFamily)return families.has(ruleFamily);
-  return _mtbfCurrentRawPlKeys().has(match);
-}
 function _loadUserGroups(){
+  let saved=[];
+  try{saved=JSON.parse(localStorage.getItem(_MTBF_PL_ALIAS_STORE)||'[]')||[];}catch(e){saved=[];}
+  // Group by name: {name, matches:[...]}
   const byName=new Map();
-  (mtbfPlAliasRules||[]).forEach(rule=>{
-    if(!rule||!rule.match||!rule.name)return;
-    // Modal "Saved Groups" must show every group created for the current SP,
-    // not only the currently selected Product Line. The active PL filter is
-    // only for chart/table aliasing, otherwise a second saved group appears
-    // to be missing when another PL is selected.
-    if(!_mtbfRuleIsCurrentScope(rule))return;
-    if(!byName.has(rule.name))byName.set(rule.name,{name:rule.name,matches:[]});
+  _MTBF_PL_ALIAS_DEFAULTS.forEach(rule=>{
+    if(!byName.has(rule.name))byName.set(rule.name,{name:rule.name,matches:[],isDefault:true});
+    byName.get(rule.name).matches.push(rule.match);
+  });
+  saved.forEach(rule=>{
+    if(!byName.has(rule.name))byName.set(rule.name,{name:rule.name,matches:[],isDefault:false});
     const g=byName.get(rule.name);
     if(!g.matches.includes(rule.match))g.matches.push(rule.match);
+    g.isDefault=false;
   });
   return Array.from(byName.values());
 }
-async function openMtbfPlMergeModal(){
+function openMtbfPlMergeModal(){
   const m=document.getElementById('mtbfPlMergeModal');
   if(!m)return;
-  setText('mtbfPlMergeMsg','Loading shared '+(_activePlat==='HGY'?'HGY':'HQX')+' PL groups...');
-  await loadMtbfPlMerges();
-  const nameInput=document.getElementById('mtbfPlMergeName');
-  if(nameInput)nameInput.value=activeMtbfBuild||'';
   _mtbfPlRenderAvail();
   _mtbfPlRenderGroups();
-  setText('mtbfPlMergeMsg',CAN_EDIT?'':'View only — only target users can create or remove PL groups.');
+  setText('mtbfPlMergeMsg','');
   m.style.display='flex';
 }
 function closeMtbfPlMergeModal(){const m=document.getElementById('mtbfPlMergeModal'); if(m)m.style.display='none';}
@@ -2085,10 +2014,8 @@ function _mtbfPlRenderAvail(){
   const box=document.getElementById('mtbfPlAvailRows'); if(!box)return;
   const raw=_rawMtbfProductLines();
   if(!raw.length){box.innerHTML='<div class="empty">No product lines found for this SP.</div>';return;}
-  const activeKey=_mtbfActivePlRawKey();
   box.innerHTML=raw.map(v=>{
-    const vKey=String(v||'').trim().toLowerCase();
-    const checked=(activeKey&&(vKey===activeKey||vKey.indexOf(activeKey)>=0))?'checked':'';
+    const checked=(v==='Snapdragon_Auto.HQX.4.5.7.0'||v==='Snapdragon_Auto.HQX.4.5.7.0.2.r1')?'checked':'';
     return '<label style="display:flex;align-items:center;gap:10px;padding:9px 11px;border:1px solid #e2e8f0;border-radius:10px;background:#fff;font-size:12px;font-weight:800;color:#1e293b;cursor:pointer"><input type="checkbox" class="mtbf-pl-merge-check" value="'+esc(v)+'" '+checked+' style="width:16px;height:16px;accent-color:#4f46e5;flex-shrink:0"> <span style="word-break:break-all">'+esc(v)+'</span></label>';
   }).join('');
 }
@@ -2101,7 +2028,7 @@ function _mtbfPlRenderGroups(){
   if(noGrp)noGrp.style.display='none';
   box.innerHTML=groups.map((g,gi)=>{
     const matchList=g.matches.map(m=>'<span style="display:inline-block;background:#e0e7ff;color:#3730a3;border-radius:6px;padding:2px 8px;font-size:10px;font-weight:800;margin:2px">'+esc(m)+'</span>').join(' ');
-    const delBtn='<button onclick="deleteMtbfPlGroup(\''+esc(g.name)+'\')" style="padding:3px 10px;border-radius:7px;border:1px solid #fecaca;background:#fff;color:#dc2626;font-size:11px;font-weight:800;cursor:pointer"><i class="fas fa-trash"></i> Remove</button>';
+    const delBtn=g.isDefault?'<span style="font-size:10px;color:#94a3b8;font-style:italic">built-in</span>':'<button onclick="deleteMtbfPlGroup(\''+esc(g.name)+'\')" style="padding:3px 10px;border-radius:7px;border:1px solid #fecaca;background:#fff;color:#dc2626;font-size:11px;font-weight:800;cursor:pointer"><i class="fas fa-trash"></i> Remove</button>';
     return '<div style="border:1.5px solid #c7d2fe;border-radius:12px;padding:10px 12px;background:#fff">'
       +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px">'
         +'<span style="font-size:12px;font-weight:950;color:#1e3a8a;word-break:break-all">'+esc(g.name)+'</span>'
@@ -2112,52 +2039,34 @@ function _mtbfPlRenderGroups(){
     +'</div>';
   }).join('');
 }
-async function saveMtbfPlMerge(){
-  if(!CAN_EDIT){setText('mtbfPlMergeMsg','View only — only target users can edit PL groups.');return;}
+function saveMtbfPlMerge(){
   const name=String((document.getElementById('mtbfPlMergeName')||{}).value||'').trim();
   const selected=Array.from(document.querySelectorAll('.mtbf-pl-merge-check:checked')).map(x=>x.value).filter(Boolean);
   if(!name){setText('mtbfPlMergeMsg','Enter a group display name.');return;}
   if(selected.length<2){setText('mtbfPlMergeMsg','Select at least two product lines to merge.');return;}
+  let saved=[];
+  try{saved=JSON.parse(localStorage.getItem(_MTBF_PL_ALIAS_STORE)||'[]')||[];}catch(e){saved=[];}
+  // Remove existing entries for these matches under this name
   const selectedKeys=new Set(selected.map(v=>v.toLowerCase()));
-  const spScope=String(activeSp||'').trim();
-  const targetScope=String(TARGET||'').trim();
-  const familyScope=_mtbfPlFamilyKey(name)||_mtbfPlFamilyKey(selected[0]||'');
-  let saved=_mtbfSavedRulesOnly().filter(x=>{
-    if(!_mtbfRuleIsCurrentScope(x))return true;
-    return !(selectedKeys.has(String(x.match||'').toLowerCase())||String(x.name||'')===name);
-  });
-  selected.forEach(v=>saved.push({match:v,name:name,sp:spScope,target:targetScope,family:familyScope}));
-  setText('mtbfPlMergeMsg','Saving shared '+(_activePlat==='HGY'?'HGY':'HQX')+' PL group...');
-  try{
-    const d=await postJson(_mtbfPlMergeApi(),{rules:saved});
-    mtbfPlAliasRules=(d.rules||[]).filter(x=>x&&x.match&&x.name);
-    mtbfPlAliasPlatform=d.platform||(_activePlat==='HGY'?'HGY':'HQX');
-    activeMtbfBuild=name;
-    _mtbfPlRenderGroups();
-    setText('mtbfPlMergeMsg','Group saved for all viewers. Chart/table updated.');
-    renderCharts();
-    renderTable();
-  }catch(e){
-    setText('mtbfPlMergeMsg','Save failed: '+(e.message||e));
-  }
+  saved=saved.filter(x=>!(selectedKeys.has(String(x.match||'').toLowerCase())&&String(x.name||'')===name));
+  selected.forEach(v=>saved.push({match:v,name:name}));
+  localStorage.setItem(_MTBF_PL_ALIAS_STORE,JSON.stringify(saved));
+  activeMtbfBuild=name;
+  _mtbfPlRenderGroups();
+  setText('mtbfPlMergeMsg','Group saved. Chart will update when you close.');
+  renderCharts();
+  renderTable();
 }
-async function deleteMtbfPlGroup(name){
-  if(!CAN_EDIT){setText('mtbfPlMergeMsg','View only — only target users can edit PL groups.');return;}
-  if(!confirm('Remove group "'+name+'"? The PLs will appear separately in the dropdown again for all viewers.'))return;
-  const saved=_mtbfSavedRulesOnly().filter(x=>!(String(x.name||'')===name&&_mtbfRuleIsCurrentScope(x)));
-  setText('mtbfPlMergeMsg','Removing shared PL group...');
-  try{
-    const d=await postJson(_mtbfPlMergeApi(),{rules:saved});
-    mtbfPlAliasRules=(d.rules||[]).filter(x=>x&&x.match&&x.name);
-    mtbfPlAliasPlatform=d.platform||(_activePlat==='HGY'?'HGY':'HQX');
-    if(activeMtbfBuild===name)activeMtbfBuild='';
-    _mtbfPlRenderGroups();
-    setText('mtbfPlMergeMsg','Group removed for all viewers. Chart/table updated.');
-    renderCharts();
-    renderTable();
-  }catch(e){
-    setText('mtbfPlMergeMsg','Remove failed: '+(e.message||e));
-  }
+function deleteMtbfPlGroup(name){
+  if(!confirm('Remove group "'+name+'"? The PLs will appear separately in the dropdown again.'))return;
+  let saved=[];
+  try{saved=JSON.parse(localStorage.getItem(_MTBF_PL_ALIAS_STORE)||'[]')||[];}catch(e){saved=[];}
+  saved=saved.filter(x=>String(x.name||'')!==name);
+  localStorage.setItem(_MTBF_PL_ALIAS_STORE,JSON.stringify(saved));
+  if(activeMtbfBuild===name)activeMtbfBuild='';
+  _mtbfPlRenderGroups();
+  renderCharts();
+  renderTable();
 }
 function _rowProductLine(r){return _plFromBuild(rawBuildId(r))||_plFromBuild(r.build_id)||_plFromBuild(r.build_s)||_plFromBuild(r.builds)||_plFromBuild(r.build)||'';}
 function _rowBuildMatchText(r){return [_rowProductLine(r),_canonicalAutoGen45Pl(rawBuildId(r)),_canonicalAutoGen45Pl(r.build_id),_canonicalAutoGen45Pl(r.build_s),_canonicalAutoGen45Pl(r.builds),_canonicalAutoGen45Pl(r.build),_canonicalAutoGen45Pl(r.meta_id),_canonicalAutoGen45Pl(r.meta),r.software_product,r.product_flavor].map(v=>String(v||'')).join(' ');}

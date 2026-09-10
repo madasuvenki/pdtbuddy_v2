@@ -113,6 +113,15 @@ def _adas_mtbf_folder(target_name: str) -> str:
     return os.path.join(data_root, "managed_excel", "AUTO", "MTBF", slug)
 
 
+def _canonical_domain(target_name: str, domain: Any) -> str:
+    """Normalize MTBF domain names through the live-status backend when available."""
+    try:
+        from live_status_view_api import _canonical_mtbf_domain_name as _lsv_domain
+        return _lsv_domain(domain, target_name)
+    except Exception:
+        return str(domain or "").strip().upper().replace(" ", "-")
+
+
 def _get_target_domains(target_name: str) -> List[str]:
     """Return domain list for a target."""
     try:
@@ -197,7 +206,7 @@ def _discover_sps_for_target(target_name: str) -> List[Dict[str, Any]]:
                 m = sp_pattern.match(fname)
                 if not m:
                     continue
-                domain_raw = m.group(1).upper().replace("_", "-")
+                domain_raw = _canonical_domain(target_name, m.group(1).upper().replace("_", "-"))
                 sp_k = m.group(2)
                 if sp_k not in sp_map:
                     sp_map[sp_k] = {
@@ -207,6 +216,8 @@ def _discover_sps_for_target(target_name: str) -> List[Dict[str, Any]]:
                     }
                 if domain_raw not in sp_map[sp_k]["domains"]:
                     sp_map[sp_k]["domains"].append(domain_raw)
+                if domain_raw == "NONSAFE-IVI" and "SAFE-IVI" not in sp_map[sp_k]["domains"]:
+                    sp_map[sp_k]["domains"].append("SAFE-IVI")
         except Exception:
             pass
     # Sort by CPL ascending
@@ -402,7 +413,7 @@ def api_public_mtbf_sp_rows(target: str, sp: str):
     if request.method == "OPTIONS":
         return "", 204
     target_clean = str(target or "").strip().split("/")[0]
-    domain = str(request.args.get("domain") or "").strip().upper() or None
+    domain = _canonical_domain(target_clean, request.args.get("domain") or "") or None
     last_n = _safe_int(request.args.get("last_n") or 0)
     include_summary = str(request.args.get("summary") or "").strip().lower() in ("1", "true", "yes")
     try:

@@ -2,6 +2,62 @@
 
 ## Current Work Focus
 
+### Auto Gen5 MTBF IVI Split into NonSafe IVI + Safe IVI — Complete (2026-09-10)
+
+**User request addressed:** Auto Gen5/Nord MTBF should no longer expose a single `IVI` bucket for Nord targets. Legacy `IVI` rows are exposed as `NONSAFE-IVI`, and rows whose meta/build contains `SAFEIVI` are moved into a newly created `SAFE-IVI` bucket. Corresponding public APIs also needed to accept and return the split domains.
+
+**Changes made / confirmed:**
+- `live_status_view_api.py`
+  - Confirms Nord split-domain helpers are active:
+    - legacy `IVI` aliases canonicalize to `NONSAFE-IVI`.
+    - `SAFEIVI`, `SAFE_IVI`, and `SAFE-IVI` aliases canonicalize to `SAFE-IVI`.
+    - legacy `mtbf_ivi*.json` files are split into `mtbf_nonsafe-ivi*.json` and `mtbf_safe-ivi*.json` when needed.
+    - `SAFEIVI` meta/build rows are filtered into `SAFE-IVI`; remaining IVI rows stay in `NONSAFE-IVI`.
+- `auto_gen5_public_routes.py`
+  - SP discovery/order now exposes `NONSAFE-IVI` and `SAFE-IVI`.
+  - Public `/public/auto-gen5/api/sp/<sp>?domain=...` now resolves domain aliases through `_resolve_domain()`, so `IVI` maps to `NONSAFE-IVI` and `SAFEIVI` maps to `SAFE-IVI`.
+  - Public search/domain APIs use `_sp_load()` for SP-aware/default-SP fallback parity.
+- `live_status_publish_routes.py`
+  - `/api/live_status/targets/<target>/auto_mtbf` now returns allowed views from `_get_target_domains()` and exposes `NONSAFE-IVI` / `SAFE-IVI`.
+  - Added default-SP fallback to base split-domain files so HQX-style base MTBF files still work when an SP is selected.
+  - Open CR and build-wise report domain filters accept `NONSAFE-IVI` and `SAFE-IVI`.
+  - Safe/NonSafe IVI DB table lookups use the physical IVI tables where needed, then split/filter rows in Python by build/domain signal.
+  - SWPDT/running-build domain inference now classifies `SAFEIVI` as `SAFE-IVI` and remaining IVI as `NONSAFE-IVI`.
+
+**Validation:**
+- `uv run python -m py_compile live_status_view_api.py auto_gen5_public_routes.py live_status_publish_routes.py orbit_public_mtbf_routes.py` passed.
+- Temporary split-IVI fixture validation confirmed:
+  - `_get_target_domains('nord_hqx')` returns `['ADAS', 'FLEX', 'NONSAFE-IVI', 'SAFE-IVI']`.
+  - SAFEIVI row loads under `SAFE-IVI`.
+  - regular IVI row loads under `NONSAFE-IVI`.
+  - generated files include `mtbf_nonsafe-ivi_5770.json` and `mtbf_safe-ivi_5770.json`.
+- Auto Gen5 public helper validation confirmed:
+  - `_discover_sps_for_target('nord_hqx')` exposes `['NONSAFE-IVI', 'SAFE-IVI']` for SP `5.7.7.0`.
+  - `_resolve_domain('IVI') -> NONSAFE-IVI`.
+  - `_resolve_domain('SAFEIVI') -> SAFE-IVI`.
+  - SP summaries return one row each for Safe and NonSafe test data.
+
+---
+
+### WBC Live View External Viewer Access Gate Fix — Complete (2026-09-10)
+
+**User request addressed:** Many external users could log in to Live Status and see the WBC card, but opening WBC Live View Status redirected them back to the Live Status landing / appeared inaccessible.
+
+**Root cause:**
+- `app.py` viewer-mode server-side allowlist permitted `/wbc/live_view_stats/...`, but the actual WBC page route is `/wbc/live_view_status`.
+- External users are marked with `session['viewer_mode'] = True`, so the before-request guard blocked the real WBC route before Flask could render `wbc_live_view_stats.html`.
+
+**Changes made:**
+- `app.py`
+  - Added `/wbc/live_view_status` and `/wbc/live_view_status/...` to the external viewer read-only route allowlist.
+  - Added the same WBC page/API prefixes to the viewer idle-timeout exemption, so external WBC viewers are not auto-logged out while using the read-only dashboard.
+
+**Validation:**
+- `py -3 -m py_compile app.py` returned `PY_COMPILE_OK`.
+- Marker check confirmed `/wbc/live_view_status` and `/api/wbc_live_view_stats/` are present in the viewer gate.
+
+---
+
 ### Auto Gen5 Live View MTBF System-Crashes-Only + External User Join-Groups — Complete (2026-09-10)
 
 **User requests addressed:**

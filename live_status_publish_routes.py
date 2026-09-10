@@ -850,7 +850,11 @@ def _saved_jql_domain_or_400(value, target_name: str = ""):
     Only falls back to the target-name key if the domain is completely
     unknown (empty string).
     """
-    domain = str(value or '').strip().upper()
+    try:
+        from live_status_view_api import _canonical_mtbf_domain_name as _canon_mtbf_domain
+        domain = _canon_mtbf_domain(value, target_name)
+    except Exception:
+        domain = str(value or '').strip().upper()
     if not domain:
         if target_name:
             safe = str(target_name).strip().upper().replace(' ', '_')
@@ -2570,8 +2574,8 @@ def _available_sjql_domains(target_name: str, is_auto_bu: bool) -> list:
             return domains
     except Exception:
         pass
-    # Fallback: ADAS/FLEX/IVI until domains file exists
-    return ['ADAS', 'FLEX', 'IVI']
+    # Fallback: split IVI into NonSafe/Safe IVI until domains file exists
+    return ['ADAS', 'FLEX', 'NONSAFE-IVI', 'SAFE-IVI']
 
 def _get_sp_siblings(primary_target: str) -> list:
     """Return SP switcher entries for the current NORD/AUTO target family.
@@ -3127,11 +3131,17 @@ def api_published_mtbf_dashboard(job_id=None, target_name=None):
 
 @live_status_publish_bp.route('/api/live_status/targets/<target_name>/auto_mtbf', methods=['GET'])
 def api_target_auto_mtbf(target_name):
-    """Public API: return JSON-backed AUTO MTBF rows for ADAS/FLEX/IVI by target."""
+    """Public API: return JSON-backed AUTO MTBF rows for ADAS/FLEX/NONSAFE-IVI/SAFE-IVI by target."""
     target = str(target_name or '').strip()
-    view = str(request.args.get('view') or 'ADAS').strip().upper()
-    if view not in {'ADAS', 'FLEX', 'IVI'}:
-        view = 'ADAS'
+    try:
+        from live_status_view_api import _canonical_mtbf_domain_name, _get_target_domains
+        allowed_views = _get_target_domains(target) or ['ADAS', 'FLEX', 'NONSAFE-IVI', 'SAFE-IVI']
+        view = _canonical_mtbf_domain_name(request.args.get('view') or 'ADAS', target)
+    except Exception:
+        allowed_views = ['ADAS', 'FLEX', 'NONSAFE-IVI', 'SAFE-IVI']
+        view = str(request.args.get('view') or 'ADAS').strip().upper()
+    if view not in allowed_views:
+        view = allowed_views[0] if allowed_views else 'ADAS'
     requested_sp = str(request.args.get('sp') or '').strip()
     if not requested_sp:
         siblings = _get_sp_siblings(target) or []
@@ -3141,8 +3151,16 @@ def api_target_auto_mtbf(target_name):
     try:
         from live_status_view_api import _load_adas_mtbf, _adas_rows_to_chart_data
         data = _load_adas_mtbf(target, view, requested_sp) or {}
-
         rows = data.get('rows') if isinstance(data.get('rows'), list) else []
+        if requested_sp and not rows:
+            # Some default-SP targets (notably HQX 5.7.7.0) still store MTBF in
+            # base files. Fall back to the base split-domain files for public API
+            # parity with /public/auto-gen5.
+            fallback = _load_adas_mtbf(target, view) or {}
+            fallback_rows = fallback.get('rows') if isinstance(fallback.get('rows'), list) else []
+            if fallback_rows:
+                data = fallback
+                rows = fallback_rows
         crash_types_raw = str(request.args.get('crash_types') or 'system,ssr,process').strip()
         crash_types = [c.strip().lower() for c in crash_types_raw.split(',') if c.strip()]
         if not crash_types:
@@ -3152,7 +3170,7 @@ def api_target_auto_mtbf(target_name):
             'target': target,
                         'view': view,
             'sp': requested_sp,
-            'views': ['ADAS', 'FLEX', 'IVI'],
+            'views': allowed_views,
 
             'rows': rows,
             'chart_data': _adas_rows_to_chart_data(rows, crash_types),
@@ -3737,8 +3755,12 @@ def api_published_open_crs_full(job_id=None, target_name=None):
     if err:
         return jsonify(err[0]), err[1]
     target = (job.get('targets') or [''])[0]
-    domain_filter = str(request.args.get('domain') or '').strip().upper()
-    if domain_filter not in {'ADAS', 'FLEX', 'IVI'}:
+    try:
+        from live_status_view_api import _canonical_mtbf_domain_name
+        domain_filter = _canonical_mtbf_domain_name(request.args.get('domain') or '', target)
+    except Exception:
+        domain_filter = str(request.args.get('domain') or '').strip().upper()
+    if domain_filter not in {'ADAS', 'FLEX', 'IVI', 'NONSAFE-IVI', 'SAFE-IVI'}:
         domain_filter = ''
     try:
         from datetime import date as _date, datetime as _datetime
@@ -3760,7 +3782,7 @@ def api_published_open_crs_full(job_id=None, target_name=None):
 
         # SP-aware table selection: use sp_configs if sp param provided
         sp_param = str(request.args.get('sp') or '').strip()
-        domain_low = (domain_filter or 'ADAS').lower()
+        domain_low = ('ivi' if domain_filter in {'NONSAFE-IVI', 'SAFE-IVI'} else (domain_filter or 'ADAS')).lower()
         sp_cfg = {}
         if sp_param:
             sp_cfg = ((job.get('sp_configs') or {}).get(sp_param) or {})
@@ -3771,8 +3793,10 @@ def api_published_open_crs_full(job_id=None, target_name=None):
             fq = sp_cfg[domain_low + '_uniq_table']
             table_candidates.append(fq.split('.')[-1])
         if not sp_param:
-            # No SP - use domain-specific then default fallback
-            if domain_filter: table_candidates.append(f'{prefix}_{domain_filter.lower()}_unique_crs')
+            # No SP - use domain-specific then default fallback. Safe/NonSafe
+            # IVI share the physical IVI table and split rows in Python.
+            if domain_filter:
+                table_candidates.append(f'{prefix}_{domain_low}_unique_crs')
             table_candidates.append(f'{prefix}_unique_crs')
         elif not table_candidates:
             # SP given but no table in sp_configs - try pattern-based name only
@@ -3847,19 +3871,29 @@ def api_published_open_crs_full(job_id=None, target_name=None):
             return m.group(1) if m else re.sub(r'[^A-Z0-9]+', '', str(v or '').upper())
 
         def _domain_for(row):
-            explicit = str(row.get('domain') or '').strip().upper()
-            if explicit in {'ADAS', 'FLEX', 'IVI'}:
+            explicit = str(row.get('domain') or '').strip().upper().replace(' ', '-')
+            compact_explicit = re.sub(r'[^A-Z0-9]+', '', explicit)
+            if explicit in {'ADAS', 'FLEX', 'NONSAFE-IVI', 'SAFE-IVI'}:
                 return explicit
+            if compact_explicit in {'SAFEIVI', 'SAFETYIVI'}:
+                return 'SAFE-IVI'
+            if compact_explicit in {'NONSAFEIVI', 'NONSAFETYIVI'}:
+                return 'NONSAFE-IVI'
             text = ' '.join(str(row.get(k) or '') for k in ('domain', 'cr_area', 'cr_subsystem', 'cr_functionality', 'cr_title', 'latest_cr_notes', 'si_image')).upper()
+            compact = re.sub(r'[^A-Z0-9]+', '', text)
             if any(x in text for x in ('ADAS', 'ADP', 'RIDE', 'VISION', 'CAMERA')):
                 return 'ADAS'
             if 'FLEX' in text or re.search(r'\bFLE\b', text):
                 return 'FLEX'
+            if 'SAFEIVI' in compact and 'NONSAFEIVI' not in compact:
+                return 'SAFE-IVI'
+            if 'NONSAFEIVI' in compact or explicit == 'IVI' or 'IVI' in text:
+                return 'NONSAFE-IVI'
             # Automotive Gen5 rows are primarily ADAS/FLEX/IVI. When the source
             # table does not carry an explicit domain marker, keep the row under
-            # IVI rather than returning an empty/null domain so the Open CRs tab
-            # is never blank solely because domain inference failed.
-            return 'IVI' if _is_core_deck_target(target) else ''
+            # NONSAFE-IVI rather than returning an empty/null domain so the Open
+            # CRs tab is never blank solely because domain inference failed.
+            return 'NONSAFE-IVI' if _is_core_deck_target(target) else ''
 
         seen = {}
         allowed_statuses = {'open', 'analysis', 'inanalysis'}
@@ -4138,14 +4172,15 @@ def _swpdt_domain_for_build(build):
     build_text = str(build.get('build_id') or build.get('build') or build.get('build_name') or '').upper()
     flavor = str(build.get('product_flavor') or build.get('flavor') or '').upper()
     hay = ' '.join([str(build.get('domain') or '').upper(), software_product, build_text, flavor, str(build.get('taxonomy_path') or '').upper()])
+    compact = re.sub(r'[^A-Z0-9]+', '', hay)
     if 'ADAS' in hay:
         return 'ADAS'
-    if 'IVI' in flavor or 'SAFEIVI' in hay or 'SAFETYIVI' in hay or 'NONSAFE_IVI' in hay:
-        return 'IVI'
     if 'FLEX' in software_product or '_FLEX' in build_text or '.FLEX' in build_text or 'FLEX_' in build_text or flavor.startswith('FLEX'):
         return 'FLEX'
-    if 'IVI' in hay:
-        return 'IVI'
+    if 'SAFEIVI' in compact and 'NONSAFEIVI' not in compact:
+        return 'SAFE-IVI'
+    if 'NONSAFEIVI' in compact or 'IVI' in flavor or 'IVI' in hay:
+        return 'NONSAFE-IVI'
     return 'OTHER'
 
 
@@ -4207,7 +4242,11 @@ def _swpdt_rows_for_job(job, q='', domain='ALL', limit=300):
     targets = job.get('targets') or []
     primary = targets[0] if targets else ''
     q_lower = str(q or '').strip().lower()
-    domain = str(domain or 'ALL').strip().upper()
+    try:
+        from live_status_view_api import _canonical_mtbf_domain_name as _canon_mtbf_domain
+        domain = _canon_mtbf_domain(domain, primary) if domain and str(domain).upper() != 'ALL' else 'ALL'
+    except Exception:
+        domain = str(domain or 'ALL').strip().upper()
     is_auto = _is_core_deck_target(primary)
 
     rows = []
@@ -4221,9 +4260,9 @@ def _swpdt_rows_for_job(job, q='', domain='ALL', limit=300):
             if not _swpdt_matches_target(item, primary):
                 continue
             row_domain = _swpdt_domain_for_build(item)
-            if row_domain not in {'ADAS', 'FLEX', 'IVI'}:
+            if row_domain not in {'ADAS', 'FLEX', 'NONSAFE-IVI', 'SAFE-IVI'}:
                 continue
-            if domain in {'ADAS', 'FLEX', 'IVI'} and row_domain != domain:
+            if domain in {'ADAS', 'FLEX', 'NONSAFE-IVI', 'SAFE-IVI'} and row_domain != domain:
                 continue
             meta_id = _swpdt_meta_from_build(build_name)
             software_product = str(item.get('software_product') or '').strip()
@@ -4886,7 +4925,11 @@ def api_build_wise_report(target_name):
     is_auto  = _is_core_deck_target(target)
 
     selected_build = (request.args.get('build') or '').strip()
-    domain_filter  = (request.args.get('domain') or '').strip().upper()
+    try:
+        from live_status_view_api import _canonical_mtbf_domain_name
+        domain_filter = _canonical_mtbf_domain_name(request.args.get('domain') or '', target_name)
+    except Exception:
+        domain_filter = (request.args.get('domain') or '').strip().upper()
     sp_filter      = (request.args.get('sp') or '').strip()          # e.g. 5.1.9.0
     ct_raw         = (request.args.get('crash_types') or 'system,ssr,process,open_jira').strip()
     crash_types    = {c.strip().lower() for c in ct_raw.split(',') if c.strip()} or {'system','ssr','process','open_jira'}
@@ -4933,8 +4976,9 @@ def api_build_wise_report(target_name):
             return [(f'`{sc}`.`{tgt}_jiras`',
                      f'`{sc}`.`{tgt}_openjiras`',
                      f'`{sc}`.`{tgt}_unique_crs`')]
-        # Specific domain requested
-        dom_low = domain.lower()
+        # Specific domain requested. Safe/NonSafe IVI currently use the same
+        # physical IVI DB tables, while MTBF JSON rows are split by build name.
+        dom_low = 'ivi' if domain in {'SAFE-IVI', 'NONSAFE-IVI'} else domain.lower()
         def _tbl(key, fallback):
             fq = sp_cfg.get(dom_low + key, '')
             if fq:
@@ -5051,23 +5095,30 @@ def api_build_wise_report(target_name):
 
     def _domain_from_build_id(build_id):
         """Primary domain signal: read directly from the build/metabuild name.
-        SA8797P_ADAS.HGX... - ADAS, CI_SA8797P_FLEX.HGX... - FLEX, rest - IVI.
+        SA8797P_ADAS.HGX... -> ADAS, CI_SA8797P_FLEX.HGX... -> FLEX,
+        STD_SAFEIVI -> SAFE-IVI, all remaining IVI rows -> NONSAFE-IVI.
         """
         b = str(build_id or '').upper()
+        compact = _re.sub(r'[^A-Z0-9]+', '', b)
         if '_ADAS' in b or '.ADAS' in b or 'ADAS_' in b or 'ADAS.' in b:
             return 'ADAS'
         if '_FLEX' in b or '.FLEX' in b or 'FLEX_' in b or 'FLEX.' in b:
             return 'FLEX'
-        return 'IVI'   # everything else in AUTO BU is IVI
+        if 'SAFEIVI' in compact and 'NONSAFEIVI' not in compact:
+            return 'SAFE-IVI'
+        return 'NONSAFE-IVI'
 
     def _domain_from_cr(area, sub, func, title):
         """Fallback only: derive domain from CR metadata when build name has no signal."""
         text = ' '.join([str(x or '') for x in (area, sub, func, title)]).upper()
+        compact = _re.sub(r'[^A-Z0-9]+', '', text)
         if any(x in text for x in ('ADAS','ADP','RIDE','VISION','CAMERA')):
             return 'ADAS'
         if 'FLEX' in text or _re.search(r'\bFLE\b', text):
             return 'FLEX'
-        return 'IVI'
+        if 'SAFEIVI' in compact and 'NONSAFEIVI' not in compact:
+            return 'SAFE-IVI'
+        return 'NONSAFE-IVI'
 
     try:
         # - 1. Read ALL rows from jiras + openjiras (no date filter) -
