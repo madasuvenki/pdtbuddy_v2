@@ -169,8 +169,8 @@
       <div class="ct-bar">
         <span style="font-size:11px;font-weight:900;color:#4f46e5;text-transform:uppercase;letter-spacing:.08em"><i class="fas fa-bug"></i> Include in Total Crashes</span>
         <label class="ct-lbl ct-sys"><input type="checkbox" id="ck_system" checked onchange="onCrashTypeChange()"> System</label>
-        <label class="ct-lbl ct-ssr"><input type="checkbox" id="ck_ssr"    checked onchange="onCrashTypeChange()"> SSR</label>
-        <label class="ct-lbl ct-proc"><input type="checkbox" id="ck_process" checked onchange="onCrashTypeChange()"> Process</label>
+        <label class="ct-lbl ct-ssr"><input type="checkbox" id="ck_ssr"    onchange="onCrashTypeChange()"> SSR</label>
+        <label class="ct-lbl ct-proc"><input type="checkbox" id="ck_process" onchange="onCrashTypeChange()"> Process</label>
         <span style="font-size:10px;color:#94a3b8;font-style:italic">Changes reflect instantly — does not modify saved data</span>
       </div>
       <div class="chart-wrap"><canvas id="mtbfCanvas"></canvas><div id="mtbfEmpty" class="empty" style="display:none">No MTBF data for this SP / domain.</div></div>
@@ -607,7 +607,8 @@ function bulkAutoCalc(i){
   const sys  = parseInt(r.system_crashes||0);
   const ssr  = parseInt(r.ssr_crashes||0);
   const proc = parseInt(r.process_crashes||0);
-  const total = sys+ssr+proc;
+  // Total crashes = system crashes only (MTBF is based on system crashes)
+  const total = sys;
   r.total_crashes = total;
   const te = document.getElementById('btotal_'+i);
   if(te) te.value = total||'';

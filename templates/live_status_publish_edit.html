@@ -551,10 +551,10 @@ if(open) panel.scrollIntoView({behavior:'smooth', block:'start'});
           <input type="checkbox" checked onchange="adasCrashTypeChanged()"> System
         </label>
         <label id="ck_ssr" style="display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:800;color:#d97706;cursor:pointer;border:1.5px solid #fcd34d;border-radius:8px;padding:4px 10px;background:#fff">
-          <input type="checkbox" checked onchange="adasCrashTypeChanged()"> SSR
+          <input type="checkbox" onchange="adasCrashTypeChanged()"> SSR
         </label>
         <label id="ck_process" style="display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:800;color:#7c3aed;cursor:pointer;border:1.5px solid #c4b5fd;border-radius:8px;padding:4px 10px;background:#fff">
-          <input type="checkbox" checked onchange="adasCrashTypeChanged()"> Process
+          <input type="checkbox" onchange="adasCrashTypeChanged()"> Process
         </label>
         <span style="font-size:10px;color:#94a3b8;font-style:italic">Changes reflect instantly in chart &amp; table &mdash; does not modify saved data</span>
       </div>
@@ -5152,7 +5152,7 @@ lspCloseCfg();
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
         <div>
-          <label style="font-size:10px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px">Total Crashes <span style="color:#dc2626">*</span> <span style="font-size:9px;color:#94a3b8">(auto-sum)</span></label>
+          <label style="font-size:10px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px">Total Crashes <span style="color:#dc2626">*</span> <span style="font-size:9px;color:#94a3b8">(system only)</span></label>
           <input type="number" id="adasModalTotal" min="0" placeholder="auto" style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:8px 11px;font-size:13px;font-weight:600;color:#0f172a;outline:none;background:#f8fafc;box-sizing:border-box">
         </div>
         <div>
@@ -5179,7 +5179,7 @@ var ADAS_API_BASE = '/api/live_status_view/' + encodeURIComponent((window.LSP_DA
 var _adasRows      = [];        // full rows for current view
 var _adasView      = 'ADAS';    // active domain
 var _adasNFilter   = 10;        // Last N filter
-var _adasCrashTypes = ['system','ssr','process'];
+var _adasCrashTypes = ['system'];
 var _adasTableRows = [];        // rows currently shown in table (after search)
 var _adasLoadedSp  = '';        // SP that was active when data was last loaded
 window._mtbfIncludeZero = false;
@@ -5190,7 +5190,7 @@ var types = [];
 if(document.querySelector('#ck_system input')  && document.querySelector('#ck_system input').checked)  types.push('system');
 if(document.querySelector('#ck_ssr input')     && document.querySelector('#ck_ssr input').checked)     types.push('ssr');
 if(document.querySelector('#ck_process input') && document.querySelector('#ck_process input').checked) types.push('process');
-return types.length ? types : ['system','ssr','process'];
+return types.length ? types : ['system'];
 }
   function _adasActiveSp(){
     var configured = window.LSP_DATA && window.LSP_DATA.active_sp_cpl;
@@ -5206,18 +5206,9 @@ return types.length ? types : ['system','ssr','process'];
 function _adasCurrentSp(){ return _adasLoadedSp || _adasActiveSp(); }
 function _adasEffective(r, crashTypes){
 var sys  = Number(r.system_crashes  || 0);
-var ssr  = Number(r.ssr_crashes     || 0);
-var proc = Number(r.process_crashes || 0);
-var total = 0;
-if(crashTypes.indexOf('system')  >= 0) total += sys;
-if(crashTypes.indexOf('ssr')     >= 0) total += ssr;
-if(crashTypes.indexOf('process') >= 0) total += proc;
-if(total === 0 && Number(r.total_crashes || 0) > 0) total = Number(r.total_crashes);
+var total = sys;
 var hours = Number(r.hours || 0);
-var hasStoredMtbf = r.mtbf !== undefined && r.mtbf !== null && String(r.mtbf) !== '';
-var storedMtbf = Number(r.mtbf || 0);
-var allChecked = crashTypes.indexOf('system')>=0 && crashTypes.indexOf('ssr')>=0 && crashTypes.indexOf('process')>=0;
-var mtbf = allChecked && hasStoredMtbf ? storedMtbf : (total > 0 && hours > 0 ? Math.round((hours/total)*10)/10 : storedMtbf);
+var mtbf = total > 0 && hours > 0 ? Math.round((hours/total)*10)/10 : 0;
 return { total: total, mtbf: mtbf };
 }
 /* --- domain button styling ----------------------------------- */
@@ -5476,7 +5467,7 @@ var inp = function(field, val, type, align, extra, manualMtbf, readOnly){
 type = type || 'text';
 var style = 'width:100%;border:1.5px solid #e2e8f0;border-radius:7px;padding:6px 8px;font-family:inherit;font-size:12px;font-weight:700;color:#0f172a;background:'+(readOnly?'#f1f5f9':'#fff')+';outline:none;box-sizing:border-box;'+(align?'text-align:'+align+';':'')+(extra||'');
 var manualAttr = manualMtbf ? ' data-manual-mtbf="1" title="Manual MTBF override"' : '';
-var readOnlyAttr = readOnly ? ' readonly tabindex="-1" title="Calculated automatically from System + SSR + Process"' : '';
+var readOnlyAttr = readOnly ? ' readonly tabindex="-1" title="Calculated automatically from System crashes only"' : '';
 return '<input type="'+type+'" data-field="'+field+'" value="'+_esc(val!=null&&val!==''?val:'')+'" class="adas-bulk-inp" style="'+style+'" oninput="_adasBulkAutoCalc(this)"'+manualAttr+readOnlyAttr+'>';
 };
 tbody.innerHTML = _bulkEditRows.map(function(r, i){
@@ -5513,7 +5504,7 @@ var r = _bulkEditRows[idx];
 var sys  = Number((tr.querySelector('[data-field="system_crashes"]')||{}).value || 0);
 var ssr  = Number((tr.querySelector('[data-field="ssr_crashes"]')||{}).value || 0);
 var proc = Number((tr.querySelector('[data-field="process_crashes"]')||{}).value || 0);
-var total = sys + ssr + proc;
+var total = sys;
 var totalEl = tr.querySelector('[data-field="total_crashes"]');
 if(totalEl) totalEl.value = total;
 r.total_crashes = total;
@@ -5664,9 +5655,9 @@ window.adasAutoMtbf = function(triggeredByField){
 var sys  = Number(document.getElementById('adasModalSystem').value  || 0);
 var ssr  = Number(document.getElementById('adasModalSsr').value     || 0);
 var proc = Number(document.getElementById('adasModalProcess').value || 0);
-var autoTotal = sys + ssr + proc;
+var autoTotal = sys;
 var totalEl = document.getElementById('adasModalTotal');
-// Always auto-sum total from crash fields (unless user directly typed in total)
+// Always derive total from System crashes only
 if(totalEl && triggeredByField !== 'total'){
 totalEl.value = autoTotal > 0 ? autoTotal : (totalEl.value || '');
 delete totalEl.dataset.manualEdit;
@@ -6060,7 +6051,7 @@ var hoursEl = document.getElementById('adasModalHours');
 var sysEl   = document.getElementById('adasModalSystem');
 var ssrEl   = document.getElementById('adasModalSsr');
 var procEl  = document.getElementById('adasModalProcess');
-// Crash fields → auto-sum total → auto-calc MTBF (if not manually set)
+// Crash fields → system-only total → auto-calc MTBF (if not manually set)
 [sysEl, ssrEl, procEl].forEach(function(el){
   if(el) el.addEventListener('input', function(){ window.adasAutoMtbf('crash'); });
 });

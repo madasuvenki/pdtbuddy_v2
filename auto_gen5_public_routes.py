@@ -136,24 +136,42 @@ def _domain_summary(target_name: str, domain: str) -> Dict[str, Any]:
         "row_count":        len(rows),
         "latest_date":      latest.get("date") or "",
         "latest_meta_id":   latest.get("meta_id") or "",
-        "latest_mtbf":      latest.get("mtbf"),
+        "latest_mtbf":      _system_only_mtbf(latest) if latest else None,
         "latest_manual_mtbf": int(latest.get("manual_mtbf") or 0),
         "updated_at":       data.get("updated_at") or "",
     }
 
 
+def _system_only_mtbf(row: Dict[str, Any]) -> Any:
+    """Return MTBF calculated from system crashes only.
+
+    If manual_mtbf=1 the user explicitly locked the value — return it as-is.
+    Otherwise recalculate from hours / system_crashes so the API always
+    reflects the system-crashes-only MTBF policy.
+    """
+    if int(row.get("manual_mtbf") or 0):
+        return row.get("mtbf")
+    hours = _num(row.get("hours"))
+    system_c = _num(row.get("system_crashes"))
+    if hours and system_c:
+        return round(hours / system_c, 2)
+    # Fall back to stored value when system_crashes is missing/zero
+    return row.get("mtbf")
+
+
 def _public_row(row: Dict[str, Any], domain: str) -> Dict[str, Any]:
+    system_c = row.get("system_crashes")
     return {
         "domain":          domain,
         "s_no":            row.get("s_no"),
         "date":            row.get("date") or "",
         "meta_id":         row.get("meta_id") or "",
         "hours":           row.get("hours"),
-        "system_crashes":  row.get("system_crashes"),
+        "system_crashes":  system_c,
         "ssr_crashes":     row.get("ssr_crashes"),
         "process_crashes": row.get("process_crashes"),
-        "total_crashes":   row.get("total_crashes"),
-        "mtbf":            row.get("mtbf"),
+        "total_crashes":   system_c,          # total_crashes = system crashes only
+        "mtbf":            _system_only_mtbf(row),  # recalculated from system crashes
         "manual_mtbf":     int(row.get("manual_mtbf") or 0),
         "crash_types":     row.get("crash_types") or [],
         "id":              row.get("id") or "",
@@ -261,7 +279,7 @@ def _sp_domain_summary(target_name: str, domain: str, sp: str) -> Dict[str, Any]
         "row_count":          len(rows),
         "latest_date":        latest.get("date") or "",
         "latest_meta_id":     latest.get("meta_id") or "",
-        "latest_mtbf":        latest.get("mtbf"),
+        "latest_mtbf":        _system_only_mtbf(latest) if latest else None,
         "latest_manual_mtbf": int(latest.get("manual_mtbf") or 0),
         "updated_at":         data.get("updated_at") or "",
     }

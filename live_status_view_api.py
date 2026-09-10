@@ -426,16 +426,10 @@ def _adas_row_from_payload(payload: Dict[str, Any], existing_rows: List[Dict[str
     system_c  = _num_or_blank(payload.get("system_crashes"),  integer=True)
     ssr_c     = _num_or_blank(payload.get("ssr_crashes"),     integer=True)
     process_c = _num_or_blank(payload.get("process_crashes"), integer=True)
-    crash_types = payload.get("crash_types") or ["system", "ssr", "process"]
+    crash_types = payload.get("crash_types") or ["system"]
 
-    # Auto-sum total from all three crash components
-    auto_total = 0
-    if system_c  != "": auto_total += int(system_c)
-    if ssr_c     != "": auto_total += int(ssr_c)
-    if process_c != "": auto_total += int(process_c)
-
-        # Total crashes always belongs to and is derived from this row.
-    total_c = auto_total
+    # Total crashes = system crashes only (MTBF is based on system crashes)
+    total_c = int(system_c) if system_c != "" else 0
 
     hours       = _num_or_blank(payload.get("hours"))
     mtbf_raw    = payload.get("mtbf")
@@ -468,6 +462,18 @@ def _adas_row_from_payload(payload: Dict[str, Any], existing_rows: List[Dict[str
     }
 
 
+def _system_only_row_for_response(row: Dict[str, Any]) -> Dict[str, Any]:
+    """Return a display/API copy with total_crashes and MTBF based on system crashes only."""
+    out = dict(row or {})
+    system_c = int(out.get("system_crashes") or 0)
+    hours = float(out.get("hours") or 0)
+    out["total_crashes"] = system_c
+    manual_mtbf = bool(int(out.get("manual_mtbf") or 0))
+    if not manual_mtbf:
+        out["mtbf"] = round(hours / system_c, 2) if hours and system_c else ""
+    return out
+
+
 def _adas_rows_to_chart_data(rows: List[Dict[str, Any]], crash_types: Optional[List[str]] = None) -> List[Dict[str, Any]]:
     """Convert ADAS MTBF rows to chart-compatible data.
 
@@ -478,7 +484,7 @@ def _adas_rows_to_chart_data(rows: List[Dict[str, Any]], crash_types: Optional[L
       from hours / total_crashes (respecting crash_types filter).
     """
     if crash_types is None:
-        crash_types = ["system", "ssr", "process"]
+        crash_types = ["system"]
     data = []
     for r in rows or []:
         meta_id = str(r.get("meta_id") or "").strip()
@@ -501,12 +507,12 @@ def _adas_rows_to_chart_data(rows: List[Dict[str, Any]], crash_types: Optional[L
         if manual_mtbf and mtbf_raw not in (None, ""):
             # User-locked MTBF: always use the saved value, never recompute
             mtbf = float(mtbf_raw)
-        elif mtbf_raw not in (None, ""):
-            # Auto-saved value: use it directly
-            mtbf = float(mtbf_raw)
         elif hours and total_c:
-            # No saved value: compute on the fly
+            # Always recalculate from selected crash types (default: system only)
             mtbf = round(hours / total_c, 2)
+        elif mtbf_raw not in (None, ""):
+            # Fall back to stored value if no crash data available
+            mtbf = float(mtbf_raw)
         else:
             mtbf = 0
 
@@ -1085,13 +1091,13 @@ def api_adas_mtbf_get(target_name: str):
     if view not in allowed:
         view = allowed[0]
     sp = (request.args.get("sp") or "").strip()  # e.g. 5.1.9.0
-    crash_types_raw = (request.args.get("crash_types") or "system,ssr,process").strip()
+    crash_types_raw = (request.args.get("crash_types") or "system").strip()
     crash_types = [c.strip().lower() for c in crash_types_raw.split(",") if c.strip()]
     if not crash_types:
-        crash_types = ["system", "ssr", "process"]
+        crash_types = ["system"]
     try:
         data = _load_adas_mtbf(target_name, view, sp)
-        rows = _sort_adas_rows_by_date(data.get("rows") or [])
+        rows = [_system_only_row_for_response(r) for r in _sort_adas_rows_by_date(data.get("rows") or [])]
         chart_data = _adas_rows_to_chart_data(rows, crash_types)
         return jsonify({
             "ok": True,
@@ -1130,7 +1136,7 @@ def api_adas_mtbf_add(target_name: str):
         rows.append(new_row)
         data["rows"] = rows
         saved = _save_adas_mtbf(target_name, view, data, sp)
-        crash_types = payload.get("crash_types") or ["system", "ssr", "process"]
+        crash_types = payload.get("crash_types") or ["system"]
         return jsonify({
             "ok": True,
             "message": f"Build {meta_id} added to {view} MTBF.",
@@ -1166,7 +1172,7 @@ def api_adas_mtbf_edit(target_name: str):
         rows[idx] = updated_row
         data["rows"] = rows
         saved = _save_adas_mtbf(target_name, view, data, sp)
-        crash_types = payload.get("crash_types") or ["system", "ssr", "process"]
+        crash_types = payload.get("crash_types") or ["system"]
         return jsonify({
             "ok": True,
             "message": "Row updated.",
@@ -1202,7 +1208,7 @@ def api_adas_mtbf_delete(target_name: str):
             r["s_no"] = i
         data["rows"] = new_rows
         saved = _save_adas_mtbf(target_name, view, data, sp)
-        crash_types = payload.get("crash_types") or ["system", "ssr", "process"]
+        crash_types = payload.get("crash_types") or ["system"]
         return jsonify({
             "ok": True,
             "message": "Row deleted.",
@@ -1222,7 +1228,7 @@ def api_adas_mtbf_chart(target_name: str):
     view = str(payload.get("view") or "ADAS").strip().upper()
     if view not in allowed:
         view = allowed[0]
-    crash_types = payload.get("crash_types") or ["system", "ssr", "process"]
+    crash_types = payload.get("crash_types") or ["system"]
     n_filter = int(payload.get("n_filter") or 0)  # 0=all, 5=last5, 10=last10
     try:
         data = _load_adas_mtbf(target_name, view)
@@ -2361,12 +2367,12 @@ def api_sp_mtbf_get(target_name: str):
         return jsonify({'ok': False, 'error': 'sp_name is required'}), 400
     crash_types = [
         value.strip().lower()
-        for value in (request.args.get('crash_types') or 'system,ssr,process').split(',')
+        for value in (request.args.get('crash_types') or 'system').split(',')
         if value.strip()
     ]
     try:
         data = _load_sp_mtbf(target_name, domain, sp_name)
-        rows = _sort_adas_rows_by_date(data.get('rows') or [])
+        rows = [_system_only_row_for_response(r) for r in _sort_adas_rows_by_date(data.get('rows') or [])]
         return jsonify({
             'ok': True, 'target': target_name, 'domain': domain, 'sp_name': sp_name,
             'domains': _get_target_domains(target_name), 'rows': rows,
@@ -2391,7 +2397,7 @@ def api_sp_mtbf_save(target_name: str):
             built.append(_adas_row_from_payload(row, built))
         data['rows'] = built
         saved = _save_sp_mtbf(target_name, domain, sp_name, data)
-        crash_types = payload.get('crash_types') or ['system', 'ssr', 'process']
+        crash_types = payload.get('crash_types') or ['system']
         return jsonify({
             'ok': True, 'message': f'Saved {len(saved["rows"])} rows for SP {sp_name} / {domain}.',
             'rows': saved.get('rows') or [],
@@ -2418,7 +2424,7 @@ def api_sp_mtbf_add(target_name: str):
         rows.append(new_row)
         data['rows'] = rows
         saved = _save_sp_mtbf(target_name, domain, sp_name, data)
-        crash_types = payload.get('crash_types') or ['system', 'ssr', 'process']
+        crash_types = payload.get('crash_types') or ['system']
         return jsonify({
             'ok': True, 'message': f'Build {meta_id} added.', 'row': new_row,
             'rows': saved.get('rows') or [],
@@ -2446,7 +2452,7 @@ def api_sp_mtbf_delete(target_name: str):
             row['s_no'] = index
         data['rows'] = new_rows
         saved = _save_sp_mtbf(target_name, domain, sp_name, data)
-        crash_types = payload.get('crash_types') or ['system', 'ssr', 'process']
+        crash_types = payload.get('crash_types') or ['system']
         return jsonify({
             'ok': True, 'message': 'Row deleted.', 'rows': saved.get('rows') or [],
             'chart_data': _adas_rows_to_chart_data(saved.get('rows') or [], crash_types),

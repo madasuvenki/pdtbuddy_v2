@@ -377,6 +377,41 @@
   </div>
   {% endif %}
 
+  {% if not viewer_bu_sections and access_groups %}
+  <!-- ── No-group external user: show join-groups list directly ── -->
+  <div style="margin-top:24px;">
+    <div class="ls-access-card" style="margin:0;max-width:none;">
+      <div class="ls-access-head">
+        <div class="ls-access-title">
+          <i class="fas fa-users"></i> Request Live Status viewer access
+        </div>
+        <div class="ls-access-desc">
+          You are not a member of any Live Status viewer group yet. Join the matching LDAP group below to unlock BU / target access.
+          After membership is approved, return to this page and the BU / target rows will appear automatically.
+        </div>
+      </div>
+      <div class="ls-access-body">
+        {% for group in access_groups %}
+          <div class="ls-access-group">
+            <div class="ls-access-group-name">
+              <i class="fas fa-layer-group" style="color:#6366f1;margin-right:6px;"></i>{{ group.label or group.group }}
+            </div>
+            <div style="font-size:10px;color:#64748b;font-weight:800;margin-top:4px;word-break:break-word;">LDAP: {{ group.group }}</div>
+            <div class="ls-access-tags">
+              {% for bu in group.bus %}
+                <span class="ls-access-tag">{{ bu.name }}</span>
+              {% endfor %}
+            </div>
+            <a class="ls-access-link" href="{{ group.join_url }}" target="_blank" rel="noopener">
+              <i class="fas fa-external-link-alt"></i> Request / Join Group
+            </a>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
   <!-- Breadcrumb - hidden at BU level -->
   <div class="ls-breadcrumb" id="lsBreadcrumb" style="display:none;">
     <span class="ls-bc-link" id="lsBcBack"><i class="fas fa-house"></i> Home</span>

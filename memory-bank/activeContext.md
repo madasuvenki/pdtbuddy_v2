@@ -2,6 +2,45 @@
 
 ## Current Work Focus
 
+### Auto Gen5 Live View MTBF System-Crashes-Only + External User Join-Groups — Complete (2026-09-10)
+
+**User requests addressed:**
+1. Auto Gen5 live view MTBF tab — MTBF calculation should use system crashes only; `total_crashes` field should only count system crashes.
+2. Public API should also return system-crashes-based MTBF.
+3. When an external user joins and has no group membership, the join-groups list should be shown automatically.
+
+**Changes made:**
+
+- `live_status_view_api.py`
+  - `_adas_row_from_payload()`: `total_c` now equals `system_c` only (not sum of system + SSR + process). MTBF is calculated as `hours / system_crashes`.
+  - `_adas_rows_to_chart_data()`: default `crash_types` changed from `['system','ssr','process']` to `['system']`. MTBF recalculation now always uses the selected crash types (system only by default) instead of using the stored value for auto rows.
+
+- `auto_gen5_public_routes.py`
+  - Added `_system_only_mtbf(row)` helper: returns `hours / system_crashes` unless `manual_mtbf=1`, in which case the stored value is returned.
+  - `_public_row()`: `total_crashes` now returns `system_crashes` only; `mtbf` is recalculated via `_system_only_mtbf()`.
+  - `_domain_summary()` and `_sp_domain_summary()`: `latest_mtbf` now uses `_system_only_mtbf(latest)`.
+
+- `templates/live_status_view.html`
+  - SSR and Process crash-type checkboxes are now unchecked by default (only System is checked).
+  - `_adasCrashTypes` default changed to `['system']`.
+  - `_adasGetCrashTypes()` fallback changed to `['system']`.
+  - `_adasEffective()`: removed `allChecked` logic; MTBF is always recomputed from `total / hours`.
+  - `_adasRenderChart()` and `_adasRenderTable()` defaults changed to `['system']`.
+  - `adasAutoMtbf()`: `autoTotal = sys` (system crashes only).
+  - Save payload `crash_types` changed to `['system']`.
+  - Modal `Total Crashes` label updated to `(system only)`.
+
+- `templates/live_status_publish_landing.html`
+  - Added `{% if not viewer_bu_sections and access_groups %}` block that renders the full join-groups card directly on the page when an external user has no group membership. Previously, the page was blank for such users.
+
+**Validation:**
+- `py -3 -m py_compile live_status_view_api.py auto_gen5_public_routes.py` → `PY_COMPILE_OK`
+- `py -3 -c "...jinja2.Environment().parse(live_status_view.html)..."` → `LIVE_STATUS_VIEW_JINJA_OK`
+- `py -3 -c "...jinja2.Environment().parse(live_status_publish_landing.html)..."` → `LANDING_JINJA_OK`
+
+---
+
+
 ### QIPLPDT v2.13 Revision, JiraQuery EXE, WBC Analysis/Mail, and Admin DB Health — Complete (2026-09-09)
 
 **User request addressed:** Capture QIPLPDT-11070, QIPLPDT-11101, QIPLPDT-11073, QIPLPDT-11100 under release v2.13; keep revision-history updated with a QIPLPDT Jira/release table; ensure WBC TEA/QGenie analysis shows proper technical analysis; support CR occurrence → Jira mapping; fix WBC current-meta mail summary/date formatting; clarify/fix chatbot JiraQuery using `PDT_Stats.exe`; and add an Admin Usage DB Health tab for MySQL usage/memory/optimization details.

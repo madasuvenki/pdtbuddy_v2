@@ -245,10 +245,10 @@
           <input type="checkbox" checked onchange="adasCrashTypeChanged()"> <span class="adas-ck-dot" style="background:#dc2626"></span> System
         </label>
         <label id="ck_ssr" class="adas-crash-ck" style="--ck:#d97706">
-          <input type="checkbox" checked onchange="adasCrashTypeChanged()"> <span class="adas-ck-dot" style="background:#d97706"></span> SSR
+          <input type="checkbox" onchange="adasCrashTypeChanged()"> <span class="adas-ck-dot" style="background:#d97706"></span> SSR
         </label>
         <label id="ck_process" class="adas-crash-ck" style="--ck:#7c3aed">
-          <input type="checkbox" checked onchange="adasCrashTypeChanged()"> <span class="adas-ck-dot" style="background:#7c3aed"></span> Process
+          <input type="checkbox" onchange="adasCrashTypeChanged()"> <span class="adas-ck-dot" style="background:#7c3aed"></span> Process
         </label>
         <span style="font-size:10px;color:#94a3b8;font-style:italic">Changes reflect instantly in chart &amp; table — does not modify saved data</span>
       </div>
@@ -401,7 +401,7 @@
         <!-- Row 4: Total Crashes + MTBF -->
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
           <div>
-            <label style="font-size:10px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px">Total Crashes <span style="font-size:9px;color:#94a3b8">(auto-sum)</span></label>
+            <label style="font-size:10px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px">Total Crashes <span style="font-size:9px;color:#94a3b8">(system only)</span></label>
             <input type="number" id="adasModalTotal" min="0" placeholder="auto" style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:8px 11px;font-size:13px;font-weight:600;color:#0f172a;outline:none;background:#f8fafc" oninput="adasAutoMtbf()">
           </div>
           <div>
@@ -1172,7 +1172,7 @@ function adasSwitchSp(){
 }
 
 let _adasNFilter   = _lsvLatestLimit;    // default: Last 5, or All when opened with ?mtbf_all=1
-let _adasCrashTypes = ['system','ssr','process']; // which crash types count toward Total Crashes
+let _adasCrashTypes = ['system']; // which crash types count toward Total Crashes (system only)
 let _adasTableRows = [];    // rows shown in table after search
 
 // Read which crash types are currently checked
@@ -1181,7 +1181,7 @@ function _adasGetCrashTypes(){
   if(document.querySelector('#ck_system input')?.checked)  types.push('system');
   if(document.querySelector('#ck_ssr input')?.checked)     types.push('ssr');
   if(document.querySelector('#ck_process input')?.checked) types.push('process');
-  return types.length ? types : ['system','ssr','process'];
+  return types.length ? types : ['system'];
 }
 
 // Compute effective total crashes + MTBF for a row given active crash types (display only)
@@ -1197,11 +1197,8 @@ function _adasEffective(r, crashTypes){
   if(total === 0 && Number(r.total_crashes || 0) > 0) total = Number(r.total_crashes);
   const hours = Number(r.hours || 0);
   const storedMtbf = Number(r.mtbf || 0);
-  // Recompute MTBF only when crash types change from the full set
-  const allChecked = crashTypes.includes('system') && crashTypes.includes('ssr') && crashTypes.includes('process');
-  const mtbf = allChecked && storedMtbf > 0
-    ? storedMtbf
-    : (total > 0 && hours > 0 ? Math.round((hours / total) * 10) / 10 : storedMtbf);
+  // MTBF is always based on system crashes only; recompute from total when available
+  const mtbf = total > 0 && hours > 0 ? Math.round((hours / total) * 10) / 10 : storedMtbf;
   return { total, mtbf };
 }
 
@@ -1278,7 +1275,7 @@ function _adasRenderAll(){
 
 // ── chart ────────────────────────────────────────────────────────────────────────
 function _adasRenderChart(rows, crashTypes){
-  crashTypes = crashTypes || ['system','ssr','process'];
+  crashTypes = crashTypes || ['system'];
   const canvas = document.getElementById('adasChartCanvas');
   const empty  = document.getElementById('adasChartEmpty');
   if(!canvas) return;
@@ -1399,7 +1396,7 @@ function _adasRenderChart(rows, crashTypes){
 
 // ── table ────────────────────────────────────────────────────────────────────────
 function _adasRenderTable(rows, crashTypes){
-  crashTypes = crashTypes || ['system','ssr','process'];
+  crashTypes = crashTypes || ['system'];
   const body = document.getElementById('adasTableBody');
   const q    = (document.getElementById('adasTableSearch')?.value || '').toLowerCase();
   const filtered = q ? rows.filter(r => JSON.stringify(r).toLowerCase().includes(q)) : [...rows];
@@ -1580,9 +1577,8 @@ function adasCloseModal(){
 
 function adasAutoMtbf(){
   const sys  = Number(document.getElementById('adasModalSystem').value  || 0);
-  const ssr  = Number(document.getElementById('adasModalSsr').value     || 0);
-  const proc = Number(document.getElementById('adasModalProcess').value || 0);
-  const autoTotal = sys + ssr + proc;
+  // Total crashes = system crashes only (MTBF is based on system crashes)
+  const autoTotal = sys;
   const totalEl = document.getElementById('adasModalTotal');
   if(totalEl && !totalEl.dataset.manualEdit) totalEl.value = autoTotal || '';
   const hours = Number(document.getElementById('adasModalHours').value || 0);
@@ -1620,7 +1616,7 @@ async function adasSaveModal(){
     process_crashes: document.getElementById('adasModalProcess').value || '',
     total_crashes:   document.getElementById('adasModalTotal').value   || '',
     mtbf:            document.getElementById('adasModalMtbf').value    || '',
-    crash_types:     ['system','ssr','process'],
+    crash_types:     ['system'],
   };
   const btn = document.getElementById('adasModalSaveBtn');
   btn.disabled = true; btn.innerHTML = '<i class="fas fa-circle-notch spin"></i> Saving...';
