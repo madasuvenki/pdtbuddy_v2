@@ -15,6 +15,7 @@
 ### Authentication & Authorization
 - ✅ LDAP bind authentication
 - ✅ Login page now supports the preferred combined flow: external users can continue with user ID only to Live Status, while internal users can use browser-saved user ID/password or manually enter password for internal PDT Buddy access.
+- ✅ External viewer login paths now persist a clear login timestamp in both the Flask session and the successful login activity detail (`error_message` includes `login_time=YYYY-MM-DD HH:MM:SS`) for cached, bypass, viewer-list, extra-group, and LDAP fallback viewer logins.
 - ✅ LDAP group-based BU access control (TARGET_GROUP, SD_TARGET_GROUP, CH_TARGET_GROUP)
 - ✅ Admin user list (ADMIN_USERS in config.py)
 - ✅ Bypass users and viewer override users
@@ -58,6 +59,7 @@
 - ✅ WBC Live View TEA/QGenie Open CR analysis now follows the old WBC portal pipeline: TEA technical response first using the legacy `C:\Dropbox\WBC_Scrum_DB\Open_CR_Script\CR_TEA.py` request defaults (`https://10.213.98.5:5001/api/cr-summary`, username `alalji`, JSON content type, 60s timeout), QGenie summary from TEA text only, TEA-derived fallback summaries when QGenie is unavailable, normalized CR cache keys, and target-JIRAs `scenario` extraction for common unique 1-2 PDT Scenario/TestCase values per CR/mapped CR with duplicate/common fragment cleanup.
 - ✅ WBC Live View Compose Mail now creates an Outlook desktop draft for the current running build report using `ms-outlook://compose` only, with a report-style body and CR Details columns for CR-ID, occurrence, title, area, subsystem, functionality, date, SI, status, and age. Latest update uses subject `WBC PDT Current Meta Status Report - <Meta Name> - <Date>` and date-only values for mail CR/JIRA date columns.
 - ✅ WBC Live View PPT preview/download now uses the old `C:\Dropbox\WBC_Scrum_DB\WBC_Report.py` teams-ready layout but starts directly with the current-meta status slide (no cover/ThankQ for WBC Live View), includes current meta + consolidated CR/JIRA details + visible MTBF trend on slide 1, shows up to the top 5 current-meta JIRAs, and renders Open/Analysis CR detail slides from the configured Unique CR DB table using the exact requested 12 screenshot columns with 18 CRs per slide and DB-backed Priority aliases.
+- ✅ WBC Live View PPT date fields now display date-only values for `Jira Date -last instance` and `CR Date`, stripping time portions from current-meta CR and Open/Analysis CR slides while preserving existing date-only strings.
 - ✅ Live Status Core Slides external view now supports direct latest generated PPTX download from `/api/core_deck/download_latest_pptx?target=<target>` without regenerating or modifying slide content.
 - ✅ UniqQC dashboard is integrated as a PDT Buddy blueprint/page and now uses PDT Buddy MySQL `overallcrs` tables via `dashboard_status` metadata/db prefixes, with compatible data, subsystem, CR detail, PPT, and CSV/ZIP export endpoints.
 - ✅ SP-only Device Summary inventory can enrich active devices via Axiom job playlists (`/jobs/{id}/data/playlists`) and `/resources`, preserving active chip IDs so MCN/host/running-job details attach in SP mode
@@ -277,3 +279,9 @@ See `activeContext.md` for full design details per item.
 ## 2026-09-08 - WBC Open CR occurrence links to All JIRAs
 - Updated `templates/wbc_live_view_stats.html` so Open CRs `CR Occurrence` hyperlink behavior activates the sidebar `JIRAs` / All JIRAs tab using `sideNav('jiras', ...)`, clears the `wbc_all_jiras` table filters, searches by the related bare CR number, focuses the All JIRAs search box, scrolls to the table, and updates the count label to `Filtered by CRxxxxxxx`.
 - Validation passed: `WBC_TEMPLATE_JINJA_OK` and `MARKERS_OK`.
+
+## 2026-09-10 - External viewer login timestamp and WBC PPT date-only cleanup
+- Updated `app.py` external viewer login paths so login datetime is created before activity logging/session assignment and included in the successful login detail as `login_time=YYYY-MM-DD HH:MM:SS`.
+- The LDAP fallback viewer path now records the explicit timestamp for users who pass LDAP userid lookup/auth but do not match the internal target group or extra groups, while continuing to set `session['login_time']`, `session['last_active']`, and `viewer_mode=True`.
+- Updated `wbc_legacy_ppt_adapter.py` with `date_only_text()` and applied it to PPT current/open CR `Jira Date -last instance` and `CR Date` fields.
+- Validation passed with `py -3` compilation for `app.py`, `wbc_legacy_ppt_adapter.py`, and `wbc_live_view_stats_routes.py`, plus Jinja parsing for `templates/wbc_live_view_stats.html`.

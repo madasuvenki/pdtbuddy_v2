@@ -2,6 +2,26 @@
 
 ## Current Work Focus
 
+### External Viewer Login Timestamp + WBC PPT Date Cleanup — Complete (2026-09-10)
+
+**User request addressed:** External LDAP userid/fallback viewer logins must have a clear login timestamp, especially for users who pass LDAP userid lookup but do not match the internal target group. WBC PPT exported date fields should show date-only values rather than timestamps.
+
+**Changes made:**
+- `app.py`
+  - External viewer login branches now create the login datetime before activity logging and session assignment.
+  - Fallback viewer login now records `login_time=<YYYY-MM-DD HH:MM:SS>` in the `pdt_stats_dashboard.user_data.error_message` field along with the normal `created_at` row timestamp.
+  - Added the same explicit timestamp detail for cached external login, bypass external viewer login, viewer-list login, and extra-group external access.
+  - Console login traces now reuse the same `_login_stamp` as the persisted session timestamp for these external paths.
+- `wbc_legacy_ppt_adapter.py`
+  - Added `date_only_text()` and applied it to PPT Current CR / Open CR `Jira Date -last instance` and `CR Date` fields.
+  - PPT decks now strip time components from ISO/date-time strings while preserving already date-only values.
+  - Existing WBC Open JIRA table behavior remains scoped to the loaded `open_jira` sheet/table for open-jira counts/details.
+
+**Validation:**
+- `py -3 -c "import py_compile; from pathlib import Path; from jinja2 import Environment; [py_compile.compile(f, doraise=True) for f in ['app.py', 'wbc_legacy_ppt_adapter.py', 'wbc_live_view_stats_routes.py']]; Environment().parse(Path('templates/wbc_live_view_stats.html').read_text(encoding='utf-8')); print('validation ok')"` returned `validation ok`.
+
+---
+
 ### Auto Gen5 MTBF IVI Split into NonSafe IVI + Safe IVI — Complete (2026-09-10)
 
 **User request addressed:** Auto Gen5/Nord MTBF should no longer expose a single `IVI` bucket for Nord targets. Legacy `IVI` rows are exposed as `NONSAFE-IVI`, and rows whose meta/build contains `SAFEIVI` are moved into a newly created `SAFE-IVI` bucket. Corresponding public APIs also needed to accept and return the split domains.

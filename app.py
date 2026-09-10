@@ -261,6 +261,8 @@ def _check_session_idle():
             # Read-only target MTBF/JQL report pages allowed for external viewers.
             if path.startswith('/others/live_view_stats/'):
                 return method == 'GET'
+            if path == '/wbc/live_view_status' or path.startswith('/wbc/live_view_status/'):
+                return method == 'GET'
             if path.startswith('/wbc/live_view_stats/'):
                 return method == 'GET'
             if path.startswith('/automotive/live_view_stats'):
@@ -314,6 +316,10 @@ def _check_session_idle():
         or request.path.startswith('/api/live_status_view/')
         or request.path.startswith('/api/live_status/')
         or request.path.startswith('/api/core_deck/public_state')
+        or request.path == '/wbc/live_view_status'
+        or request.path.startswith('/wbc/live_view_status/')
+        or request.path.startswith('/wbc/live_view_stats/')
+        or request.path.startswith('/api/wbc_live_view_stats/')
         or request.path.startswith('/api/core_deck/download_latest_pptx')
     ):
         session['last_active'] = datetime.now().timestamp()
@@ -2942,8 +2948,10 @@ def login():
                     return render_template("login.html", username=username, require_password=True)
                 user = User(id=username, role="viewer")
                 login_user(user, remember=True)
-                session["login_time"] = datetime.now().timestamp()
-                session["last_active"] = datetime.now().timestamp()
+                _login_dt = datetime.now()
+                _login_stamp = _login_dt.strftime('%Y-%m-%d %H:%M:%S')
+                session["login_time"] = _login_dt.timestamp()
+                session["last_active"] = _login_dt.timestamp()
                 session["viewer_mode"] = True
                 session.pop("needs_qgenie_popup", None)
                 session.pop("needs_team_selection", None)
@@ -2953,10 +2961,14 @@ def login():
                     user_id=username,
                     action_type="LOGIN_CACHED",
                     result_status="SUCCESS",
-                    error_message=f"internal_db_fast_path:{cached_login_profile.get('source')}",
+                    error_message=f"internal_db_fast_path:{cached_login_profile.get('source')} | login_time={_login_stamp}",
                     user_type=cached_user_type,
                 )
-                print(f"[LOGIN] Internal DB fast-path login for {username}: user_type={cached_user_type}", flush=True)
+                print(
+                    f"[LOGIN] Internal DB fast-path login for {username}: "
+                    f"user_type={cached_user_type} | {_login_stamp}",
+                    flush=True,
+                )
                 return redirect(url_for("live_status_publish_bp.landing"))
 
             if passwordless_login:
@@ -3026,12 +3038,21 @@ def login():
             if username in BYPASS_USERS:
                 user = User.get(username)
                 login_user(user, remember=(remember_me or passwordless_login))
-                log_user_activity(user_id=username, action_type='LOGIN', result_status='SUCCESS', user_type='external')
-                session['login_time']  = datetime.now().timestamp()
-                session['last_active'] = datetime.now().timestamp()
+                _login_dt = datetime.now()
+                _login_stamp = _login_dt.strftime('%Y-%m-%d %H:%M:%S')
+                log_user_activity(
+                    user_id=username,
+                    action_type='LOGIN',
+                    result_status='SUCCESS',
+                    error_message=f"bypass external viewer login | login_time={_login_stamp}",
+                    user_type='external',
+                )
+                session['login_time'] = _login_dt.timestamp()
+                session['last_active'] = _login_dt.timestamp()
                 session.pop('needs_qgenie_popup', None)
                 session['viewer_mode'] = True
                 session.modified = True
+                print(f"[LOGIN] Bypass external viewer login for {username}: {_login_stamp}", flush=True)
                 flash(f'Welcome {username}! (viewer mode)', 'success')
                 return redirect(url_for('live_status_publish_bp.landing'))
 
@@ -3123,13 +3144,21 @@ def login():
             if username.lower() in _viewers and not _in_target_group:
                 user = User(id=username, role='viewer')
                 login_user(user, remember=(remember_me or passwordless_login))
-                log_user_activity(user_id=username, action_type="LOGIN", result_status="SUCCESS",
-                                   error_message="viewer list login", user_type='external')
+                _login_dt = datetime.now()
+                _login_stamp = _login_dt.strftime('%Y-%m-%d %H:%M:%S')
+                log_user_activity(
+                    user_id=username,
+                    action_type="LOGIN",
+                    result_status="SUCCESS",
+                    error_message=f"viewer list login | login_time={_login_stamp}",
+                    user_type='external',
+                )
                 flash(f"Welcome {username}! (viewer)", "success")
-                session['login_time'] = session['last_active'] = datetime.now().timestamp()
+                session['login_time'] = session['last_active'] = _login_dt.timestamp()
                 session.pop('needs_qgenie_popup', None)
                 session['viewer_mode'] = True
                 session.modified = True
+                print(f"[LOGIN] Viewer-list external login for {username}: {_login_stamp}", flush=True)
 
                 return redirect(url_for('live_status_publish_bp.landing'))
 
@@ -3188,18 +3217,19 @@ def login():
             if _in_extra:
                 user = User.get(username)
                 login_user(user, remember=(remember_me or passwordless_login))
+                _login_dt = datetime.now()
+                _now = _login_dt.strftime('%Y-%m-%d %H:%M:%S')
                 log_user_activity(
                     user_id=username,
                     action_type="LOGIN",
                     result_status="SUCCESS",
-                    error_message=f"Extra group external access: {', '.join(_extra_hits)}",
+                    error_message=f"Extra group external access: {', '.join(_extra_hits)} | login_time={_now}",
                     user_type='external'
                 )
                 flash(f"Welcome {username}!", "success")
-                _now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 print(f"[LOGIN] Extra-group user sent to external Live Status:  {username}  |  {_now}", flush=True)
-                session['login_time']  = datetime.now().timestamp()
-                session['last_active'] = datetime.now().timestamp()
+                session['login_time'] = _login_dt.timestamp()
+                session['last_active'] = _login_dt.timestamp()
                 session.pop('needs_qgenie_popup', None)
                 session['viewer_mode'] = True
                 session.modified = True
@@ -3211,16 +3241,18 @@ def login():
                 # instead of blocking access entirely.
                 user = User(id=username, role='viewer')
                 login_user(user, remember=(remember_me or passwordless_login))
+                _login_dt = datetime.now()
+                _login_stamp = _login_dt.strftime('%Y-%m-%d %H:%M:%S')
                 log_user_activity(
                     user_id=username,
                     action_type="LOGIN",
                     result_status="SUCCESS",
-                    error_message="LDAP success; fallback viewer login",
+                    error_message=f"LDAP success; fallback viewer login | login_time={_login_stamp}",
                     user_type='external'
                 )
-                print(f"[LOGIN] Fallback viewer login for {username}: LDAP success but no target-group match. target_group={_in_target_group}, extra_group_hits={_extra_hits}", flush=True)
+                print(f"[LOGIN] Fallback viewer login for {username}: LDAP success but no target-group match. target_group={_in_target_group}, extra_group_hits={_extra_hits} | {_login_stamp}", flush=True)
                 flash(f"Welcome {username}! (viewer)", "success")
-                session['login_time'] = session['last_active'] = datetime.now().timestamp()
+                session['login_time'] = session['last_active'] = _login_dt.timestamp()
                 session.pop('needs_qgenie_popup', None)
                 session['viewer_mode'] = True
                 session.modified = True

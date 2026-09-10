@@ -18,6 +18,37 @@ def safe_text(value: Any, default: str = "") -> str:
     return text if text else default
 
 
+def date_only_text(value: Any, default: str = "") -> str:
+    """Return only the calendar date portion for PPT date fields."""
+    if value is None:
+        return default
+    if isinstance(value, datetime):
+        return value.strftime("%Y-%m-%d")
+    if isinstance(value, date):
+        return value.strftime("%Y-%m-%d")
+    raw = safe_text(value, default)
+    if not raw:
+        return default
+    iso = re.match(r"^(\d{4}-\d{2}-\d{2})", raw)
+    if iso:
+        return iso.group(1)
+    slash = re.match(r"^(\d{1,2}/\d{1,2}/\d{4})", raw)
+    if slash:
+        return slash.group(1)
+    normalized = raw.replace("Z", "+00:00")
+    try:
+        return datetime.fromisoformat(normalized).strftime("%Y-%m-%d")
+    except Exception:
+        pass
+    for fmt in ("%m/%d/%Y %H:%M:%S", "%m/%d/%Y %H:%M", "%d/%m/%Y %H:%M:%S", "%d/%m/%Y %H:%M"):
+        try:
+            return datetime.strptime(raw, fmt).strftime("%Y-%m-%d")
+        except Exception:
+            continue
+    first = re.split(r"[T\s]", raw, 1)[0].strip()
+    return first or raw
+
+
 def canon_text(value: Any) -> str:
     return re.sub(r"[^a-z0-9]+", "", safe_text(value).lower())
 
@@ -803,13 +834,13 @@ def _ppt_current_cr_rows(data, max_rows=_PPT_STATUS_CR_ROWS_FIRST):
         out.append([
             str(idx),
             cr_value,
-            _ppt_get(r, k_jira_date),
+            date_only_text(_ppt_get(r, k_jira_date)),
             occ_text or _ppt_get(r, k_occ, "1"),
             _ppt_trunc(_ppt_get(r, k_title), 130),
             _ppt_get(r, k_area),
             _ppt_get(r, k_sub),
             _ppt_trunc(_ppt_get(r, k_func), 30),
-            _ppt_get(r, k_date),
+            date_only_text(_ppt_get(r, k_date)),
             _ppt_get(r, k_status),
             cr_age,
         ])
@@ -857,13 +888,13 @@ def _ppt_open_cr_rows(data):
         out.append([
             str(idx),
             _ppt_get(r, k_cr),
-            _ppt_get(r, k_jira_date),
+            date_only_text(_ppt_get(r, k_jira_date)),
             _ppt_get(r, k_occ, "1"),
             _ppt_trunc(_ppt_get(r, k_title), 165),
             _ppt_get(r, k_area),
             _ppt_get(r, k_sub),
             _ppt_trunc(_ppt_get(r, k_func), 45),
-            _ppt_get(r, k_date),
+            date_only_text(_ppt_get(r, k_date)),
             _ppt_get(r, k_status),
             _ppt_get(r, k_age),
             _ppt_get(r, k_priority),

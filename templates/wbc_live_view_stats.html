@@ -1369,7 +1369,7 @@ function _wbcSimpleTableHtml(rows, cols, uid, opts){
 }
 function previewPanel(id,title,key){const p=payload.previews||{},x=p[key]||{};return `<div class="card" id="${id}"><div class="head"><span>${esc(title)}</span><span class="muted">${esc(x.error||((x.count||0)+' row(s)'))}</span></div>${tableHtml(x)}</div>`;}
 function renderPreviews(){}
-function renderHgyTabs(){const p=payload.previews||{}, bs=payload.build_summary||{};setText('openCrsCount',((p.open_crs||{}).count||0)+' row(s)');setText('openJirasCount',(((p.open_jiras||{}).count||0)+((p.jiras||{}).count||0))+' row(s)');setText('mappedJirasCount',((p.jiras||{}).count||0)+' row(s)');setText('allCrsCount',((p.all_crs||{}).count||0)+' row(s)');setText('allJirasCount',((p.jiras||{}).count||0)+' row(s)');setText('nMappedJiras',(p.jiras||{}).count||0);setText('ovKMappedJiras',(p.jiras||{}).count||0);setText('nOpenCrDets',(p.open_crs||{}).count||0);renderOpenCrsEnhanced();loadOpenCrsAnalysis();const _ojOpen=tableHtml(p.open_jiras,{hideCols:_OPEN_JIRA_HIDE_COLS});const _ojMapped=tableHtml(p.jiras);const _ojOpenCount=(p.open_jiras||{}).count||0;const _ojMappedCount=(p.jiras||{}).count||0;document.getElementById('openJirasBox').innerHTML=`<div style='font-size:11px;font-weight:900;color:#7c3aed;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #ede9fe'><i class='fas fa-lock-open' style='margin-right:5px'></i>Open / Unmapped JIRAs <span style='background:#ede9fe;color:#6d28d9;border-radius:999px;padding:1px 8px;font-size:10px'>${_ojOpenCount}</span></div>${_ojOpen}<div style='font-size:11px;font-weight:900;color:#d97706;text-transform:uppercase;letter-spacing:.06em;margin:14px 0 8px;padding-bottom:6px;border-bottom:1px solid #fef3c7'><i class='fas fa-link' style='margin-right:5px'></i>Mapped JIRAs (WPST / QSTABILITY) <span style='background:#fef3c7;color:#92400e;border-radius:999px;padding:1px 8px;font-size:10px'>${_ojMappedCount}</span></div>${_ojMapped}`;document.getElementById('mappedJirasBox').innerHTML=_ojMapped;document.getElementById('allCrsBox').innerHTML=tableHtml(p.all_crs);document.getElementById('allJirasBox').innerHTML=tableHtml(p.jiras,{uid:'wbc_all_jiras'});renderBuildSummary(bs);}
+function renderHgyTabs(){const p=payload.previews||{}, bs=payload.build_summary||{};setText('openCrsCount',((p.open_crs||{}).count||0)+' row(s)');setText('openJirasCount',((p.open_jiras||{}).count||0)+' row(s)');setText('mappedJirasCount',((p.jiras||{}).count||0)+' row(s)');setText('allCrsCount',((p.all_crs||{}).count||0)+' row(s)');setText('allJirasCount',((p.jiras||{}).count||0)+' row(s)');setText('nMappedJiras',(p.jiras||{}).count||0);setText('ovKMappedJiras',(p.jiras||{}).count||0);setText('nOpenCrDets',(p.open_crs||{}).count||0);renderOpenCrsEnhanced();loadOpenCrsAnalysis();const _ojOpen=tableHtml(p.open_jiras,{hideCols:_OPEN_JIRA_HIDE_COLS});const _ojMapped=tableHtml(p.jiras);const _ojOpenCount=(p.open_jiras||{}).count||0;document.getElementById('openJirasBox').innerHTML=`<div style='font-size:11px;font-weight:900;color:#7c3aed;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #ede9fe'><i class='fas fa-lock-open' style='margin-right:5px'></i>Open JIRAs <span style='background:#ede9fe;color:#6d28d9;border-radius:999px;padding:1px 8px;font-size:10px'>${_ojOpenCount}</span></div>${_ojOpen}`;document.getElementById('mappedJirasBox').innerHTML=_ojMapped;document.getElementById('allCrsBox').innerHTML=tableHtml(p.all_crs);document.getElementById('allJirasBox').innerHTML=tableHtml(p.jiras,{uid:'wbc_all_jiras'});renderBuildSummary(bs);}
 let _wbcBuildReportRows={};
 let _wbcTabReportRows={};
 const _WBC_EXCLUDE_COLS=new Set(['crash_type','crash_types','type','failure_type','_source_table','crash type','Crash Type','Crash Types','CrashType']);function _wbcCols(rows){const pref=['CR','CR Count','CR Title','CR Status','CR Area','CR Subsystem','CR Function','JIRA','JIRA Title','JIRA Status','Final Ticket','Final Status','Created','Serial No','Matched Build','stability_ticket','jira','jira_id','mapped_cr','cr','cr_id','jira_title','title','summary','cr_area','area','cr_status','status','jira_date','si_last_seen','last_instance','metabuild','meta_build','build'];const seen=new Set(),out=[];pref.forEach(c=>{if(!_WBC_EXCLUDE_COLS.has(c)&&(rows||[]).some(r=>Object.prototype.hasOwnProperty.call(r,c))&&!seen.has(c)){seen.add(c);out.push(c);}});(rows[0]?Object.keys(rows[0]):[]).forEach(c=>{if(!seen.has(c)&&!_WBC_EXCLUDE_COLS.has(c)&&out.length<18){seen.add(c);out.push(c);}});return out;}
@@ -2744,7 +2744,7 @@ function _pptFindCol(cols,names){
 }
 function _pptRows(preview,aliases,limit,withIndex){
   const cols=(preview&&preview.columns)||[], rows=((preview&&preview.rows)||[]).slice(0,limit||5), keys=(aliases||[]).map(a=>_pptFindCol(cols,a));
-  return rows.map((r,i)=>{const vals=keys.map(k=>k?(r[k]??''):'');return withIndex?[String(i+1),...vals]:vals;});
+  return rows.map((r,i)=>{const vals=keys.map((k,idx)=>{const v=k?(r[k]??''):'';const label=[k,...((aliases||[])[idx]||[])].join(' ');return _wbcIsMailDateColumn(label)?_wbcMailDateOnly(v):v;});return withIndex?[String(i+1),...vals]:vals;});
 }
 function _pptBuildPreviewItems(metaIds, buildIds){
   const selectedIds=Array.isArray(metaIds)?metaIds.filter(Boolean):selectedPptMetaIds(), selectedBuilds=Array.isArray(buildIds)?buildIds.filter(Boolean):selectedPptBuildIds();
@@ -2823,6 +2823,7 @@ function _pptGetItemRows(item){
   if(!rows.length&&Array.isArray(item.cached_rows))add(item.cached_rows);
   (item.build_ids||[]).forEach(bid=>{
     add(_wbcBuildReportRows[bid]||[]);
+    add(_pptRowsForBuildFromPreviews(bid));
     if(!(_wbcBuildReportRows[bid]||[]).length){
       Object.keys(_wbcBuildReportRows||{}).forEach(k=>{
         if(_buildsMatchClient(bid,k))add(_wbcBuildReportRows[k]||[]);
@@ -2831,6 +2832,7 @@ function _pptGetItemRows(item){
   });
   if(!rows.length&&item.build_id){
     add(_wbcBuildReportRows[item.build_id]||[]);
+    add(_pptRowsForBuildFromPreviews(item.build_id));
     Object.keys(_wbcBuildReportRows||{}).forEach(k=>{
       if(_buildsMatchClient(item.build_id,k))add(_wbcBuildReportRows[k]||[]);
     });
@@ -2886,6 +2888,9 @@ function _pptHydrateCrDetails(row, lookup){
 function _pptVal(row,names){
   return _wbcVal(row,names);
 }
+function _pptDateVal(row,names){
+  return _wbcMailDateOnly(_pptVal(row,names));
+}
 function _pptIsOpenJiraRow(row){
   const rowType=String((row||{})['Row Type']||(row||{}).row_type||'').trim().toLowerCase();
   if(rowType==='open')return true;
@@ -2895,8 +2900,44 @@ function _pptIsOpenJiraRow(row){
 function _pptJiraRowKey(row){
   return _wbcIssueKey(row)||String(_wbcVal(row,['JIRA','JIRA-Ticket','Jira Ticket','Open JIRA','open_jira','stability_ticket','jira','jira_id','jira_key','ticket','Issue','Issue Key','Final Ticket','final_ticket','CR','CR-ID','CR ID'])).trim()||_wbcCrKey(row)||JSON.stringify(row||{}).slice(0,80);
 }
+function _pptMergeRows(...rowSets){
+  const out=[], byKey=new Map();
+  (rowSets||[]).forEach(setRows=>{
+    (setRows||[]).forEach(r=>{
+      if(!r||typeof r!=='object')return;
+      const key=_pptJiraRowKey(r)||((_wbcRowType(r)||'row')+':'+_wbcCrKey(r))||JSON.stringify(r).slice(0,80);
+      if(byKey.has(key)){
+        const existing=byKey.get(key);
+        Object.keys(r).forEach(k=>{
+          if((existing[k]===undefined||existing[k]===null||String(existing[k]).trim()==='') && r[k]!==undefined && r[k]!==null && String(r[k]).trim()!=='') existing[k]=r[k];
+        });
+        return;
+      }
+      const rec={...r};
+      byKey.set(key,rec);
+      out.push(rec);
+    });
+  });
+  return out;
+}
 function _pptUniqueJiraRows(rows){
-  return _wbcUniqueBy(rows||[], _pptJiraRowKey);
+  return _pptMergeRows(rows||[]);
+}
+function _pptRowBuildValue(row){
+  return String(_wbcVal(row,['metabuild','MetaBuild','meta_build','build_id','build_name','build','builds','CRM Build ID','Meta-ID','Matched Build'])).trim();
+}
+function _pptRowsForBuildFromPreviews(buildId){
+  const previews=(payload&&payload.previews)||{};
+  const out=[];
+  const addPreview=(preview)=>{
+    ((preview&&preview.rows)||[]).forEach(r=>{
+      const rowBuild=_pptRowBuildValue(r);
+      if(rowBuild && _buildsMatchClient(buildId,rowBuild)) out.push(r);
+    });
+  };
+  addPreview(previews.jiras);
+  addPreview(previews.open_jiras);
+  return _pptMergeRows(out);
 }
 function _pptChartHtml(chartRows){
   const rows=(chartRows||[]).slice(-7);
@@ -2962,19 +3003,17 @@ function _pptRenderStatusSlide(item, ctx){
     const _openAll=_openSourceAll.length?_openSourceAll:itemRows.filter(r=>_wbcRowType(r)==='open');
     const _mappedAll=itemRows.filter(r=>_wbcRowType(r)==='mapped_jira');
     const crGrouped=_wbcGroupByCr(_crAll,r=>_wbcCrKey(r));
-    const openUniq=_pptUniqueJiraRows(_openAll).slice(0,5);
-    const mappedUniq=_wbcGroupByCr(_mappedAll,r=>_wbcCrKey(r)||_wbcIssueKey(r)).slice(0,5);
-    const jiraUniq=openUniq.length?openUniq:mappedUniq;
+    const jiraUniq=_pptMergeRows(_openAll,_mappedAll).filter(r=>_wbcIssueKey(r)||_wbcCrKey(r)).slice(0,5);
     crRows=crGrouped.map((r,i)=>[
       String(i+1),
       _pptVal(r,['CR','CR-ID','CR ID','mapped_cr','cr','cr_id','unique_cr','cr_number']),
-      _pptVal(r,['Jira Date -last instance','Jira Date last instance','Last Instance Jira Date','Jira Date','jira_date','last_instance','updated']),
+      _pptDateVal(r,['Jira Date -last instance','Jira Date last instance','Last Instance Jira Date','Jira Date','jira_date','last_instance','updated']),
       _pptVal(r,['CR Count','CR Occurrence','Occurrence','Occurrences','Instances','Instance','count'])||'1',
       _pptVal(r,['CR Title','cr_title','Title','title','Summary','summary']),
       _pptVal(r,['CR Area','cr_area','Area','area']),
       _pptVal(r,['CR SubSystem','CR Subsystem','CR SubSystem','cr_subsystem','Subsystem','subsystem','sub']),
       _pptVal(r,['CR Functionality','CR Function','cr_functionality','Functionality','functionality','func']),
-      _pptVal(r,['CR Date','Created','created','Date','date','cr_date']),
+      _pptDateVal(r,['CR Date','Created','created','Date','date','cr_date']),
       _pptVal(r,['CR Status','cr_status','Status','status']),
       _pptVal(r,['CR Age','cr_age','Age','age','overall_age','age_days','Age (days)','days_open'])
     ]);
@@ -3071,19 +3110,17 @@ function _pptStatusTablesForItem(item, previews){
     const _openAll=_openSourceAll.length?_openSourceAll:hydratedRows.filter(r=>_wbcRowType(r)==='open');
     const _mappedAll=hydratedRows.filter(r=>_wbcRowType(r)==='mapped_jira');
     const crGrouped=_wbcGroupByCr(_crAll,r=>_wbcCrKey(r));
-    const openUniq=_pptUniqueJiraRows(_openAll).slice(0,5);
-    const mappedUniq=_wbcGroupByCr(_mappedAll,r=>_wbcCrKey(r)||_wbcIssueKey(r)).slice(0,5);
-    const jiraUniq=openUniq.length?openUniq:mappedUniq;
+    const jiraUniq=_pptMergeRows(_openAll,_mappedAll).filter(r=>_wbcIssueKey(r)||_wbcCrKey(r)).slice(0,5);
     crRows=crGrouped.map((r,i)=>[
       String(i+1),
       _pptVal(r,['CR','CR-ID','CR ID','mapped_cr','cr','cr_id','unique_cr','cr_number']),
-      _pptVal(r,['Jira Date -last instance','Jira Date last instance','Last Instance Jira Date','Jira Date','jira_date','last_instance','updated']),
+      _pptDateVal(r,['Jira Date -last instance','Jira Date last instance','Last Instance Jira Date','Jira Date','jira_date','last_instance','updated']),
       _pptVal(r,['CR Count','CR Occurrence','Occurrence','Occurrences','Instances','Instance','count'])||'1',
       _pptVal(r,['CR Title','cr_title','Title','title','Summary','summary']),
       _pptVal(r,['CR Area','cr_area','Area','area']),
       _pptVal(r,['CR SubSystem','CR Subsystem','CR SubSystem','cr_subsystem','Subsystem','subsystem','sub']),
       _pptVal(r,['CR Functionality','CR Function','cr_functionality','Functionality','functionality','func']),
-      _pptVal(r,['CR Date','Created','created','Date','date','cr_date']),
+      _pptDateVal(r,['CR Date','Created','created','Date','date','cr_date']),
       _pptVal(r,['CR Status','cr_status','Status','status']),
       _pptVal(r,['CR Age','cr_age','Age','age','overall_age','age_days','Age (days)','days_open'])
     ]);

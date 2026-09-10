@@ -3321,12 +3321,51 @@ def _wbc_build_ppt(target_key: str, tab_id: str = "", tab_ids: List[str] = None,
     def _selection_meta_key(value):
         return _wbc_ppt_meta_id(value, project) if merge_meta else str(value or "").strip()
 
+    def _selected_row_value(row: Dict[str, Any], aliases: List[str]) -> str:
+        if not isinstance(row, dict):
+            return ""
+        for key in aliases:
+            val = row.get(key)
+            if val not in (None, "") and str(val).strip():
+                return str(val).strip()
+        by_norm = {_norm(k): k for k in row.keys()}
+        for key in aliases:
+            hit = by_norm.get(_norm(key))
+            if hit:
+                val = row.get(hit)
+                if val not in (None, "") and str(val).strip():
+                    return str(val).strip()
+        for key in aliases:
+            nk = _norm(key)
+            if not nk or len(nk) < 4:
+                continue
+            hit = next((k for k in row.keys() if _norm(k) and len(_norm(k)) >= 4 and (nk in _norm(k) or _norm(k) in nk)), "")
+            if hit:
+                val = row.get(hit)
+                if val not in (None, "") and str(val).strip():
+                    return str(val).strip()
+        return ""
+
+    def _selected_row_cr_key(row: Dict[str, Any]) -> str:
+        raw = _selected_row_value(row, ["CR", "CR-ID", "CR ID", "CRID", "cr", "mapped_cr", "mapped_crs", "cr_id", "unique_cr", "cr_number", "Change Request"])
+        raw = str(raw or "").strip().upper()
+        if re.fullmatch(r"\d{5,9}", raw):
+            return "CR" + raw
+        return raw
+
+    def _selected_row_jira_key(row: Dict[str, Any]) -> str:
+        return _selected_row_value(row, ["JIRA", "JIRA-Ticket", "Jira Ticket", "JIRA Ticket", "stability_ticket", "jira", "jira_id", "jira_key", "ticket", "key", "Issue", "Issue Key"]).upper()
+
     def _selected_row_type(row: Dict[str, Any]) -> str:
-        raw = str(row.get("CR") or row.get("mapped_cr") or row.get("cr") or row.get("cr_id") or "").strip()
-        explicit = str(row.get("Row Type") or "").strip().lower()
+        raw = _selected_row_cr_key(row)
+        explicit = str(row.get("Row Type") or row.get("row_type") or "").strip().lower()
         if explicit in ("cr", "mapped_jira", "open"):
             return explicit
-        return _row_type(raw)
+        if _is_true_cr(raw):
+            return "cr"
+        if _is_cr_equiv(raw):
+            return "mapped_jira"
+        return "open"
 
     try:
         jql_tabs, _cached_report_rows = _current_jql_summary(target["key"])
@@ -3359,6 +3398,112 @@ def _wbc_build_ppt(target_key: str, tab_id: str = "", tab_ids: List[str] = None,
         build_key = legacy_wbc_ppt.find_col_key(base_builds, ["CRM Build ID", "Build ID", "META-ID", "Meta ID", "Meta"])
         original_build_rows = list(base_builds.get("rows") or [])
         rows_by_build = ((data.get("build_summary") or {}).get("rows_by_build") or {})
+
+        def _merge_selected_rows(*row_sets: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+            merged: List[Dict[str, Any]] = []
+            by_key: Dict[str, Dict[str, Any]] = {}
+            for rows in row_sets:
+                for row in (rows or []):
+                    if not isinstance(row, dict):
+                        continue
+                    jira_key = _selected_row_jira_key(row)
+                    cr_key = _selected_row_cr_key(row)
+                    row_type = _selected_row_type(row)
+                    key = jira_key or (f"{row_type}:{cr_key}" if cr_key else "")
+                    if not key:
+                        try:
+                            key = json.dumps(row, sort_keys=True, default=str)[:200]
+                        except Exception:
+                            key = str(row)[:200]
+                    if key in by_key:
+                        existing = by_key[key]
+                        for col, val in row.items():
+                            if col not in existing:
+                                existing[col] = val
+                            elif existing.get(col) in (None, "") and val not in (None, ""):
+                                existing[col] = val
+                        continue
+                    rec = dict(row)
+                    by_key[key] = rec
+                    merged.append(rec)
+            return merged
+
+        def _selected_row_build_value(row: Dict[str, Any]) -> str:
+            return _selected_row_value(row, [
+                "metabuild", "MetaBuild", "meta_build", "build_id", "build_name",
+                "build", "builds", "CRM Build ID", "Meta-ID", "Matched Build",
+            ])
+
+        def _preview_rows_for_build(build_id: str) -> List[Dict[str, Any]]:
+            """Also scan the full JIRAs/Open-JIRAs preview tables for selected builds.
+
+            Build Report rows can be a running-build/JQL subset.  PPT selection
+            must consider the all-JIRA DB preview too, so unique JIRA and
+            JIRA→CR counts match the Open JIRAs/Mapped JIRAs live view.
+            """
+            build_id = str(build_id or "").strip()
+            if not build_id:
+                return []
+            previews = data.get("previews") or {}
+            matches: List[Dict[str, Any]] = []
+            for preview_name in ("jiras", "open_jiras"):
+                for row in ((previews.get(preview_name) or {}).get("rows") or []):
+                    if not isinstance(row, dict):
+                        continue
+                    row_build = _selected_row_build_value(row)
+                    if row_build and _builds_match(build_id, row_build):
+                        matches.append(row)
+            return _merge_selected_rows(matches)
+
+        def _selected_rows_for_build(build_id: str) -> List[Dict[str, Any]]:
+            build_id = str(build_id or "").strip()
+            if not build_id:
+                return []
+            matches: List[Dict[str, Any]] = []
+            exact = rows_by_build.get(build_id) or []
+            if exact:
+                matches.extend(exact)
+            matches.extend(_preview_rows_for_build(build_id))
+            for known_build, known_rows in (rows_by_build or {}).items():
+                if known_build == build_id:
+                    continue
+                if _builds_match(build_id, known_build):
+                    matches.extend(known_rows or [])
+                    matches.extend(_preview_rows_for_build(known_build))
+            return _merge_selected_rows(matches)
+
+        def _group_selected_cr_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+            grouped: Dict[str, Dict[str, Any]] = {}
+            order: List[str] = []
+            for row in rows or []:
+                cr_key = _selected_row_cr_key(row)
+                if not cr_key or not _is_true_cr(cr_key):
+                    continue
+                if cr_key not in grouped:
+                    rec = dict(row)
+                    rec["CR"] = cr_key
+                    grouped[cr_key] = {"row": rec, "jiras": set(), "fallback_count": 0}
+                    order.append(cr_key)
+                else:
+                    rec = grouped[cr_key]["row"]
+                    for col, val in row.items():
+                        if col not in rec:
+                            rec[col] = val
+                        elif rec.get(col) in (None, "") and val not in (None, ""):
+                            rec[col] = val
+                jira_key = _selected_row_jira_key(row)
+                if jira_key:
+                    grouped[cr_key]["jiras"].add(jira_key)
+                else:
+                    grouped[cr_key]["fallback_count"] += 1
+            out: List[Dict[str, Any]] = []
+            for cr_key in order:
+                bucket = grouped[cr_key]
+                rec = dict(bucket["row"])
+                rec["CR Count"] = len(bucket["jiras"]) or bucket["fallback_count"] or _safe_int(_selected_row_value(rec, ["CR Count", "CR Occurrence", "Occurrence", "Occurrences", "Instances", "Instance", "count"])) or 1
+                out.append(rec)
+            return out
+
         selected_report_rows_by_meta: Dict[str, List[Dict[str, Any]]] = {meta: [] for meta in selected_meta_ids}
         selected_tab_by_meta: Dict[str, Dict[str, Any]] = {}
 
@@ -3378,13 +3523,18 @@ def _wbc_build_ppt(target_key: str, tab_id: str = "", tab_ids: List[str] = None,
                         if selected_tab.get(count_key) not in (None, "", "-"):
                             selected_tab_by_meta[meta_id][count_key] = _safe_int(selected_tab_by_meta[meta_id].get(count_key)) + _safe_int(selected_tab.get(count_key))
                     selected_cached = get_cached_report(pdt_key, saved_domain, selected_tab.get("id")) or {}
-                    selected_report_rows_by_meta.setdefault(meta_id, []).extend(selected_cached.get("rows") or selected_cached.get("flat_rows") or [])
+                    selected_report_rows_by_meta.setdefault(meta_id, []).extend(
+                        _merge_selected_rows(
+                            selected_cached.get("rows") or selected_cached.get("flat_rows") or [],
+                            _selected_rows_for_build(raw_meta_id),
+                        )
+                    )
             except Exception:
                 selected_report_rows_by_meta = {meta: [] for meta in selected_meta_ids}
 
         for build_id in selected_build_ids:
             meta_id = merged_meta_id or _selection_meta_key(build_id)
-            selected_report_rows_by_meta.setdefault(meta_id, []).extend(rows_by_build.get(build_id) or [])
+            selected_report_rows_by_meta.setdefault(meta_id, []).extend(_selected_rows_for_build(build_id))
 
         status_slides: List[Dict[str, Any]] = []
         all_selected_build_rows: List[Dict[str, Any]] = []
@@ -3397,28 +3547,33 @@ def _wbc_build_ppt(target_key: str, tab_id: str = "", tab_ids: List[str] = None,
             if selected_build_rows:
                 all_selected_build_rows.extend(selected_build_rows)
 
-            selected_report_rows = selected_report_rows_by_meta.get(meta_id) or []
+            selected_report_rows = _merge_selected_rows(selected_report_rows_by_meta.get(meta_id) or [])
             all_cols: List[str] = []
             for row in selected_report_rows:
                 for key in (row.keys() if isinstance(row, dict) else []):
                     if key not in all_cols:
                         all_cols.append(key)
+            if "CR Count" not in all_cols:
+                all_cols.append("CR Count")
             column_objs = [{"title": str(col).replace("_", " "), "key": col} for col in all_cols]
-            cr_rows = [row for row in selected_report_rows if _selected_row_type(row) == "cr"]
-            open_jira_rows = [
-                row for row in selected_report_rows
-                if _selected_row_type(row) == "open"
-                and str(row.get("JIRA") or row.get("stability_ticket") or row.get("jira") or row.get("jira_id") or "").strip()
-            ]
-            mapped_jira_rows = [
-                row for row in selected_report_rows
-                if _selected_row_type(row) == "mapped_jira"
-                or (
-                    not open_jira_rows
-                    and re.match(r"^[A-Z][A-Z0-9]+-\d+$", str(row.get("JIRA") or row.get("stability_ticket") or row.get("jira") or row.get("jira_id") or "").strip(), re.I)
-                )
-            ]
-            jira_rows = open_jira_rows if open_jira_rows else mapped_jira_rows
+            valid_selected_rows = [row for row in selected_report_rows if not _is_invalid_row(row)]
+            cr_rows = _group_selected_cr_rows([row for row in valid_selected_rows if _selected_row_type(row) == "cr"])
+            jira_rows = _merge_selected_rows([
+                row for row in valid_selected_rows
+                if _selected_row_type(row) in ("open", "mapped_jira") and _selected_row_jira_key(row)
+            ])
+            selected_cr_count = len({_selected_row_cr_key(row) for row in cr_rows if _selected_row_cr_key(row)})
+            selected_jira_count = len({_selected_row_jira_key(row) for row in jira_rows if _selected_row_jira_key(row)})
+            selected_open_jira_count = len({
+                _selected_row_jira_key(row)
+                for row in valid_selected_rows
+                if _selected_row_type(row) == "open" and _selected_row_jira_key(row)
+            })
+            selected_mapped_jira_count = len({
+                _selected_row_jira_key(row) or _selected_row_cr_key(row)
+                for row in valid_selected_rows
+                if _selected_row_type(row) == "mapped_jira" and (_selected_row_jira_key(row) or _selected_row_cr_key(row))
+            })
 
             meta_builds = {**base_builds, "columns": build_cols, "rows": selected_build_rows or original_build_rows}
             meta_kpi = dict(ppt_data.get("computed_kpis") or {})
@@ -3429,6 +3584,14 @@ def _wbc_build_ppt(target_key: str, tab_id: str = "", tab_ids: List[str] = None,
                 meta_kpi["open_cr_current"] = selected_tab.get("cr_count")
             if selected_tab.get("jira_count") not in (None, "", "-"):
                 meta_kpi["open_jira_current"] = selected_tab.get("jira_count")
+            if selected_report_rows:
+                meta_kpi["total_jiras"] = selected_jira_count
+                meta_kpi["overall_open_jiras"] = selected_open_jira_count
+                meta_kpi["open_jira_current"] = selected_open_jira_count
+                meta_kpi["total_crs"] = selected_cr_count
+                meta_kpi["pdt_unique_cr"] = selected_cr_count
+                meta_kpi["open_cr_current"] = selected_cr_count
+                meta_kpi["mapped_jira_current"] = selected_mapped_jira_count
             if selected_build_rows:
                 h_key = legacy_wbc_ppt.find_col_key(meta_builds, ["Hours+", "Hours", "Total Hours"])
                 c_key = legacy_wbc_ppt.find_col_key(meta_builds, ["Crash", "Crashes", "Total Crashes"])
