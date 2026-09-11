@@ -1,4 +1,5 @@
 import html
+import json
 import logging
 import os
 import re
@@ -280,6 +281,70 @@ def _as_bool(value, default=True):
     if value is None:
         return default
     return str(value).strip().lower() in ("1", "true", "yes", "y", "on")
+
+
+def _parse_lenient_object_body(raw_text):
+    """Parse JSON or PowerShell-stripped JSON-like API bodies.
+
+    Windows PowerShell can pass curl.exe JSON written as single-quoted text to
+    the native process with the inner double quotes stripped, e.g.:
+      {builds:BUILD1, project:DROIDBUG, raw_only:true}
+    Flask correctly rejects that as invalid JSON. This fallback preserves the
+    public API behavior for existing tools by accepting that object-shaped
+    payload only for known simple request keys.
+    """
+    text = str(raw_text or "").strip()
+    if not text:
+        return {}
+
+    try:
+        parsed = json.loads(text)
+        return parsed if isinstance(parsed, dict) else {}
+    except Exception:
+        pass
+
+    if not (text.startswith("{") and text.endswith("}")):
+        return {}
+
+    inner = text[1:-1].strip()
+    if not inner:
+        return {}
+
+    allowed_keys = {
+        "builds",
+        "target",
+        "target_name",
+        "filter_id",
+        "project",
+        "projects",
+        "custom_jql",
+        "jql",
+        "traverse",
+        "enrich_orbit",
+        "raw_only",
+    }
+    key_pattern = re.compile(r"(?:(?<=^)|(?<=,))\s*([A-Za-z_][A-Za-z0-9_]*)\s*:")
+    matches = [match for match in key_pattern.finditer(inner) if match.group(1) in allowed_keys]
+    if not matches:
+        return {}
+
+    parsed = {}
+    for index, match in enumerate(matches):
+        key = match.group(1)
+        next_start = matches[index + 1].start() if index + 1 < len(matches) else len(inner)
+        value = inner[match.end():next_start].strip().rstrip(",").strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in ("'", '"'):
+            value = value[1:-1]
+        lowered = value.lower()
+        if lowered == "true":
+            parsed[key] = True
+        elif lowered == "false":
+            parsed[key] = False
+        elif lowered in ("null", "none"):
+            parsed[key] = None
+        else:
+            parsed[key] = value
+    return parsed
 
 
 def _configured_api_tokens():
@@ -710,7 +775,14 @@ def api_jiraquery_raw():
         "raw_only": false
       }
     """
-    body = request.get_json(force=True, silent=True) or {} if request.method == "POST" else {}
+    if request.method == "POST":
+        body = request.get_json(force=True, silent=True)
+        if not isinstance(body, dict):
+            body = _parse_lenient_object_body(request.get_data(as_text=True))
+    else:
+        body = {}
+    if not isinstance(body, dict):
+        body = {}
 
     builds_value = body.get("builds") or request.args.get("builds") or ""
     if isinstance(builds_value, list):

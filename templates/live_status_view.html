@@ -534,7 +534,8 @@
           <div class="cr-main-topbar-title"><i class="fas fa-bolt" style="color:#f59e0b"></i> Scoped to:</div>
           <span id="crActiveBuildTag" class="cr-active-build-tag all-mode"><i class="fas fa-layer-group"></i> All ADAS builds</span>
           <span id="crSummaryPills" style="display:flex;gap:6px;flex-wrap:wrap;margin-left:4px"></span>
-          <button class="ghost small" id="crCopyReportBtn" onclick="crCopyReport()" style="margin-left:auto"><i class="fas fa-copy"></i> Copy Report</button>
+          <button class="primary small" id="crExcelReportBtn" onclick="crDownloadExcel()" style="margin-left:auto"><i class="fas fa-file-excel"></i> Export Excel</button>
+          <button class="ghost small" id="crCopyReportBtn" onclick="crCopyReport()"><i class="fas fa-copy"></i> Copy Report</button>
         </div>
 
         <div class="cr-results-area">
@@ -561,8 +562,8 @@
             <!-- CRs Tab -->
             <div id="crTabPane_crs">
               <div class="table-wrap" style="max-height:380px;margin-bottom:10px">
-                <table><thead><tr><th>#</th><th>CR-ID</th><th>Occ.</th><th>CR Title</th><th>Area</th><th>SubSystem</th><th>Functionality</th><th>CR Date</th><th>CR SI</th><th>CR Status</th><th>JIRA Tickets</th></tr></thead>
-                <tbody id="crReportBody"><tr><td colspan="11" class="empty"><i class="fas fa-circle-notch spin"></i><p>Loading...</p></td></tr></tbody></table>
+                <table><thead><tr><th>#</th><th>CR-ID</th><th>Occ.</th><th>CR Title</th><th>Area</th><th>SubSystem</th><th>Functionality</th><th>CR Date</th><th>CR SI</th><th>CR Status</th><th>CR Assignee</th><th>CR Notes</th><th>JIRA Tickets</th></tr></thead>
+                <tbody id="crReportBody"><tr><td colspan="13" class="empty"><i class="fas fa-circle-notch spin"></i><p>Loading...</p></td></tr></tbody></table>
               </div>
             </div>
             <!-- Mapped JIRAs Tab -->
@@ -2247,18 +2248,39 @@ function _crIsClosedJunk(j){
   return false;
 }
 
-function _crNormalizeReportRows(hierarchical){
+function _crNormalizeReportRows(reportOrHierarchical){
+  const report = Array.isArray(reportOrHierarchical) ? {hierarchical_report: reportOrHierarchical} : (reportOrHierarchical || {});
+  const hierarchical = report.hierarchical_report || [];
+  const crIndex = report.cr_index || {};
   const crRows=[], mappedRows=[], openRows=[], seenJ=new Set();
   (hierarchical||[]).forEach(r=>{
     const jiras=r.jiras||[];
     const cr=String(r.cr||'').trim();
     if(_isTrueCr(cr)){
+      const crIndexEntry = crIndex[cr] || {};
+      const detailSrc = crIndexEntry || {};
+      const crAssignee = String(
+        detailSrc.AssigneeUid || detailSrc.assignee_uid || detailSrc.cr_assignee || detailSrc.assignee ||
+        r.AssigneeUid || r.assignee_uid || r.cr_assignee || r.assignee || r.AssigneeUID || r.Assignee || ''
+      ).trim();
+      const crNotes = String(
+        detailSrc.cr_notes || detailSrc.latest_cr_notes || detailSrc.latest_notes || detailSrc.notes ||
+        r.cr_notes || r.latest_cr_notes || r.latest_notes || r.notes || ''
+      ).trim();
       crRows.push({
-        cr, title:r.cr_title||r.title||'', occurrences:jiras.length||r.cr_count||r.jira_count||1,
-        area:r.cr_area||r.area||'', subsystem:r.cr_subsystem||r.subsystem||'',
-        functionality:r.cr_functionality||r.cr_function||r.functionality||'',
-        date:r.cr_date||'', si:r.cr_si||'', status:r.cr_status||r.status||'',
-        age:r.cr_age||r.overall_age||'', jiras
+        cr, title:detailSrc.cr_title||r.cr_title||r.title||'', occurrences:jiras.length||r.cr_count||r.jira_count||1,
+        area:detailSrc.cr_area||r.cr_area||r.area||'', subsystem:detailSrc.cr_subsystem||r.cr_subsystem||r.subsystem||'',
+        functionality:detailSrc.cr_function||detailSrc.cr_functionality||r.cr_functionality||r.cr_function||r.functionality||'',
+        date:detailSrc.cr_date||r.cr_date||'', si:detailSrc.cr_si||detailSrc.cr_image||r.cr_si||r.cr_image||'', status:detailSrc.cr_status||r.cr_status||r.status||'',
+        age:detailSrc.cr_age||r.cr_age||r.overall_age||'',
+        cr_assignee:crAssignee,
+        cr_notes:crNotes,
+        priority:detailSrc.cr_priority||r.priority||r.cr_priority||r.Priority||'',
+        crash_type:r.crash_type||r.type||'',
+        parent_cr:detailSrc.parent_cr||r.parent_cr||r.parent_id||r.ParentCR||'',
+        ready_date:detailSrc.cr_ready_date||r.ready_date||r.ReadyDate||'',
+        built_date:detailSrc.cr_built_date||r.built_date||r.BuiltDate||'',
+        jiras
       });
     } else if(_isCrEquiv(cr)){
       const firstJ=jiras[0]||{};
@@ -2303,9 +2325,9 @@ function crSwitchTab(name){
   });
 }
 
-function _crRenderCrTable(hierarchical){
+function _crRenderCrTable(reportOrHierarchical){
   const body = document.getElementById('crReportBody');
-  const parsed = _crNormalizeReportRows(hierarchical);
+  const parsed = _crNormalizeReportRows(reportOrHierarchical);
   _crAllRows    = parsed.crRows;
   _crMappedRows = parsed.mappedRows;
   _crOpenRows   = parsed.open;
@@ -2325,7 +2347,7 @@ function _crRenderCrTable(hierarchical){
 
   // Render CRs tab
   if(!body) return;
-  if(!_crAllRows.length){ body.innerHTML=`<tr><td colspan="11" class="empty"><i class="fas fa-inbox"></i><p>No CRs found for the selected builds.</p></td></tr>`; }
+  if(!_crAllRows.length){ body.innerHTML=`<tr><td colspan="13" class="empty"><i class="fas fa-inbox"></i><p>No CRs found for the selected builds.</p></td></tr>`; }
   else body.innerHTML=_crAllRows.map((r,i)=>{
     const id=(String(r.cr||'').match(/(\d{5,9})/)||[])[1]||'';
     const crLinkHtml=id?`<a class="link" href="https://orbit/CR/${esc(id)}" target="_blank" rel="noopener">${esc(r.cr)}</a>`:esc(r.cr||'--');
@@ -2338,7 +2360,7 @@ function _crRenderCrTable(hierarchical){
     const stLow=String(r.status||'').toLowerCase();
     const stColor=stLow==='analysis'?'background:#ede9fe;color:#5b21b6':stLow==='built'||stLow==='closed'?'background:#dcfce7;color:#166534':'background:#f1f5f9;color:#475569';
     const stBadge=r.status?`<span style="border-radius:999px;font-size:10px;font-weight:900;padding:2px 6px;${stColor}">${esc(r.status)}</span>`:'--';
-    return `<tr><td style="text-align:center;color:#94a3b8;font-size:11px">${i+1}</td><td style="white-space:nowrap">${crLinkHtml}</td><td style="text-align:center;font-weight:950;color:#4f46e5">${esc(cnt)}</td><td style="max-width:320px;word-break:break-word;font-size:11px">${esc(r.title||'--')}</td><td style="font-size:11px">${esc(r.area||'--')}</td><td style="font-size:11px">${esc(r.subsystem||'--')}</td><td style="font-size:11px">${esc(r.functionality||'--')}</td><td style="white-space:nowrap;font-size:11px">${esc(r.date||'--')}</td><td style="font-size:11px">${esc(r.si||'--')}</td><td>${stBadge}</td><td style="min-width:160px">${jiraCell}</td></tr>`;
+    return `<tr><td style="text-align:center;color:#94a3b8;font-size:11px">${i+1}</td><td style="white-space:nowrap">${crLinkHtml}</td><td style="text-align:center;font-weight:950;color:#4f46e5">${esc(cnt)}</td><td style="max-width:320px;word-break:break-word;font-size:11px">${esc(r.title||'--')}</td><td style="font-size:11px">${esc(r.area||'--')}</td><td style="font-size:11px">${esc(r.subsystem||'--')}</td><td style="font-size:11px">${esc(r.functionality||'--')}</td><td style="white-space:nowrap;font-size:11px">${esc(r.date||'--')}</td><td style="font-size:11px">${esc(r.si||'--')}</td><td>${stBadge}</td><td style="font-size:11px;white-space:nowrap">${esc(r.cr_assignee||'--')}</td><td style="min-width:220px;max-width:360px;word-break:break-word;font-size:11px">${esc(r.cr_notes||'--')}</td><td style="min-width:160px">${jiraCell}</td></tr>`;
   }).join('');
 
   // Render Mapped tab
@@ -2383,7 +2405,7 @@ async function crRunReport(force){
   if(!_crJobId){ return; }
   const jql = _crGetJql();
   if(!jql){
-    document.getElementById('crReportBody').innerHTML = `<tr><td colspan="11" class="empty">Select at least one build to view crash CR/JIRA details.</td></tr>`;
+    document.getElementById('crReportBody').innerHTML = `<tr><td colspan="13" class="empty">Select at least one build to view crash CR/JIRA details.</td></tr>`;
     const tabs=document.getElementById('crReportTabs'); if(tabs) tabs.style.display='none';
     const empty=document.getElementById('crReportEmpty'); if(empty){ empty.style.display='block'; empty.innerHTML='<i class="fas fa-info-circle"></i> Select at least one build to view the report.'; }
     return;
@@ -2392,7 +2414,7 @@ async function crRunReport(force){
   const msg = document.getElementById('crReportMsg');
   if(sp) sp.style.display = 'inline';
   if(msg){ msg.textContent = 'Fetching crash data...'; msg.style.color = '#4f46e5'; }
-  if(force) document.getElementById('crReportBody').innerHTML = `<tr><td colspan="11" class="empty"><i class="fas fa-circle-notch spin"></i> Fetching crash data...</td></tr>`;
+  if(force) document.getElementById('crReportBody').innerHTML = `<tr><td colspan="13" class="empty"><i class="fas fa-circle-notch spin"></i> Fetching crash data...</td></tr>`;
   try{
     const res  = await fetch(`/api/live_status/targets/${encodeURIComponent(TARGET)}/current_report`, {
       method: 'POST', headers: {'Content-Type':'application/json'},
@@ -2406,7 +2428,7 @@ async function crRunReport(force){
     const newCount = meta.jira_count !== undefined ? meta.jira_count : (report.jiras || []).length;
     _crLastJiraCount = newCount;
     _crExcludedJiras = (report.excluded_jiras || []).map(k => String(k).toUpperCase());
-    _crRenderCrTable(report.hierarchical_report || []);
+    _crRenderCrTable(report);
     // Switch to CRs tab by default
     crSwitchTab('crs');
     const pills = document.getElementById('crSummaryPills');
@@ -2415,10 +2437,72 @@ async function crRunReport(force){
     }
     if(msg){ msg.textContent = `Updated ${new Date().toLocaleTimeString()}`; msg.style.color = '#059669'; }
   }catch(err){
-    document.getElementById('crReportBody').innerHTML = `<tr><td colspan="11" class="empty"><i class="fas fa-triangle-exclamation"></i><p>${esc(err.message || err)}</p></td></tr>`;
+    document.getElementById('crReportBody').innerHTML = `<tr><td colspan="13" class="empty"><i class="fas fa-triangle-exclamation"></i><p>${esc(err.message || err)}</p></td></tr>`;
     if(msg){ msg.textContent = 'Error: ' + (err.message || err); msg.style.color = '#dc2626'; }
   }finally{
     if(sp) sp.style.display = 'none';
+  }
+}
+
+async function crDownloadExcel(){
+  const crRows = (_crAllRows || []).map(function(r){
+    const jiraKeys = (r.jiras || []).map(function(j){ return _crJiraKey(j); }).filter(Boolean);
+    return {
+      cr: r.cr || '',
+      title: r.title || '',
+      occurrence: r.occurrences || jiraKeys.length || '',
+      priority: r.priority || '',
+      crash_type: r.crash_type || _crCrashType(r),
+      parent_cr: r.parent_cr || '',
+      area: r.area || '',
+      subsystem: r.subsystem || '',
+      functionality: r.functionality || '',
+      status: r.status || '',
+      age: r.age || '',
+      cr_assignee: r.cr_assignee || '',
+      si: r.si || '',
+      date: r.date || '',
+      ready_date: r.ready_date || '',
+      built_date: r.built_date || '',
+      cr_notes: r.cr_notes || '',
+      jira_keys: jiraKeys
+    };
+  });
+  const mappedRows = (_crMappedRows || []).map(function(r){
+    return {ticket:r.ticket||'', count:r.count||'', title:r.title||'', date:r.date||'', status:r.status||'', srcKeys:r.srcKeys||[]};
+  });
+  const openRows = (_crOpenRows || []).map(function(r){
+    return {key:r.key||'', title:r.summary||r.title||'', date:r.date||'', status:r.status||'', final_resolution:r.final_resolution||'', resolution_notes_text:r.resolution_notes_text||''};
+  });
+  if(!crRows.length && !mappedRows.length && !openRows.length){ alert('No current report rows to export.'); return; }
+
+  const btn = document.getElementById('crExcelReportBtn');
+  const oldHtml = btn ? btn.innerHTML : '';
+  if(btn){ btn.disabled = true; btn.innerHTML = '<i class="fas fa-circle-notch spin"></i> Exporting...'; }
+  try{
+    const stamp = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
+    const filename = 'gen5_current_report_' + String(TARGET || 'target') + '_' + stamp + '.xlsx';
+    const resp = await fetch('/api/build_report/export_excel', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({filename:filename, sheets:{cr_summary:crRows, mapped_tickets:mappedRows, open_jiras:openRows}})
+    });
+    if(!resp.ok){
+      let msg = 'Excel export failed';
+      try{ const d = await resp.json(); msg = d.error || msg; }catch(_){}
+      throw new Error(msg);
+    }
+    const blob = await resp.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+    const m = document.getElementById('crReportMsg');
+    if(m){ m.textContent = 'Excel exported.'; m.style.color = '#059669'; }
+  }catch(err){
+    alert(err.message || err);
+  }finally{
+    if(btn){ btn.disabled = false; btn.innerHTML = oldHtml; }
   }
 }
 
@@ -2430,8 +2514,8 @@ function crCopyReport(){
   lines.push('');
   // CRs tab
   lines.push('=== CRs (' + (_crAllRows||[]).length + ') ===');
-  lines.push(['#','CR','Title','Occurrences','Area','Subsystem','Functionality','CR Date','CR SI','CR Status'].join('\t'));
-  (_crAllRows || []).forEach((r,i) => lines.push([i+1,r.cr,r.title,r.occurrences,r.area,r.subsystem,r.functionality,r.date,r.si,r.status].map(v => String(v == null ? '' : v).replace(/\t/g,' ')).join('\t')));
+  lines.push(['#','CR','Title','Occurrences','Area','Subsystem','Functionality','CR Date','CR SI','CR Status','CR Assignee','CR Notes'].join('\t'));
+  (_crAllRows || []).forEach((r,i) => lines.push([i+1,r.cr,r.title,r.occurrences,r.area,r.subsystem,r.functionality,r.date,r.si,r.status,r.cr_assignee,r.cr_notes].map(v => String(v == null ? '' : v).replace(/\t/g,' ')).join('\t')));
   // Mapped tab
   if((_crMappedRows||[]).length){
     lines.push(''); lines.push('=== Mapped JIRAs (' + _crMappedRows.length + ') ===');

@@ -447,6 +447,9 @@ function _irNormalize(r){
   function fStatus(j){ var t=j.traversal||{}; return String(t.final_status||j.final_status||j.status||''); }
   function fSummary(j){ var t=j.traversal||{}; return String(t.final_summary||j.final_summary||j.summary||j.jira_title||j.title||''); }
   function fCr(j){ var t=j.traversal||{}; return String(t.final_cr||j.cr_mapped||j.mapped_cr||j.cr||''); }
+function fAssignee(j){ var t=j.traversal||{}, f=j.fields||{}, a=f.assignee||{}; return String(t.AssigneeUid||t.assignee_uid||t.cr_assignee||t.assignee||t.owner||t.assigned_to||j.AssigneeUid||j.assignee_uid||j.cr_assignee||j.assignee||j.Assignee||j.owner||j.assigned_to||j.assignee_name||a.displayName||a.name||a.emailAddress||'').trim(); }
+function fNotes(j){ var t=j.traversal||{}; return String(t.cr_notes||t.latest_cr_notes||t.latest_notes||t.notes||j.cr_notes||j.latest_cr_notes||j.latest_notes||j.notes||j.resolution_notes_text||j.resolution_notes||'').trim(); }
+function fFirst(arr, fn){ for(var i=0;i<(arr||[]).length;i++){ var v=fn(arr[i]||{}); if(v) return v; } return ''; }
   /* If the API returns flat rows (saved JQL tabs), treat them as openRows directly */
   if(r.rows && r.rows.length && !r.hierarchical_report){
     r.rows.forEach(function(row){
@@ -477,16 +480,18 @@ function _irNormalize(r){
       var info=ci[cr]||{};
       return {cr:cr,cr_count:groups[cr].length,cr_title:info.cr_title||'',cr_status:info.cr_status||'',
         cr_area:info.cr_area||'',cr_subsystem:info.cr_subsystem||'',cr_function:info.cr_function||'',
-        cr_date:info.cr_date||'',cr_si:info.cr_si||'',jiras:groups[cr]};
+        cr_date:info.cr_date||'',cr_si:info.cr_si||'',cr_assignee:info.AssigneeUid||info.assignee_uid||info.cr_assignee||info.assignee||'',cr_notes:info.cr_notes||info.latest_cr_notes||info.latest_notes||info.notes||'',jiras:groups[cr]};
     });
   }
   hier.forEach(function(row){
     var cr=String(row.cr||'').trim();
     var jiras=row.jiras||[];
     if(isTrueCr(cr)){
+      var firstCrJira = jiras[0]||{};
       crRows.push({cr:cr, title:row.cr_title||'', area:row.cr_area||'', sub:row.cr_subsystem||'',
         func:row.cr_functionality||row.cr_function||'', date:row.cr_date||'', si:row.cr_si||'',
-        status:row.cr_status||'', count:jiras.length||row.cr_count||1, jiras:jiras});
+        status:row.cr_status||'', assignee:row.AssigneeUid||row.assignee_uid||row.cr_assignee||row.assignee||fAssignee(firstCrJira),
+        notes:row.cr_notes||row.latest_cr_notes||row.latest_notes||row.notes||fNotes(firstCrJira), count:jiras.length||row.cr_count||1, jiras:jiras});
     } else if(isCrEquiv(cr)){
       var first=jiras[0]||{};
       mappedRows.push({ticket:cr, count:jiras.length||1, title:fSummary(first)||row.title||'',
@@ -505,7 +510,7 @@ function _irNormalize(r){
         seenJ[key]=1;
         openRows.push({key:key, title:j.summary||j.jira_title||fSummary(j)||'',
           date:String(j.created||'').slice(0,10), status:j.status||fStatus(j)||'',
-          priority:j.priority||'', type:j.issuetype||j.type||''});
+          priority:j.priority||'', type:j.issuetype||j.type||'', assignee:fAssignee(j), notes:fNotes(j)});
       });
     }
   });
@@ -595,6 +600,21 @@ function _irSwitchTab(uid, name){
 }
 function _irTH(label){ return '<th style="position:sticky;top:0;background:linear-gradient(135deg,#172554,#4f46e5 58%,#7c3aed);color:#fff;text-align:left;padding:10px 12px;font-size:10px;text-transform:uppercase;letter-spacing:.05em;font-weight:900;white-space:nowrap;border-bottom:0">'+_irEsc(label)+'</th>'; }
 function _irTD(content, extra){ return '<td style="padding:9px 10px;border-bottom:1px solid #eef2ff;vertical-align:top;'+(extra||'')+'">'+content+'</td>'; }
+
+function _irTableWrapStart(){
+return '<div class="ir-table-scroll" style="overflow:auto;max-height:clamp(320px,calc(100vh - 430px),720px);width:100%;border:1px solid rgba(199,210,254,.78);border-radius:14px;box-shadow:0 6px 18px rgba(23,37,84,.07)">';
+}
+function _irCopyTableById(tableId, btn){
+var tbl=document.getElementById(tableId);
+if(!tbl){ alert('No table to copy.'); return; }
+var rows=Array.prototype.slice.call(tbl.querySelectorAll('tr')).filter(function(tr){return tr.style.display!=='none';});
+if(!rows.length){ alert('No rows to copy.'); return; }
+var text=rows.map(function(tr){return Array.prototype.slice.call(tr.children).map(function(c){return String(c.innerText||c.textContent||'').replace(/\s+/g,' ').trim();}).join('\t');}).join('\n');
+var old=btn&&btn.innerHTML;
+function ok(){ if(btn){btn.innerHTML='<i class="fas fa-check"></i> Copied'; setTimeout(function(){btn.innerHTML=old;},1400);} }
+if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(ok).catch(function(){alert('Copy failed.');});
+}
+
 function _irSiCell(si){
   if(!si||si==='--'||si==='null') return '<span style="color:#94a3b8">--</span>';
   var s=String(si).trim();
@@ -610,12 +630,13 @@ function _irCrTable(crRows, uid){
   if(!crRows.length) return '<div style="text-align:center;padding:32px;color:#94a3b8"><i class="fas fa-inbox" style="font-size:28px;opacity:.3"></i><br><br>No CRs found.</div>';
   var searchId=uid+'_cr_search';
   var html='<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">'+
-    '<input id="'+searchId+'" style="height:30px;border:1.5px solid #e2e8f0;border-radius:9px;padding:5px 10px;font-size:12px;font-family:inherit;outline:none;min-width:220px" placeholder="Search CR / title / area..." oninput="_irFilterTable(\''+uid+'_cr_tbody\',this.value)">'+
+    '<input id="'+searchId+'" style="height:30px;border:1.5px solid #e2e8f0;border-radius:9px;padding:5px 10px;font-size:12px;font-family:inherit;outline:none;min-width:220px" placeholder="Search CR / title / area / assignee / notes..." oninput="_irFilterTable(\''+uid+'_cr_tbody\',this.value)">'+
+    '<button type="button" onclick="_irCopyTableById(\''+uid+'_cr_table\',this)" style="height:30px;border:1px solid #c7d2fe;border-radius:9px;background:#eef2ff;color:#3730a3;font-size:11px;font-weight:900;cursor:pointer"><i class="fas fa-copy"></i> Copy Table</button>'+
     '<span style="font-size:11px;color:#64748b;font-weight:700">'+crRows.length+' CR'+(crRows.length===1?'':'s')+'</span>'+
   '</div>'+
-  '<div style="overflow:auto;border:1px solid rgba(199,210,254,.78);border-radius:14px;box-shadow:0 6px 18px rgba(23,37,84,.07)">'+
-  '<table style="width:100%;border-collapse:collapse;font-size:12px;background:#fff">'+
-  '<thead><tr>'+[_irTH('#'),_irTH('CR-ID'),_irTH('Occurrences'),_irTH('CR Title'),_irTH('Area'),_irTH('SubSystem'),_irTH('Functionality'),_irTH('Date'),_irTH('SI'),_irTH('Status'),_irTH('JIRA Tickets')].join('')+'</tr></thead>'+
+  _irTableWrapStart()+
+  '<table style="width:max-content;min-width:100%;border-collapse:collapse;font-size:12px;background:#fff">'+
+  '<thead><tr>'+[_irTH('#'),_irTH('CR-ID'),_irTH('Occurrences'),_irTH('CR Title'),_irTH('Area'),_irTH('SubSystem'),_irTH('Functionality'),_irTH('Date'),_irTH('SI'),_irTH('Status'),_irTH('CR Assignee'),_irTH('CR Notes'),_irTH('JIRA Tickets')].join('')+'</tr></thead>'+
   '<tbody id="'+uid+'_cr_tbody">';
   crRows.forEach(function(r,i){
     var id=(String(r.cr||'').match(/(\d{5,9})/)||[])[1]||'';
@@ -643,6 +664,8 @@ function _irCrTable(crRows, uid){
       _irTD(_irEsc(r.date||'--'),'white-space:nowrap;font-size:11px')+
       _irTD(_irSiCell(r.si),'font-size:11px;text-align:center')+
       _irTD(_irStatusBadge(r.status))+
+      _irTD(_irEsc(r.assignee||'--'),'font-size:11px;white-space:nowrap;color:#475569')+
+      _irTD(_irEsc(r.notes||'--'),'max-width:320px;word-break:break-word;font-size:11px;line-height:1.35')+
       _irTD(jiraCell,'min-width:160px')+
     '</tr>';
   });
@@ -651,8 +674,8 @@ function _irCrTable(crRows, uid){
 }
 function _irMappedTable(mappedRows, uid){
   if(!mappedRows.length) return '<div style="text-align:center;padding:32px;color:#94a3b8"><i class="fas fa-inbox" style="font-size:28px;opacity:.3"></i><br><br>No mapped tickets found.</div>';
-  var html='<div style="overflow:auto;border:1px solid rgba(199,210,254,.78);border-radius:14px;box-shadow:0 6px 18px rgba(23,37,84,.07)">'+
-  '<table style="width:100%;border-collapse:collapse;font-size:12px;background:#fff">'+
+  var html=_irTableWrapStart()+
+  '<table style="width:max-content;min-width:100%;border-collapse:collapse;font-size:12px;background:#fff">'+
   '<thead><tr>'+[_irTH('#'),_irTH('JIRA Ticket'),_irTH('Occurrences'),_irTH('Title'),_irTH('Date'),_irTH('Status'),_irTH('Source JIRAs')].join('')+'</tr></thead>'+
   '<tbody>';
   mappedRows.forEach(function(r,i){
@@ -682,10 +705,11 @@ function _irOpenTable(openRows, uid, isFlatJql){
     : [_irTH('#'),_irTH('JIRA Ticket'),_irTH('Title'),_irTH('Date'),_irTH('Status'),_irTH('Priority'),_irTH('Type')];
   var html='<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">'+
     '<input id="'+searchId+'" style="height:30px;border:1.5px solid #e2e8f0;border-radius:9px;padding:5px 10px;font-size:12px;font-family:inherit;outline:none;min-width:220px" placeholder="Search JIRA / title / status..." oninput="_irFilterTable(\''+uid+'_open_tbody\',this.value)">'+
+    '<button type="button" onclick="_irCopyTableById(\''+uid+'_open_table\',this)" style="height:30px;border:1px solid #c7d2fe;border-radius:9px;background:#eef2ff;color:#3730a3;font-size:11px;font-weight:900;cursor:pointer"><i class="fas fa-copy"></i> Copy Table</button>'+
     '<span style="font-size:11px;color:#64748b;font-weight:700">'+openRows.length+' issue'+(openRows.length===1?'':'s')+'</span>'+
   '</div>'+
-  '<div style="overflow:auto;border:1px solid rgba(199,210,254,.78);border-radius:14px;box-shadow:0 6px 18px rgba(23,37,84,.07)">'+
-  '<table style="width:100%;border-collapse:collapse;font-size:12px;background:#fff">'+
+  _irTableWrapStart()+
+  '<table style="width:max-content;min-width:100%;border-collapse:collapse;font-size:12px;background:#fff">'+
   '<thead><tr>'+cols.join('')+'</tr></thead>'+
   '<tbody id="'+uid+'_open_tbody">';
   openRows.forEach(function(r,i){
@@ -900,7 +924,7 @@ function _g45RenderConsolidated(el, r, tab){
   tbody += '</tbody>';
     var tableHtml =
     '<div style="overflow:auto;border:1px solid rgba(199,210,254,.78);border-radius:14px;box-shadow:0 6px 18px rgba(23,37,84,.07);max-height:520px">'
-    +'<table style="width:100%;border-collapse:collapse;font-size:12px;background:#fff">'
+    +'<table style="width:max-content;min-width:100%;border-collapse:collapse;font-size:12px;background:#fff">'
     +thead+tbody
     +'</table></div>';
   el.innerHTML = runErr + jqlBox + countHeader + searchBar + tableHtml;

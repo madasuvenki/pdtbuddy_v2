@@ -457,6 +457,23 @@ def _query_value(row: dict, *names, default=''):
     return default
 
 
+def _person_value(value, default=''):
+    """Return a readable Orbit person field.
+
+    Orbit may return people as a plain string ("Chandan Gera (cgera)") or as
+    an object with display/name/user-id fields. Keep the display value when it
+    already exists instead of dropping it.
+    """
+    if value in (None, ''):
+        return default
+    if isinstance(value, dict):
+        for key in ('DisplayName', 'displayName', 'FullName', 'fullName', 'Name', 'name', 'Uid', 'uid', 'UserId', 'userId', 'Login', 'login', 'Email', 'email'):
+            if value.get(key) not in (None, ''):
+                return str(value.get(key)).strip()
+        return default
+    return str(value).strip()
+
+
 def _query_bool(value) -> bool:
     if isinstance(value, bool):
         return value
@@ -550,8 +567,10 @@ def _fetch_via_orbit_query(cr_number: str, orbit_server: str = None) -> dict:
             "Severity"                : _query_value(core, "Severity"),
             "IsCrash"                 : _query_bool(_query_value(core, "IsCrash")),
             "Priority"                : _query_value(core, "Priority", default=None),
-            "ReporterUid"             : _query_value(core, "Reporter"),
-            "AssigneeUid"             : _query_value(core, "Assignee"),
+            "ReporterUid"             : _person_value(_query_value(core, "Reporter", "ChangeRequest.Reporter")),
+            "AssigneeUid"             : _person_value(_query_value(core, "Assigned To", "AssignedTo", "ChangeRequest.Assignee", "Assignee")),
+            "Assignee"                : _person_value(_query_value(core, "Assigned To", "AssignedTo", "ChangeRequest.Assignee", "Assignee")),
+            "AssignedTo"              : _person_value(_query_value(core, "Assigned To", "AssignedTo", "ChangeRequest.Assignee", "Assignee")),
             "CreatedOn"               : str(_query_value(core, "CreatedOn"))[:10],
             "ParentId"                : _query_value(core, "ParentId", default=None),
             "Description"             : _query_value(core, "Description"),
@@ -637,8 +656,10 @@ def _fetch_via_orbit_direct(cr_number: str, orbit_server: str = None) -> dict:
             "Severity"                : data.get("Severity", ""),
             "IsCrash"                 : data.get("IsCrash", False),
             "Priority"                : data.get("Priority"),
-            "ReporterUid"             : data.get("Reporter", ""),
-            "AssigneeUid"             : data.get("Assignee", ""),
+            "ReporterUid"             : _person_value(data.get("Reporter", "")),
+            "AssigneeUid"             : _person_value(data.get("Assigned To") or data.get("AssignedTo") or data.get("Assignee") or data.get("ChangeRequest.Assignee") or ""),
+            "Assignee"                : _person_value(data.get("Assigned To") or data.get("AssignedTo") or data.get("Assignee") or data.get("ChangeRequest.Assignee") or ""),
+            "AssignedTo"              : _person_value(data.get("Assigned To") or data.get("AssignedTo") or data.get("Assignee") or data.get("ChangeRequest.Assignee") or ""),
             "CreatedOn"               : str(data.get("CreatedOn", ""))[:10],
             "ParentId"                : data.get("ParentId"),
             "Description"             : data.get("Description", ""),

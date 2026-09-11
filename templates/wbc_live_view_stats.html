@@ -1564,8 +1564,8 @@ function _wbcCurrentMailHtml(buildId){
   const summary=`<table style="border-collapse:collapse;font-family:Segoe UI,Arial;font-size:12px;margin:10px 0 22px"><thead><tr>${summaryHeaders.map(h=>`<th style="border:1px solid #000;background:#b7e8f6;color:#000;padding:6px 9px;text-align:center">${esc(h)}</th>`).join('')}</tr></thead><tbody><tr>${summaryValues.map(v=>`<td style="border:1px solid #000;padding:8px 10px;text-align:center;vertical-align:middle">${esc(v)}</td>`).join('')}</tr></tbody></table>`;
   const overviewBlock=_wbcMailSummaryBlock();
   const crCols=[['CR-ID','CR','CR ID','cr_id','mapped_cr'],['Occurrence','CR Count','Occurrences','Instances'],['CR Title','Title','Summary'],['CR Area','Area','area','cr_area'],['CR Subsystem','CR SubSystem','Subsystem','subsystem','sub'],['CR Functionality','Functionality','CR Function','functionality','func'],['CR Date','Created','CR Date','Date','date','cr_date'],['CR SI','CR SI','CR Image','cr_image','SI','si','Image Reference','image_reference','si_last_seen','SI Last Seen','software_image','image'],['CR Status','Status','CR Status','cr_status'],['CR Age','Age','age','overall_age','age_days','Age (days)']];
-  const mappedCols=[['CR','CR-ID','CR ID','mapped_cr'],['Occurrence','CR Count','Instances','count'],['JIRA','JIRA-Ticket','Jira Ticket','stability_ticket'],['JIRA Title','Jira Title','Title','Summary'],['JIRA Status','Status'],['JIRA Resolution','Jira Resolution'],['Final Ticket'],['Final Status'],['Final Resolution'],['Jira Date','Created','created','Jira Date','jira_date','Date','date']];
-  const openCols=[['JIRA','JIRA-Ticket','Jira Ticket','stability_ticket'],['JIRA Title','Jira Title','Title','Summary'],['JIRA Status','Status'],['JIRA Resolution','Jira Resolution'],['Final Ticket'],['Final Status'],['Final Resolution'],['Resolution Notes'],['Jira Date','Created','created','Jira Date','jira_date','Date','date']];
+  const mappedCols=[['CR','CR-ID','CR ID','mapped_cr'],['Occurrence','CR Count','Instances','count'],['JIRA','JIRA-Ticket','Jira Ticket','stability_ticket'],['JIRA Title','Jira Title','Title','Summary'],['Jira Date','Created','created','jira_date','Date','date']];
+  const openCols=[['JIRA-Ticket','JIRA','Jira Ticket','stability_ticket'],['Occurrence','Instances','Instance','CR Count','count'],['Jira Title','JIRA Title','Title','Summary'],['Jira Date','Created','created','jira_date','Date','date'],['Status','JIRA Status','Jira Status']];
   return `<div style="font-family:Segoe UI,Arial;color:#000"><p style="margin:0 0 8px">Hi All,</p><p style="margin:0 0 12px">Please find the PDT test results on Provided E-Meta &ldquo;${esc(productLine)}&rdquo;</p><p style="margin:0 0 10px"><b><u>Build ID :</u></b> ${esc(buildId)}</p><p style="margin:0 0 14px"><b><u>Build Status :</u></b> Test in progress.</p>${summary}${overviewBlock}${_wbcHtmlMailTable('CR Details',crCols,crs,'#1f5f91')}${_wbcHtmlMailTable('JIRA Details',mappedCols,mapped,'#d97706')}${_wbcHtmlMailTable('Open JIRA Details',openCols,open,'#0891b2')}<p style="margin-top:14px">Regards</p></div>`;
 }
 function _wbcPlainMailTable(title, cols, rows){
@@ -1604,8 +1604,8 @@ function _wbcCurrentMailText(buildId){
   const summaryTable=summaryHeaders.join('\t')+'\n'+summaryValues.join('\t')+'\n';
   const overviewText=_wbcMailSummaryText();
   const crCols=[['CR-ID','CR','CR ID','cr_id','mapped_cr'],['Occurrence','CR Count','Occurrences','Instances'],['CR Title','Title','Summary'],['CR Area','Area','area','cr_area'],['CR Subsystem','CR SubSystem','Subsystem','subsystem','sub'],['CR Functionality','Functionality','CR Function','functionality','func'],['CR Date','Created','CR Date','Date','date','cr_date'],['CR SI','CR SI','CR Image','cr_image','SI','si','Image Reference','image_reference','si_last_seen','SI Last Seen','software_image','image'],['CR Status','Status','CR Status','cr_status'],['CR Age','Age','age','overall_age','age_days','Age (days)']];
-  const mappedCols=[['CR','CR-ID','CR ID','mapped_cr'],['CR Count','Occurrence','Instances','count'],['JIRA','JIRA-Ticket','Jira Ticket','stability_ticket'],['JIRA Title','Jira Title','Title','Summary'],['JIRA Status','Status'],['JIRA Resolution','Jira Resolution'],['Final Ticket'],['Final Status'],['Final Resolution'],['Jira Date','Created','created','Jira Date','jira_date','Date','date']];
-  const openCols=[['JIRA','JIRA-Ticket','Jira Ticket','stability_ticket'],['JIRA Title','Jira Title','Title','Summary'],['JIRA Status','Status'],['JIRA Resolution','Jira Resolution'],['Final Ticket'],['Final Status'],['Final Resolution'],['Resolution Notes'],['Jira Date','Created','created','Jira Date','jira_date','Date','date']];
+  const mappedCols=[['CR','CR-ID','CR ID','mapped_cr'],['Occurrence','CR Count','Instances','count'],['JIRA','JIRA-Ticket','Jira Ticket','stability_ticket'],['JIRA Title','Jira Title','Title','Summary'],['Jira Date','Created','created','jira_date','Date','date']];
+  const openCols=[['JIRA-Ticket','JIRA','Jira Ticket','stability_ticket'],['Occurrence','Instances','Instance','CR Count','count'],['Jira Title','JIRA Title','Title','Summary'],['Jira Date','Created','created','jira_date','Date','date'],['Status','JIRA Status','Jira Status']];
   return 'Hi Team,\n\nBuild ID : '+buildId+'\n\nBuild Status : Test in progress.\n\n'
     +summaryTable+'\n'
     +(overviewText?overviewText+'\n\n':'')
@@ -1623,8 +1623,8 @@ function _wbcCurrentMailShortText(buildId){
   const productLine=payload?.target?.label||payload?.target?.name||active||'NA';
   const oneLine=(r,groups)=>groups.map(g=>Array.isArray(g)?_wbcVal(r,g):(r&&r[g])).map(v=>String(v??'').replace(/\s+/g,' ').trim()).filter(Boolean).join(' | ');
   const crLines=crs.slice(0,6).map((r,i)=>(i+1)+'. '+oneLine(r,[['CR','CR-ID','CR ID','cr_id','mapped_cr'],['CR Count','Occurrence','Occurrences','Instances'],['CR Title','Title','Summary'],['CR Status','Status']]));
-  const mappedLines=mapped.slice(0,6).map((r,i)=>(i+1)+'. '+oneLine(r,[['CR','CR-ID','CR ID','mapped_cr'],['JIRA','JIRA-Ticket','Jira Ticket','stability_ticket'],['JIRA Title','Jira Title','Title','Summary'],['JIRA Status','Status'],['Final Ticket']]));
-  const openLines=open.slice(0,6).map((r,i)=>(i+1)+'. '+oneLine(r,[['JIRA','JIRA-Ticket','Jira Ticket','stability_ticket'],['JIRA Title','Jira Title','Title','Summary'],['JIRA Status','Status'],['Final Ticket']]));
+  const mappedLines=mapped.slice(0,6).map((r,i)=>(i+1)+'. '+oneLine(r,[['CR','CR-ID','CR ID','mapped_cr'],['Occurrence','CR Count','Instances','count'],['JIRA','JIRA-Ticket','Jira Ticket','stability_ticket'],['JIRA Title','Jira Title','Title','Summary'],['Jira Date','Created','created','jira_date','Date','date']]));
+  const openLines=open.slice(0,6).map((r,i)=>(i+1)+'. '+oneLine(r,[['JIRA-Ticket','JIRA','Jira Ticket','stability_ticket'],['Occurrence','Instances','Instance','CR Count','count'],['Jira Title','JIRA Title','Title','Summary'],['Jira Date','Created','created','jira_date','Date','date'],['Status','JIRA Status','Jira Status']]));
   return [
     'Hi Team,',
     '',
@@ -1643,10 +1643,10 @@ function _wbcCurrentMailShortText(buildId){
     'CR Details (CR | Occurrence | Title | Status):',
     crLines.length?crLines.join('\n'):'No rows',
     '',
-    'Mapped JIRA Details (CR | JIRA | Title | Status | Final Ticket):',
+    'Mapped JIRA Details (CR | Occurrence | JIRA | JIRA Title | Jira Date):',
     mappedLines.length?mappedLines.join('\n'):'No rows',
     '',
-    'Open JIRA Details (JIRA | Title | Status | Final Ticket):',
+    'Open JIRA Details (JIRA-Ticket | Occurrence | Jira Title | Jira Date | Status):',
     openLines.length?openLines.join('\n'):'No rows',
     '',
     'Note: Use Current Build Report Excel from Current Running Builds for full detailed tables.',

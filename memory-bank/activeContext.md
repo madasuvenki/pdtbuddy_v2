@@ -2,6 +2,35 @@
 
 ## Current Work Focus
 
+### WBC Compose Mail JIRA Table Cleanup — Complete (2026-09-10)
+
+**User request addressed:** WBC Compose Mail should show compact JIRA mail tables. The Open/Unmapped JIRA section uses `S.No.`, `JIRA-Ticket`, `Occurrence`, `Jira Title`, `Jira Date`, and `Status`. The mapped `JIRA Details` section should not include the extra status/resolution/final ticket/final status/final resolution columns.
+
+**Changes made:**
+- `templates/wbc_live_view_stats.html`
+  - Updated the rich HTML Compose Mail `Open JIRA Details` table to use only:
+    - `JIRA-Ticket`
+    - `Occurrence`
+    - `Jira Title`
+    - `Jira Date`
+    - `Status`
+  - Removed extra Open JIRA mail columns such as resolution/final ticket/final status/resolution notes from this mail section.
+  - Updated the rich HTML Compose Mail `JIRA Details` / mapped-JIRA table to use only:
+    - `CR`
+    - `Occurrence`
+    - `JIRA`
+    - `JIRA Title`
+    - `Jira Date`
+  - Removed mapped-JIRA mail columns `JIRA Status`, `JIRA Resolution`, `Final Ticket`, `Final Status`, and `Final Resolution`.
+  - Updated the plain-text and short fallback mail content so the mapped and Open JIRA summaries use the compact column sets.
+
+**Validation:**
+- Jinja parse succeeded for `templates/wbc_live_view_stats.html` with `WBC_TEMPLATE_JINJA_OK`.
+- Marker checks confirmed both Compose Mail `openCols` definitions use the compact Open/Unmapped JIRA column set.
+- Marker checks confirmed both Compose Mail `mappedCols` definitions use the compact mapped-JIRA column set.
+
+---
+
 ### External Viewer Login Timestamp + WBC PPT Date Cleanup — Complete (2026-09-10)
 
 **User request addressed:** External LDAP userid/fallback viewer logins must have a clear login timestamp, especially for users who pass LDAP userid lookup but do not match the internal target group. WBC PPT exported date fields should show date-only values rather than timestamps.
