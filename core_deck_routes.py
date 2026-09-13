@@ -1,3 +1,4 @@
+import io
 import json
 import os
 import re
@@ -21,7 +22,7 @@ _LIVE_STATUS_BASE_DIR = r'\\Sphere\pdtqipl_internal\PDTBuddy\live_status_publish
 _LEGACY_CORE_DECK_BASE_DIR = r'\\Sphere\pdtqipl_internal\PDTBuddy\managed_excel'
 _STATE_FILE = 'core_deck_state.json'
 _REVISIONS_FILE = 'core_deck_revisions.json'
-_CORE_DECK_FLAVOR_PROGRESS: Dict[str, dict] = {}
+_CORE_DECK_FLAVOR_PROGRESS = {}  # type: Dict[str, dict]
 _REFERENCE_DIR = 'references'
 _GENERATED_DIR = 'generated'
 _PREVIEW_IMG_DIR = 'preview_images'
@@ -3381,6 +3382,433 @@ def core_deck_download_pptx(generated_id: int):
     if not path or not os.path.exists(path):
         return jsonify({'ok': False, 'error': 'Generated PPTX not found'}), 404
     return send_file(path, as_attachment=True, download_name=os.path.basename(path))
+
+
+def _core_deck_domain_meta_rows(preview: dict, domain: str) -> List[dict]:
+    domain = _safe_str(domain).upper()
+    rows = []
+    for row in preview.get('selected_metas') or []:
+        if not isinstance(row, dict):
+            continue
+        deck = _safe_str(row.get('deck_type')).upper() or 'IVI'
+        if deck == domain:
+            rows.append(row)
+    return rows
+
+
+def _core_deck_open_rows_for_domain(preview: dict, domain: str) -> List[dict]:
+    domain = _safe_str(domain).upper()
+    deck_open = ((preview.get('deck_open_crs') or {}).get(domain) or {})
+    candidates = (
+        deck_open.get('rows')
+        or deck_open.get('items')
+        or deck_open.get('records')
+        or deck_open.get('top_rows')
+        or []
+    )
+    if isinstance(candidates, dict):
+        candidates = list(candidates.values())
+    rows = [r for r in (candidates or []) if isinstance(r, dict)]
+    if rows:
+        return rows
+    top = preview.get('top_hitters') if isinstance(preview.get('top_hitters'), list) else []
+    return [r for r in top if isinstance(r, dict) and _is_real_cr(r.get('cr') or r.get('CR') or r.get('id'))]
+
+
+def _core_deck_has_domain_data(preview: dict, state: dict, domain: str) -> bool:
+    domain = _safe_str(domain).upper()
+    if _core_deck_domain_meta_rows(preview, domain):
+        return True
+    if _core_deck_open_rows_for_domain(preview, domain):
+        return True
+    counts = ((preview.get('deck_counts') or {}).get(domain) or {})
+    if isinstance(counts, dict) and any(_safe_int_value(v) > 0 for v in counts.values()):
+        return True
+    deck_open = ((preview.get('deck_open_crs') or {}).get(domain) or {})
+    if isinstance(deck_open, dict):
+        if _safe_int_value(deck_open.get('total')) > 0:
+            return True
+        chart = deck_open.get('chart') if isinstance(deck_open.get('chart'), list) else []
+        if any(_safe_int_value((c or {}).get('y') if isinstance(c, dict) else 0) > 0 for c in chart):
+            return True
+    cfg = (preview.get('deck_config') or state.get('deck_config') or {})
+    vals = (cfg.get(domain) or cfg.get(domain.lower()) or []) if isinstance(cfg, dict) else []
+    return bool(vals and (counts or deck_open))
+
+
+def _core_deck_available_domains(preview: dict, state: dict) -> List[str]:
+    domains = [d for d in ('IVI', 'FLEX', 'ADAS') if _core_deck_has_domain_data(preview, state, d)]
+    if domains:
+        return domains
+    # Last-resort fallback: keep one slide so downloads never look empty when a
+    # saved/current payload exists but lacks per-domain DB data.
+    for row in preview.get('selected_metas') or state.get('selected_metas') or []:
+        if isinstance(row, dict):
+            deck = _safe_str(row.get('deck_type')).upper() or 'IVI'
+            if deck in ('IVI', 'FLEX', 'ADAS'):
+                return [deck]
+    return []
+
+
+def _core_deck_split_domains(value: Any) -> List[str]:
+    raw: List[Any]
+    if isinstance(value, str):
+        raw = re.split(r'[,;\s]+', value)
+    elif isinstance(value, list):
+        raw = value
+    else:
+        raw = []
+    out: List[str] = []
+    for item in raw:
+        domain = _safe_str(item).upper()
+        if domain in ('IVI', 'FLEX', 'ADAS') and domain not in out:
+            out.append(domain)
+    return out
+
+
+def _core_deck_ppt_options_from_request(data: Optional[dict] = None) -> dict:
+    data = data if isinstance(data, dict) else {}
+    raw = data.get('ppt_options') if isinstance(data.get('ppt_options'), dict) else {}
+    domains = _core_deck_split_domains(raw.get('domains') or data.get('ppt_domains') or data.get('domains'))
+    order = _core_deck_split_domains(raw.get('slide_order') or raw.get('domain_order') or data.get('slide_order'))
+    if request.args:
+        domains = _core_deck_split_domains(request.args.getlist('domain') or request.args.get('domains')) or domains
+        order = _core_deck_split_domains(request.args.getlist('slide_order') or request.args.get('slide_order') or request.args.get('domains')) or order
+    return {'domains': domains, 'slide_order': order}
+
+
+def _core_deck_domains_for_ppt(preview: dict, state: dict, ppt_options: Optional[dict] = None) -> List[str]:
+    available = _core_deck_available_domains(preview, state)
+    if not available:
+        return []
+    opts = ppt_options if isinstance(ppt_options, dict) else {}
+    selected = _core_deck_split_domains(opts.get('domains'))
+    order = _core_deck_split_domains(opts.get('slide_order') or opts.get('domain_order'))
+    if not selected:
+        selected = list(available)
+    selected = [d for d in selected if d in available]
+    ordered = [d for d in order if d in selected]
+    ordered.extend(d for d in selected if d not in ordered)
+    return ordered or available
+
+
+def _ppt_cell_text(cell, text: Any, font_size):
+    cell.text = _safe_str(text)
+    for paragraph in cell.text_frame.paragraphs:
+        paragraph.font.size = font_size
+
+
+def _build_core_deck_pptx(preview: dict, state: Optional[dict] = None, ppt_options: Optional[dict] = None) -> bytes:
+    """Build a lightweight PPTX from the same Core Slides preview/state model used by the UI."""
+    try:
+        from pptx import Presentation
+        from pptx.dml.color import RGBColor
+        from pptx.enum.shapes import MSO_SHAPE
+        from pptx.util import Inches, Pt
+    except Exception as exc:  # pragma: no cover - optional dependency
+        raise RuntimeError(f"python-pptx is required for Core Slides PPT download: {exc}") from exc
+
+    preview = preview or {}
+    state = state or {}
+    ui_slides = [s for s in (preview.get('ui_slides') or []) if isinstance(s, dict)]
+    ui_by_domain = {
+        _safe_str(s.get('domain')).upper(): s
+        for s in ui_slides
+        if _safe_str(s.get('domain')).upper() in ('IVI', 'FLEX', 'ADAS')
+    }
+    domains = _core_deck_domains_for_ppt(preview, state, ppt_options)
+    if ui_by_domain:
+        ui_order = [
+            _safe_str(s.get('domain')).upper()
+            for s in ui_slides
+            if _safe_str(s.get('domain')).upper() in ('IVI', 'FLEX', 'ADAS')
+        ]
+        domains = [d for d in ui_order if d in domains or d in ui_by_domain] or domains
+    if not domains:
+        raise ValueError('No selected Core Slide domain data is available to export.')
+
+    prs = Presentation()
+    prs.slide_width = Inches(13.333)
+    prs.slide_height = Inches(7.5)
+
+    def rgb(r: int, g: int, b: int):
+        return RGBColor(r, g, b)
+
+    def text_box(slide, x, y, w, h, text, size=14, bold=False, color=(17, 24, 39)):
+        box = slide.shapes.add_textbox(Inches(x), Inches(y), Inches(w), Inches(h))
+        box.line.fill.background()
+        tf = box.text_frame
+        tf.clear()
+        tf.word_wrap = True
+        tf.margin_left = Inches(0.06)
+        tf.margin_right = Inches(0.06)
+        p = tf.paragraphs[0]
+        p.text = _safe_str(text)[:900]
+        p.font.size = Pt(size)
+        p.font.bold = bold
+        p.font.color.rgb = rgb(*color)
+        return box
+
+    def metric(slide, x, y, label, value, accent=(31, 111, 159)):
+        shape = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(x), Inches(y), Inches(2.0), Inches(0.72))
+        shape.fill.solid()
+        shape.fill.fore_color.rgb = rgb(239, 246, 255)
+        shape.line.color.rgb = rgb(147, 197, 253)
+        tf = shape.text_frame
+        tf.clear()
+        p = tf.paragraphs[0]
+        p.text = _safe_str(label)
+        p.font.size = Pt(8)
+        p.font.bold = True
+        p.font.color.rgb = rgb(*accent)
+        p2 = tf.add_paragraph()
+        p2.text = _safe_str(value)
+        p2.font.size = Pt(17)
+        p2.font.bold = True
+        p2.font.color.rgb = rgb(17, 24, 39)
+
+    def table(slide, x, y, w, h, headers, rows, font=8, max_rows=8):
+        if not headers or not rows:
+            return
+        rows = rows[:max_rows]
+        shp = slide.shapes.add_table(len(rows) + 1, len(headers), Inches(x), Inches(y), Inches(w), Inches(h))
+        tbl = shp.table
+        for ci, header in enumerate(headers):
+            cell = tbl.cell(0, ci)
+            cell.fill.solid()
+            cell.fill.fore_color.rgb = rgb(31, 111, 159)
+            _ppt_cell_text(cell, header, Pt(font))
+            for p in cell.text_frame.paragraphs:
+                p.font.bold = True
+                p.font.color.rgb = rgb(255, 255, 255)
+        for ri, row in enumerate(rows, start=1):
+            for ci, header in enumerate(headers):
+                _ppt_cell_text(tbl.cell(ri, ci), row.get(header, ''), Pt(font - 1))
+
+    target_info = preview.get('target_info') if isinstance(preview.get('target_info'), dict) else {}
+    target_display = target_info.get('display_name') or target_info.get('target_display') or preview.get('target') or state.get('target') or 'Target'
+    generated_at = preview.get('generated_at') or state.get('updated_at') or _now_str()
+
+    for domain in domains:
+        ui_slide = ui_by_domain.get(domain) if isinstance(ui_by_domain.get(domain), dict) else {}
+        ui_metrics = ui_slide.get('metrics') if isinstance(ui_slide.get('metrics'), dict) else {}
+        slide = prs.slides.add_slide(prs.slide_layouts[6])
+        slide.background.fill.solid()
+        slide.background.fill.fore_color.rgb = rgb(248, 250, 252)
+        header = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(0), Inches(0), Inches(13.333), Inches(0.68))
+        header.fill.solid()
+        header.fill.fore_color.rgb = rgb(31, 111, 159)
+        header.line.fill.background()
+        slide_title = _safe_str(ui_slide.get('title')) or f'PDT {target_display} {domain} - Test Status'
+        slide_summary = _safe_str(ui_slide.get('summary'))
+        text_box(slide, 0.45, 0.12, 8.8, 0.38, slide_title, 18, True, (255, 255, 255))
+        text_box(slide, 10.0, 0.18, 2.8, 0.28, f'Generated {generated_at}', 8, False, (226, 232, 240))
+        if slide_summary:
+            text_box(slide, 0.55, 0.72, 12.1, 0.24, slide_summary, 7, False, (71, 85, 105))
+
+        counts = ((preview.get('deck_counts') or {}).get(domain) or preview.get('summary_counts') or {})
+        deck_open = ((preview.get('deck_open_crs') or {}).get(domain) or {})
+        total_jiras = _safe_int_value(ui_metrics.get('total_jiras') or counts.get('total_jiras') or counts.get('jira_table_count') or counts.get('jiras_count') or 0)
+        open_jiras = _safe_int_value(ui_metrics.get('open_jiras') or counts.get('open_jiras') or counts.get('openjira_table_count') or counts.get('open_count') or 0)
+        total_crs = _safe_int_value(ui_metrics.get('total_crs') or counts.get('total_crs') or deck_open.get('total') or 0)
+        unique_crs = _safe_int_value(ui_metrics.get('unique_crs') or counts.get('unique_crs') or total_crs)
+        metric(slide, 0.55, 1.02, 'Total JIRAs', total_jiras)
+        metric(slide, 2.72, 1.02, 'Open JIRAs', open_jiras)
+        metric(slide, 4.89, 1.02, 'Total CRs', total_crs)
+        metric(slide, 7.06, 1.02, 'Unique CRs', unique_crs)
+
+        meta_rows = _core_deck_domain_meta_rows(preview, domain)
+        build_rows = []
+        for idx, row in enumerate(meta_rows[:8], start=1):
+            builds = row.get('build_ids') if isinstance(row.get('build_ids'), list) else []
+            build_rows.append({
+                'S.No': idx,
+                'Meta': row.get('meta_id') or row.get('alias') or '',
+                'Flavor': ', '.join([_safe_str(v) for v in (row.get('product_flavors') or []) if _safe_str(v)]) or row.get('alias') or '',
+                'Builds': '\n'.join(_safe_str(b) for b in builds[:3]),
+                'Devices': row.get('device_count') or row.get('devices') or '',
+                'Crashes': row.get('crashes') or '',
+                'MTBF': row.get('mtbf') or '',
+            })
+        table(slide, 0.55, 2.0, 12.2, 1.65, ['S.No', 'Meta', 'Flavor', 'Builds', 'Devices', 'Crashes', 'MTBF'], build_rows, font=7, max_rows=8)
+
+        cr_rows = []
+        for idx, row in enumerate(_core_deck_open_rows_for_domain(preview, domain)[:8], start=1):
+            cr_rows.append({
+                'S.No': idx,
+                'CR': row.get('cr') or row.get('CR') or row.get('id') or row.get('CR ID') or '',
+                'Title': row.get('title') or row.get('cr_title') or row.get('Summary') or '',
+                'Area': row.get('area') or row.get('cr_area') or row.get('Component') or '',
+                'Status': row.get('status') or row.get('cr_status') or '',
+                'Count': row.get('count') or row.get('jira_count') or 1,
+            })
+        table(slide, 0.55, 4.25, 12.2, 2.1, ['S.No', 'CR', 'Title', 'Area', 'Status', 'Count'], cr_rows, font=7, max_rows=8)
+
+        if not build_rows and not cr_rows:
+            text_box(slide, 0.65, 2.1, 12.0, 0.45, f'No detailed rows found for {domain}; this slide was included from saved Core Deck state.', 12, False, (71, 85, 105))
+
+        full_cr_rows = []
+        for idx, row in enumerate(_core_deck_open_rows_for_domain(preview, domain)[:18], start=1):
+            full_cr_rows.append({
+                'S.No': idx,
+                'CR': row.get('cr') or row.get('CR') or row.get('id') or row.get('CR ID') or '',
+                'JIRA Count': row.get('count') or row.get('jira_count') or row.get('occurrence') or 1,
+                'Priority': row.get('priority') or row.get('cr_priority') or row.get('Severity') or '',
+                'Age': row.get('age') or row.get('cr_age') or '',
+                'Title': row.get('title') or row.get('cr_title') or row.get('Summary') or '',
+                'Area': row.get('area') or row.get('cr_area') or row.get('Component') or '',
+                'Subsystem': row.get('subsystem') or row.get('cr_subsystem') or '',
+                'Functionality': row.get('functionality') or row.get('cr_functionality') or '',
+                'Status': row.get('status') or row.get('cr_status') or '',
+            })
+        if full_cr_rows:
+            cr_slide = prs.slides.add_slide(prs.slide_layouts[6])
+            cr_slide.background.fill.solid()
+            cr_slide.background.fill.fore_color.rgb = rgb(248, 250, 252)
+            header = cr_slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(0), Inches(0), Inches(13.333), Inches(0.68))
+            header.fill.solid()
+            header.fill.fore_color.rgb = rgb(31, 111, 159)
+            header.line.fill.background()
+            text_box(cr_slide, 0.45, 0.12, 9.6, 0.38, f'PDT {target_display} {domain} - Current Build CR List', 18, True, (255, 255, 255))
+            text_box(cr_slide, 10.35, 0.18, 2.45, 0.28, f'{len(full_cr_rows)} CR row(s)', 8, False, (226, 232, 240))
+            table(
+                cr_slide,
+                0.35,
+                0.92,
+                12.65,
+                5.95,
+                ['S.No', 'CR', 'JIRA Count', 'Priority', 'Age', 'Title', 'Area', 'Subsystem', 'Functionality', 'Status'],
+                full_cr_rows,
+                font=5,
+                max_rows=18,
+            )
+
+        recent_rows = []
+        build_details = preview.get('build_details') if isinstance(preview.get('build_details'), dict) else {}
+        for build_id, detail in list(build_details.items())[:40]:
+            if not isinstance(detail, dict):
+                continue
+            for row in (detail.get('jira_cr_pivot') or [])[:8]:
+                if isinstance(row, dict) and _is_real_cr(row.get('cr')):
+                    recent_rows.append({
+                        'CR': row.get('cr') or '',
+                        'Instances': row.get('count') or 1,
+                        'Title': row.get('title') or '',
+                        'Area': row.get('area') or '',
+                        'Status': row.get('status') or row.get('category') or '',
+                        'Build': _build_tail(build_id),
+                    })
+            if len(recent_rows) >= 14:
+                break
+        if not recent_rows:
+            recent_rows = [{
+                'CR': r.get('CR') or r.get('cr') or '',
+                'Instances': r.get('JIRA Count') or r.get('Count') or '',
+                'Title': r.get('Title') or '',
+                'Area': r.get('Area') or '',
+                'Status': r.get('Status') or '',
+                'Build': '',
+            } for r in full_cr_rows[:14]]
+        if recent_rows:
+            recent_slide = prs.slides.add_slide(prs.slide_layouts[6])
+            recent_slide.background.fill.solid()
+            recent_slide.background.fill.fore_color.rgb = rgb(248, 250, 252)
+            header = recent_slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(0), Inches(0), Inches(13.333), Inches(0.68))
+            header.fill.solid()
+            header.fill.fore_color.rgb = rgb(31, 111, 159)
+            header.line.fill.background()
+            text_box(recent_slide, 0.45, 0.12, 9.8, 0.38, f'PDT {target_display} {domain} - CRs in Recent metas', 18, True, (255, 255, 255))
+            text_box(recent_slide, 10.35, 0.18, 2.45, 0.28, 'AutoGen5 HQX style', 8, False, (226, 232, 240))
+            table(
+                recent_slide,
+                0.45,
+                0.95,
+                12.45,
+                5.75,
+                ['CR', 'Instances', 'Title', 'Area', 'Status', 'Build'],
+                recent_rows,
+                font=6,
+                max_rows=14,
+            )
+
+    out = io.BytesIO()
+    prs.save(out)
+    return out.getvalue()
+
+
+@core_deck_bp.route('/api/core_deck/download_current_pptx', methods=['GET', 'POST'])
+def core_deck_download_current_pptx():
+    try:
+        if request.method == 'GET':
+            target = _safe_str(request.args.get('target'))
+            if not target:
+                return jsonify({'ok': False, 'error': 'target is required'}), 400
+            state = _load_state(target)
+            if not state:
+                return jsonify({'ok': False, 'error': 'No saved Core Deck state for target'}), 404
+            preview = state.get('saved_preview') if isinstance(state.get('saved_preview'), dict) else state
+            ppt_options = _core_deck_ppt_options_from_request({})
+        else:
+            if not _target_group_access():
+                return jsonify({'ok': False, 'error': 'Access denied'}), 403
+            data = request.get_json(force=True, silent=True) or {}
+            nested_state = data.get('state') if isinstance(data.get('state'), dict) else {}
+            nested_preview = data.get('preview') if isinstance(data.get('preview'), dict) else {}
+            ppt_options = _core_deck_ppt_options_from_request(data)
+            if not ppt_options.get('domains') and isinstance(nested_state.get('ppt_options'), dict):
+                ppt_options = _core_deck_ppt_options_from_request(nested_state)
+            if not ppt_options.get('domains') and isinstance(nested_preview.get('ppt_options'), dict):
+                ppt_options = _core_deck_ppt_options_from_request(nested_preview)
+            target = _safe_str(
+                data.get('target')
+                or nested_state.get('target')
+                or nested_preview.get('target')
+                or request.args.get('target')
+            )
+            if not target:
+                return jsonify({'ok': False, 'error': 'target is required'}), 400
+
+            if nested_preview:
+                preview = dict(nested_preview)
+            else:
+                preview_source = dict(nested_state or data)
+                preview_source['target'] = target
+                preview = _build_preview_payload(preview_source)
+
+            slide_overrides = (
+                data.get('slide_overrides')
+                if isinstance(data.get('slide_overrides'), dict)
+                else nested_state.get('slide_overrides')
+                if isinstance(nested_state.get('slide_overrides'), dict)
+                else preview.get('slide_overrides')
+                if isinstance(preview.get('slide_overrides'), dict)
+                else {}
+            )
+            table_overrides = (
+                data.get('table_overrides')
+                if isinstance(data.get('table_overrides'), dict)
+                else nested_state.get('table_overrides')
+                if isinstance(nested_state.get('table_overrides'), dict)
+                else preview.get('table_overrides')
+                if isinstance(preview.get('table_overrides'), dict)
+                else {}
+            )
+            preview['target'] = target
+            preview['slide_overrides'] = slide_overrides
+            preview['table_overrides'] = table_overrides
+            state = dict(nested_state or data)
+            state['target'] = target
+            state.setdefault('saved_preview', preview)
+        pptx_bytes = _build_core_deck_pptx(preview, state, ppt_options)
+        filename = f"{_safe_path_part(target)}_Core_Slides_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pptx"
+        return send_file(
+            io.BytesIO(pptx_bytes),
+            mimetype='application/vnd.openxmlformats-officedocument.presentationml.presentation',
+            as_attachment=True,
+            download_name=filename,
+        )
+    except Exception as exc:
+        return jsonify({'ok': False, 'error': str(exc)}), 500
 
 
 @core_deck_bp.route('/api/core_deck/public_state')

@@ -271,7 +271,11 @@ def _check_session_idle():
             # Public/read-only APIs needed by the allowed pages.
             if path.startswith('/api/live_status_view/') or path.startswith('/api/live_status/'):
                 return method == 'GET'
-            if path.startswith('/api/core_deck/public_state') or path.startswith('/api/core_deck/download_latest_pptx'):
+            if (
+                path.startswith('/api/core_deck/public_state')
+                or path.startswith('/api/core_deck/download_latest_pptx')
+                or path.startswith('/api/core_deck/download_current_pptx')
+            ):
                 return method == 'GET'
 
             # Read-only dashboard APIs required by external MTBF/live stats pages.
@@ -321,6 +325,7 @@ def _check_session_idle():
         or request.path.startswith('/wbc/live_view_stats/')
         or request.path.startswith('/api/wbc_live_view_stats/')
         or request.path.startswith('/api/core_deck/download_latest_pptx')
+        or request.path.startswith('/api/core_deck/download_current_pptx')
     ):
         session['last_active'] = datetime.now().timestamp()
         return
@@ -3811,118 +3816,239 @@ def download_report(result_id):
     download_name = entry.get("output_display_name") or os.path.basename(path)
     return send_file(path, as_attachment=True, download_name=download_name)
 
+def _jiraquery_candidate_dirs(out_dir, stdout, work_dir):
+    """Return ordered output directories to inspect for a JiraQuery workbook."""
+    candidates = []
+
+    def add_dir(path_value):
+        if not path_value:
+            return
+        path_text = str(path_value).strip().strip('"').strip("'")
+        if not path_text:
+            return
+
+        # PDT_Stats.exe may print a relative path such as "PDT-CR_TAT".
+        # Resolve relative paths against the isolated subprocess cwd first.
+        possible = []
+        if os.path.isabs(path_text):
+            possible.append(path_text)
+        else:
+            if work_dir:
+                possible.append(os.path.join(work_dir, path_text))
+            possible.append(path_text)
+
+        for candidate in possible:
+            try:
+                real = os.path.abspath(candidate)
+                if os.path.isdir(real) and real not in candidates:
+                    candidates.append(real)
+            except Exception:
+                continue
+
+    for detected in re.findall(r'Logs will be saved at path:\s*(.+)', stdout or ''):
+        add_dir(detected)
+
+    add_dir(out_dir)
+    if work_dir:
+        add_dir(os.path.join(work_dir, "PDT-CR_TAT"))
+        add_dir(work_dir)
+
+    return candidates
+
+
+def _find_latest_jiraquery_report(prefix, out_dir, stdout, work_dir, started_at, allow_stale=False):
+    """Find the newest matching JiraQuery Excel output, preferring this run's files."""
+    report_candidates = []
+    for candidate_dir in _jiraquery_candidate_dirs(out_dir, stdout, work_dir):
+        try:
+            for file_name in os.listdir(candidate_dir):
+                if not (file_name.startswith(prefix) and file_name.endswith('.xlsx')):
+                    continue
+                full_path = os.path.join(candidate_dir, file_name)
+                try:
+                    mtime = os.path.getmtime(full_path)
+                except OSError:
+                    continue
+                report_candidates.append((mtime, full_path, file_name))
+        except OSError:
+            continue
+
+    if not report_candidates:
+        return None
+
+    # Avoid returning a stale workbook from a previous failed run on a shared output dir.
+    fresh_candidates = [item for item in report_candidates if item[0] >= (started_at - 5)]
+    usable = fresh_candidates or (report_candidates if allow_stale else [])
+    if not usable:
+        return None
+
+    _mtime, full_path, file_name = max(usable, key=lambda item: item[0])
+    return full_path, file_name
+
+
 def report_worker(cmd, prefix, out_dir, task_id):
     """Background worker for executing external report generation scripts."""
     with app.app_context():  # Ensure app context is available for url_for
+        process = None
+        stdout = ""
+        stderr = ""
+        work_dir = None
+        started_at = time.time()
         try:
             REPORT_TASKS[task_id]["progress"] = "Step 1/3: Launching report generation script..."
+
+            # Run each JiraQuery in an isolated working directory.  The legacy
+            # PDT_Stats executable writes some artifacts (notably
+            # PDT-CR_TAT/PDT_CR_TAT_ErrorFile_*.txt) using timestamp-only names.
+            # If multiple requests start in the same second from the same cwd,
+            # Windows can keep one of those files locked and the EXE exits with
+            # WinError 32, followed by "I/O operation on closed file".  A unique
+            # cwd/TEMP per task prevents those relative helper files colliding.
+            work_dir = tempfile.mkdtemp(prefix=f"pdtbuddy_jiraquery_{task_id}_")
+            task_tmp = os.path.join(work_dir, "tmp")
+            os.makedirs(task_tmp, exist_ok=True)
+            process_env = os.environ.copy()
+            process_env["TMP"] = task_tmp
+            process_env["TEMP"] = task_tmp
+            process_env["PDTBUDDY_JIRAQUERY_TASK_ID"] = task_id
+            process_env["PDTBUDDY_JIRAQUERY_WORK_DIR"] = work_dir
 
             process = subprocess.Popen(
                 cmd,
                 shell=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                text=True
+                text=True,
+                cwd=work_dir,
+                env=process_env,
             )
             stdout, stderr = process.communicate()  # no timeout - run until complete
 
-
-            if process.returncode != 0:
-                logger.error(f" JiraQuery script exited with error code {process.returncode}.")
-                raise Exception(
-                    f"JiraQuery script failed with return code {process.returncode}. Stderr: {stderr}"
-                )
-
             REPORT_TASKS[task_id]["progress"] = "Step 2/3: Parsing generated report..."
 
-            # Auto-detect actual output dir from stdout log line
-            # EXE prints: "Logs will be saved at path: C:\..."
-            actual_out_dir = out_dir
-            import re as _re
-            log_path_match = _re.search(r'Logs will be saved at path:\s*(.+)', stdout or '')
-            if log_path_match:
-                detected = log_path_match.group(1).strip()
-                if os.path.isdir(detected):
-                    actual_out_dir = detected
+            latest_report = _find_latest_jiraquery_report(
+                prefix,
+                out_dir,
+                stdout,
+                work_dir,
+                started_at,
+                allow_stale=(process.returncode == 0),
+            )
 
-            # Find the latest generated Excel file in actual_out_dir
-            matching = [f for f in os.listdir(actual_out_dir) if f.startswith(prefix) and f.endswith('.xlsx')]
-            payload = {}
+            if process.returncode != 0:
+                if latest_report:
+                    logger.warning(
+                        "JiraQuery exited with code %s but produced a fresh workbook; "
+                        "continuing with workbook parse. Stderr: %s",
+                        process.returncode,
+                        (stderr or "").strip()[-2000:],
+                    )
+                else:
+                    logger.error(f" JiraQuery script exited with error code {process.returncode}.")
+                    raise Exception(
+                        f"JiraQuery script failed with return code {process.returncode}. Stderr: {stderr}"
+                    )
 
-            if matching:
-                latest_file_name = max(
-                    matching,
-                    key=lambda f_name: os.path.getmtime(os.path.join(actual_out_dir, f_name))
-                )
-                latest_file_path = os.path.join(actual_out_dir, latest_file_name)
-
-                display_file_name = latest_file_name
-                if prefix and display_file_name.startswith(prefix):
-                    display_file_name = display_file_name[len(prefix):]
-                display_title = os.path.splitext(display_file_name)[0]
-
-
-                xls = pd.ExcelFile(latest_file_path)
-                for s in xls.sheet_names:
-                    REPORT_TASKS[task_id]["progress"] = f"Processing sheet: {s}..."
-                    df = pd.read_excel(xls, sheet_name=s).fillna('')
-                    processed_records = []
-                    for record in df.to_dict(orient='records'):
-                        new_record = {k: v for k, v in record.items() if _norm(k) not in SNO_HEADERS}
-
-                        # JIRA TICKETS - URL
-                        jira_tickets_list_col_name = next(
-                            (col for col in record if col.upper() == "JIRA TICKETS"),
-                            None
-                        )
-                        if jira_tickets_list_col_name and new_record.get(jira_tickets_list_col_name):
-                            jira_tickets_list_str = str(new_record[jira_tickets_list_col_name]).strip()
-                            if jira_tickets_list_str:
-                                jira_keys = [
-                                    key.strip() for key in jira_tickets_list_str.split(',') if key.strip()
-                                ]
-                                if jira_keys:
-                                    encoded_keys = [urllib.parse.quote(key) for key in jira_keys]
-                                    jira_jql_query = f"key in ({'%2C'.join(encoded_keys)})"
-                                    new_record[jira_tickets_list_col_name + '_url'] = (
-                                        f"{JIRA_BASE_URL}issues/?jql={jira_jql_query}"
-                                    )
-
-                        processed_records.append(new_record)
-
-                    payload[s] = clean_data_for_session(processed_records)
-
-                result_uuid = str(uuid.uuid4())
-                GLOBAL_REPORT_DATA_STORAGE[result_uuid] = {
-                    "data": payload,
-                    "table_name": "Queryreport",
-                    "report_type": "multi_sheet_data",
-                    "target_list": [],
-                    "output_file_path": latest_file_path,
-                    "output_file_name": latest_file_name,
-                    "output_display_name": display_file_name,
-                    "output_display_title": display_title,
-                }
-                logger.info(
-                    f"DEBUG: GLOBAL_REPORT_DATA_STORAGE updated for result_id: {result_uuid}. "
-                    f"'data' key type: {type(GLOBAL_REPORT_DATA_STORAGE[result_uuid]['data'])}"
-                )
-
-                REPORT_TASKS[task_id].update({
-                    "status": "completed",
-                    "progress": "Step 3/3: Report ready!",
-                    "context": {
-                        'multi_sheet_url': f"/view_multi_sheet_report/{result_uuid}",
-                    }
-                })
-            else:
+            if not latest_report:
                 raise Exception(
                     f"No JiraQuery report file found matching prefix '{prefix}' in '{out_dir}'. Stdout: {stdout}"
                 )
 
+            latest_file_path, latest_file_name = latest_report
+            payload = {}
+
+            display_file_name = latest_file_name
+            if prefix and display_file_name.startswith(prefix):
+                display_file_name = display_file_name[len(prefix):]
+            display_title = os.path.splitext(display_file_name)[0]
+
+            # Network shares and antivirus can briefly hold the workbook after
+            # the EXE exits.  Retry PermissionError/WinError 32 before failing.
+            last_excel_error = None
+            for attempt in range(1, 13):
+                try:
+                    with pd.ExcelFile(latest_file_path) as xls:
+                        for s in xls.sheet_names:
+                            REPORT_TASKS[task_id]["progress"] = f"Processing sheet: {s}..."
+                            df = pd.read_excel(xls, sheet_name=s).fillna('')
+                            processed_records = []
+                            for record in df.to_dict(orient='records'):
+                                new_record = {k: v for k, v in record.items() if _norm(k) not in SNO_HEADERS}
+
+                                # JIRA TICKETS - URL
+                                jira_tickets_list_col_name = next(
+                                    (col for col in record if col.upper() == "JIRA TICKETS"),
+                                    None
+                                )
+                                if jira_tickets_list_col_name and new_record.get(jira_tickets_list_col_name):
+                                    jira_tickets_list_str = str(new_record[jira_tickets_list_col_name]).strip()
+                                    if jira_tickets_list_str:
+                                        jira_keys = [
+                                            key.strip() for key in jira_tickets_list_str.split(',') if key.strip()
+                                        ]
+                                        if jira_keys:
+                                            encoded_keys = [urllib.parse.quote(key) for key in jira_keys]
+                                            jira_jql_query = f"key in ({'%2C'.join(encoded_keys)})"
+                                            new_record[jira_tickets_list_col_name + '_url'] = (
+                                                f"{JIRA_BASE_URL}issues/?jql={jira_jql_query}"
+                                            )
+
+                                processed_records.append(new_record)
+
+                            payload[s] = clean_data_for_session(processed_records)
+                    last_excel_error = None
+                    break
+                except PermissionError as exc:
+                    last_excel_error = exc
+                    if attempt >= 12:
+                        raise
+                    REPORT_TASKS[task_id]["progress"] = (
+                        f"Workbook is still locked; retrying parse ({attempt}/12)..."
+                    )
+                    time.sleep(1)
+                except OSError as exc:
+                    # Windows file-lock errors can surface as generic OSError.
+                    if getattr(exc, "winerror", None) != 32:
+                        raise
+                    last_excel_error = exc
+                    if attempt >= 12:
+                        raise
+                    REPORT_TASKS[task_id]["progress"] = (
+                        f"Workbook is still locked; retrying parse ({attempt}/12)..."
+                    )
+                    time.sleep(1)
+
+            if last_excel_error:
+                raise last_excel_error
+
+            result_uuid = str(uuid.uuid4())
+            GLOBAL_REPORT_DATA_STORAGE[result_uuid] = {
+                "data": payload,
+                "table_name": "Queryreport",
+                "report_type": "multi_sheet_data",
+                "target_list": [],
+                "output_file_path": latest_file_path,
+                "output_file_name": latest_file_name,
+                "output_display_name": display_file_name,
+                "output_display_title": display_title,
+            }
+            logger.info(
+                f"DEBUG: GLOBAL_REPORT_DATA_STORAGE updated for result_id: {result_uuid}. "
+                f"'data' key type: {type(GLOBAL_REPORT_DATA_STORAGE[result_uuid]['data'])}"
+            )
+
+            REPORT_TASKS[task_id].update({
+                "status": "completed",
+                "progress": "Step 3/3: Report ready!",
+                "context": {
+                    'multi_sheet_url': f"/view_multi_sheet_report/{result_uuid}",
+                }
+            })
+
         except subprocess.TimeoutExpired:
-            process.kill()
-            stdout, stderr = process.communicate()
+            if process is not None:
+                process.kill()
+                stdout, stderr = process.communicate()
             error_msg = f"JiraQuery script timed out after 10 minutes. Stderr: {stderr}"
             logger.error(f" Report worker '{task_id}' timeout: {error_msg}")
             REPORT_TASKS[task_id].update({"status": "error", "message": error_msg})

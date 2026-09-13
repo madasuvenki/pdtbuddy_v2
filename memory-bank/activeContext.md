@@ -2,6 +2,56 @@
 
 ## Current Work Focus
 
+### Core Slides PPT Download Follow-up — Complete (2026-09-12)
+
+**User feedback addressed:** The visible Live Status Core Slides page needed a PPT download option, and the exported PPT must use the same currently rendered UI slides. PPT export must include domain slides for all available Core Slide domains: IVI, FLEX, and ADAS. If only one domain has data, export one domain slide; if two have data, export two; if all three have data, export all three.
+
+**Changes made:**
+- `static/js/live_status_published_safe.js`
+  - Added/updated visible **PPT Download** behavior in the Core Slides toolbar.
+  - `coreDownloadPpt()` now captures current rendered UI slide payloads before download.
+  - Added `_cdCurrentUiSlidePayloads(...)` and `_cdApplyCurrentUiSlidesToPreview(...)` to send selected domain order, visible slide title, visible exec summary text, visible KPI values, and rendered HTML snapshots to the PPT endpoint.
+  - Current browser UI payload is posted to `/api/core_deck/download_current_pptx`, matching the WBC Live View same-preview/same-download pattern.
+- `core_deck_routes.py`
+  - Added/updated `GET/POST /api/core_deck/download_current_pptx`.
+  - `_build_core_deck_pptx(...)` now prefers `preview.ui_slides` from the posted browser payload for domain order, title, summary, and metrics.
+  - Existing fallback behavior remains for saved/public downloads where no browser UI payload is present.
+  - Existing `/api/core_deck/download_latest_pptx` remains for previously generated PPT history.
+
+**Validation:**
+- `.venv\Scripts\python.exe -m py_compile core_deck_routes.py` passed with the project Python 3.13 virtualenv.
+- Runtime `_build_core_deck_pptx(...)` same-UI sample generated a valid PPTX zip payload: `core same-ui ppt ok 37710`.
+- Previous validation confirmed selected UI order is preserved (`['IVI', 'ADAS']` when selected domains are `['ADAS', 'IVI']` and slide order is `['IVI', 'ADAS']`).
+
+### JiraQuery PDT_Stats WinError 32 Isolation — Complete (2026-09-12)
+
+**User request addressed:** JiraQuery report generation failed when the packaged `PDT_Stats` script hit `PermissionError: [WinError 32]` on `PDT-CR_TAT\PDT_CR_TAT_ErrorFile_*.txt`, followed by `ValueError: I/O operation on closed file`.
+
+**Root cause:**
+- Chatbot-triggered JiraQuery runs launch `PDT_Stats.exe` through `app.py::report_worker`.
+- The legacy executable writes some helper/error files using relative `PDT-CR_TAT/...` paths with timestamp-only filenames.
+- Concurrent or near-concurrent report runs can collide on the same relative working directory/file, causing Windows file-lock failures inside the external EXE.
+
+**Changes made:**
+- `app.py`
+  - Added `_jiraquery_candidate_dirs()` and `_find_latest_jiraquery_report()` helpers.
+  - `report_worker()` now runs every JiraQuery subprocess in a unique temporary working directory and unique `TMP`/`TEMP`.
+  - Adds `PDTBUDDY_JIRAQUERY_TASK_ID` and `PDTBUDDY_JIRAQUERY_WORK_DIR` environment markers for diagnostics.
+  - Looks for generated report workbooks in:
+    - output path printed by the EXE,
+    - configured `JIRA_OUTPUT_DIR`,
+    - isolated `work_dir\PDT-CR_TAT`,
+    - isolated `work_dir`.
+  - Avoids returning stale workbooks after failed runs by requiring fresh mtime unless the process exited successfully.
+  - If the EXE exits non-zero but still produced a fresh workbook, the worker now parses that workbook and completes the task instead of failing on the EXE's trailing error-file cleanup traceback.
+  - Added retry handling for transient `PermissionError` / WinError 32 while opening the generated `.xlsx` from network shares or antivirus scans.
+  - Hardened timeout cleanup so it does not reference an undefined process.
+
+**Validation:**
+- `py -3 -m py_compile app.py src\chatbot_engine.py && echo PY_COMPILE_OK` returned `PY_COMPILE_OK`.
+
+---
+
 ### WBC Compose Mail JIRA Table Cleanup — Complete (2026-09-10)
 
 **User request addressed:** WBC Compose Mail should show compact JIRA mail tables. The Open/Unmapped JIRA section uses `S.No.`, `JIRA-Ticket`, `Occurrence`, `Jira Title`, `Jira Date`, and `Status`. The mapped `JIRA Details` section should not include the extra status/resolution/final ticket/final status/final resolution columns.

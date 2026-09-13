@@ -1,5 +1,26 @@
 # Progress: PDTBuddy
 
+## 2026-09-12 - Core Slides PPT Download Follow-up
+- Added visible **PPT Download** behavior to the actual Live Status Core Slides toolbar flow.
+- Added `/api/core_deck/download_current_pptx` in `core_deck_routes.py` so the current/saved Core Slides state can be exported directly as PPTX, instead of relying only on prior generated history.
+- `static/js/live_status_published_safe.js` now follows the WBC Live View same-preview/same-download pattern:
+  - captures currently rendered UI slide payloads before download,
+  - sends selected domain order,
+  - sends visible slide title,
+  - sends visible exec summary text,
+  - sends visible KPI/metric values,
+  - sends rendered slide HTML snapshots.
+- Backend `_build_core_deck_pptx(...)` now prefers posted `preview.ui_slides` for PPT domain order, title, summary, and metrics, while keeping saved/public fallback behavior when no browser UI payload exists.
+- PPT export includes all selected available Core Slide domains and preserves selected UI slide order, with IVI/FLEX/ADAS as the default:
+  - one slide if only one domain has selected/open-CR data,
+  - two slides if two domains have data,
+  - all three slides when IVI, FLEX, and ADAS data are available.
+- Existing latest-history PPT download remains available at `/api/core_deck/download_latest_pptx`.
+- Validation passed:
+  - `.venv\Scripts\python.exe -m py_compile core_deck_routes.py` passed with the project Python 3.13 virtualenv
+  - runtime `_build_core_deck_pptx(...)` same-UI sample generated a valid PPTX (`core same-ui ppt ok 37710`)
+  - previous runtime sample confirmed selected UI order is preserved (`['IVI', 'ADAS']` from selected domains `['ADAS', 'IVI']` and slide order `['IVI', 'ADAS']`)
+
 ## What Works (Confirmed from Codebase)
 
 ### Core Infrastructure

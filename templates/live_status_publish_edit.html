@@ -315,6 +315,7 @@ if(open) panel.scrollIntoView({behavior:'smooth', block:'start'});
           <button class="btn btn-primary" onclick="loadCoreDeckBuilds(true)"><i class="fas fa-plus"></i> Add / Load Builds</button>
                     {% if can_edit %}
           <button class="btn lsp-editor-only" onclick="saveCoreDeckFromTab()"><i class="fas fa-save"></i> Save</button>
+          <button class="btn" onclick="coreDownloadPpt()"><i class="fas fa-download"></i> PPT Download</button>
           <button class="btn" onclick="refreshCoreDeckCrashesFromTab()"><i class="fas fa-sync"></i> Refresh Crashes Only</button>
           {% endif %}
         </div>
