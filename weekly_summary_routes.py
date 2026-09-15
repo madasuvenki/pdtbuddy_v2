@@ -65,11 +65,16 @@ _QIPL_EXE_OUTPUT_DONE_MARKER = 'Please check following files for output/report'
 _UCR_LANDING_COUNTS_CACHE = {}
 _QIPL_EXCEL_FILES_CACHE = {'ts': 0.0, 'value': []}
 _QIPL_SOURCE_FILES_CACHE = {'ts': 0.0, 'value': []}
+_QIPL_WEEK_ROWS_CACHE = {}
 _UCR_EXCEL_FILES_CACHE = {'ts': 0.0, 'value': []}
 _UCR_RAW_FILES_CACHE = {'ts': 0.0, 'value': []}
 _FARM_STATION_MAP_CACHE = {'ts': 0.0, 'value': {}}
 _SHARE_LIST_TTL_SECONDS = 60
 _FARM_MAP_TTL_SECONDS = 300
+# Keep full weekly QIPL row caches very short-lived. A single week can contain
+# hundreds of thousands of rows, so long in-process caching can increase Flask
+# worker memory even though the DB raw table is no longer used.
+_QIPL_WEEK_ROWS_CACHE_TTL_SECONDS = 120
 
 _CARDS = [
     {'key': 'cr_age',        'title': 'CR Age',               'icon': '\U0001f4c5'},
@@ -327,17 +332,34 @@ def _build_key_variants(value: str) -> set:
 
 
 def _weekly_qipl_existing_build_keys(week_start: date, week_end: date, target: str = '', pl_id: str = '') -> set:
-    """Build IDs already present in weekly_qipl_data for this week/target/PL."""
+    """Build IDs already present for this week/target/PL.
+
+    Prefer the CSV/snapshot cache so the large weekly_qipl_data table is no
+    longer required for normal Smart Build reads.  Fall back to DB only when a
+    source CSV/snapshot is not available.
+    """
+    keys = set()
+    target = str(target or '').strip()
+    pl_id = str(pl_id or '').strip()
+    rows = _load_qipl_week_rows(week_start, week_end)
+    if rows:
+        vals = {v.upper() for v in (target, pl_id) if v}
+        for row in rows:
+            if vals:
+                row_target = str(_qipl_pick(row, 'target', 'Target') or '').strip().upper()
+                row_pl = str(_qipl_pick(row, 'pl_id', 'PL-ID', 'PL ID') or '').strip().upper()
+                if row_target not in vals and row_pl not in vals:
+                    continue
+            keys.update(_build_key_variants(_sp_build_match_from_row(row)))
+        return keys
+
     conn = get_mysql_connection_db(bu_key=None)
     if not conn:
         return set()
     cur = conn.cursor(dictionary=True)
-    keys = set()
     try:
         where = ['week_start=%s', 'week_end=%s']
         params = [week_start.isoformat(), week_end.isoformat()]
-        target = str(target or '').strip()
-        pl_id = str(pl_id or '').strip()
         if target or pl_id:
             vals = [v for v in (target, pl_id) if v]
             ph = ','.join(['%s'] * len(vals))
@@ -492,6 +514,258 @@ def _select_qipl_rows_for_report_week(rows: list, week_start: date, week_end: da
     return stamped
 
 
+def _qipl_week_cache_key(week_start: date, week_end: date) -> str:
+    ws = _safe_date(week_start)
+    we = _safe_date(week_end)
+    return f"{ws.isoformat() if ws else ''}|{we.isoformat() if we else ''}"
+
+
+def _qipl_snapshot_file(week_start: date, week_end: date, prefer_network: bool = False) -> str:
+    """Return the JSON snapshot path for one QIPL CSV/reporting week."""
+    we = _safe_date(week_end)
+    fname = f"qipl_week_{we.isoformat() if we else 'unknown'}.json"
+    base = _CONSOLIDATE_JSON_NET if prefer_network else _CONSOLIDATE_JSON_LOCAL
+    return str(Path(base) / fname)
+
+
+def _qipl_json_safe(value):
+    if isinstance(value, datetime):
+        return value.isoformat()
+    if isinstance(value, date):
+        return value.isoformat()
+    return value
+
+
+def _qipl_compact_row(row: dict) -> dict:
+    """Keep only normalized columns needed by weekly cards / Smart Build.
+
+    The old DB table stored a full row_data JSON copy of every CSV row.  Snapshot
+    rows intentionally drop that duplicate payload to keep disk + memory usage
+    low while preserving all columns used by current reports.
+    """
+    if not isinstance(row, dict):
+        return {}
+    keep = (
+        'week_start', 'week_end', 'jira_date', 'cr_date', 'jira_category',
+        'cr_current_ticket', 'cr_si', 'cr_title', 'jira_title',
+        'ticket_status', 'resolution', 'jira_reporter', 'fetched_date',
+        'target', 'jira_component', 'pl_id', 'host_name', 'type_of_farm',
+        'cr_status', 'cr_area', 'cr_age', 'stability_ticket', 'meta_build',
+    )
+    out = {}
+    for k in keep:
+        v = row.get(k)
+        if isinstance(v, datetime):
+            out[k] = v.date().isoformat()
+        elif isinstance(v, date):
+            out[k] = v.isoformat()
+        else:
+            out[k] = v
+    return out
+
+
+def _save_qipl_week_snapshot(week_start: date, week_end: date, rows: list, source_path: str = '') -> dict:
+    """Persist compact weekly QIPL rows to JSON and refresh in-process cache."""
+    ws = _safe_date(week_start)
+    we = _safe_date(week_end)
+    if not ws or not we:
+        return {'success': False, 'path': '', 'rows': 0, 'message': 'invalid_week'}
+    clean_rows = [_qipl_compact_row(r) for r in (rows or []) if isinstance(r, dict)]
+    payload = {
+        'kind': 'qipl_week_rows',
+        'version': 1,
+        'week_start': ws.isoformat(),
+        'week_end': we.isoformat(),
+        'generated_at': datetime.now().isoformat(timespec='seconds'),
+        'source_path': source_path or '',
+        'total_rows': len(clean_rows),
+        'rows': clean_rows,
+    }
+    path = _qipl_snapshot_file(ws, we)
+    network_path = _qipl_snapshot_file(ws, we, prefer_network=True)
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        tmp_path = f"{path}.tmp"
+        with open(tmp_path, 'w', encoding='utf-8') as fh:
+            json.dump(payload, fh, ensure_ascii=False, separators=(',', ':'), default=_qipl_json_safe)
+        os.replace(tmp_path, path)
+
+        network_saved = False
+        if network_path != path and os.path.isdir(os.path.dirname(network_path)):
+            try:
+                net_tmp_path = f"{network_path}.tmp"
+                with open(net_tmp_path, 'w', encoding='utf-8') as fh:
+                    json.dump(payload, fh, ensure_ascii=False, separators=(',', ':'), default=_qipl_json_safe)
+                os.replace(net_tmp_path, network_path)
+                network_saved = True
+            except Exception:
+                network_saved = False
+
+        import time
+        _QIPL_WEEK_ROWS_CACHE[_qipl_week_cache_key(ws, we)] = {
+            'ts': time.time(),
+            'rows': clean_rows,
+            'source': path,
+        }
+        msg = 'snapshot_saved'
+        if network_saved:
+            msg += '; network_snapshot_saved'
+        return {'success': True, 'path': path, 'network_path': network_path if network_saved else '', 'rows': len(clean_rows), 'message': msg}
+    except Exception as exc:
+        return {'success': False, 'path': path, 'rows': 0, 'message': str(exc)}
+
+
+def _load_qipl_week_snapshot(week_start: date, week_end: date) -> list:
+    """Load compact weekly QIPL rows from local/network JSON snapshot."""
+    for path in (_qipl_snapshot_file(week_start, week_end), _qipl_snapshot_file(week_start, week_end, prefer_network=True)):
+        try:
+            if not path or not os.path.isfile(path):
+                continue
+            with open(path, 'r', encoding='utf-8') as fh:
+                payload = json.load(fh)
+            rows = payload.get('rows') if isinstance(payload, dict) else None
+            if isinstance(rows, list):
+                return [_qipl_compact_row(r) for r in rows if isinstance(r, dict)]
+        except Exception:
+            continue
+    return []
+
+
+def _load_qipl_week_rows(week_start: date, week_end: date, force_refresh: bool = False) -> list:
+    """Return QIPL rows directly from snapshot/CSV with DB-free caching.
+
+    Normal reads use:
+      1. in-process cache
+      2. compact JSON snapshot under consolidate_snapshots/
+      3. matching source CSV/XLSX on the QIPL share
+
+    DB fallback remains in individual caller functions for legacy availability,
+    but new imports no longer need to populate weekly_qipl_data.
+    """
+    ws = _safe_date(week_start)
+    we = _safe_date(week_end)
+    if not ws or not we:
+        return []
+    import time
+    key = _qipl_week_cache_key(ws, we)
+    # Prune expired full-row cache entries before loading. This prevents old
+    # selected weeks from keeping large row lists resident indefinitely.
+    for stale_key, stale_val in list(_QIPL_WEEK_ROWS_CACHE.items()):
+        if time.time() - float((stale_val or {}).get('ts') or 0) >= _QIPL_WEEK_ROWS_CACHE_TTL_SECONDS:
+            _QIPL_WEEK_ROWS_CACHE.pop(stale_key, None)
+    cached = _QIPL_WEEK_ROWS_CACHE.get(key)
+    if not force_refresh and cached:
+        return [dict(r) for r in (cached.get('rows') or [])]
+
+    if not force_refresh:
+        rows = _load_qipl_week_snapshot(ws, we)
+        if rows:
+            _QIPL_WEEK_ROWS_CACHE[key] = {'ts': time.time(), 'rows': rows, 'source': _qipl_snapshot_file(ws, we)}
+            return [dict(r) for r in rows]
+
+    src_path = _find_qipl_source_file_for_week(ws, we, include_imported=True)
+    if src_path:
+        try:
+            parsed_rows, _headers = _parse_file(src_path, 'csv-direct')
+            selected = _select_qipl_rows_for_report_week(parsed_rows, ws, we)
+            if selected:
+                saved = _save_qipl_week_snapshot(ws, we, selected, source_path=src_path)
+                rows = [_qipl_compact_row(r) for r in selected]
+                if not saved.get('success'):
+                    _QIPL_WEEK_ROWS_CACHE[key] = {'ts': time.time(), 'rows': rows, 'source': src_path}
+                return [dict(r) for r in rows]
+        except Exception:
+            pass
+    return []
+
+
+def _qipl_pick(row: dict, *names) -> str:
+    wanted = {_norm(n) for n in names}
+    for k, v in (row or {}).items():
+        if _norm(k) in wanted:
+            return v
+    return ''
+
+
+def _sp_build_match_from_row(row: dict) -> str:
+    return str(_qipl_pick(
+        row, 'meta_build', 'MetaBuild', 'Metabuild', 'Meta Build',
+        'Build ID', 'BuildID', 'build_id', 'Build'
+    ) or '').strip()
+
+
+def _qipl_non_chipmd_row(row: dict) -> bool:
+    candidate = str(_qipl_pick(
+        row, 'stability_ticket', 'Stability Ticket', 'StabilityTicket',
+        'Jira', 'JIRA', 'JIRA ID', 'Jira ID', 'Jira Key',
+        'Issue key', 'Issue Key', 'Key'
+    ) or '').strip().upper()
+    if not candidate:
+        return True
+    if not candidate.startswith('CHIPMD'):
+        return True
+    import re as _re
+    normalized = _re.sub(r'[;\s]+', ',', candidate)
+    remainder = _re.sub(r'(^|,)CHIPMD-[0-9A-Z_-]+(?=,|$)', ',', normalized)
+    remainder = ','.join(x for x in remainder.split(',') if x.strip())
+    return bool(remainder)
+
+
+def _count_sharepoint_crashes_from_qipl_rows(live_rows: list, target: str, jira_reporters=None) -> dict:
+    selected_reporters = {str(r or '').strip().upper() for r in (jira_reporters or []) if str(r or '').strip()}
+    stab_seen = set()
+    ticket_counter = Counter()
+    ticket_events = []
+    counted_rows = 0
+    for lr in live_rows or []:
+        d = dict(lr or {})
+        # Legacy DB fallback rows may still carry the original CSV payload in
+        # row_data. Merge it back so sanitizer/Jira-title/ticket alias logic
+        # matches the previous DB behavior when no CSV/snapshot is available.
+        raw_payload = d.get('row_data')
+        if raw_payload:
+            try:
+                parsed_payload = json.loads(raw_payload) if isinstance(raw_payload, str) else dict(raw_payload or {})
+                if isinstance(parsed_payload, dict):
+                    parsed_payload.update({k: v for k, v in d.items() if v not in (None, '')})
+                    d = parsed_payload
+            except Exception:
+                pass
+        stab = str(_qipl_pick(d, 'Stability Ticket', 'StabilityTicket', 'stability_ticket') or '').strip()
+        if stab:
+            stab_key = stab.upper()
+            if stab_key in stab_seen:
+                continue
+            stab_seen.add(stab_key)
+        reporter = str(_qipl_pick(d, 'JIRA Reporter', 'Jira Reporter', 'jira_reporter', 'Reporter', 'Reported By') or '').strip()
+        if selected_reporters and reporter.upper() not in selected_reporters:
+            continue
+        _jira_title = str(_qipl_pick(d, "JIRA Title", "Title", "Summary", "jira_title", "title", "summary") or "").strip().upper()
+        _tgt_upper  = str(target or "").strip().upper()
+        if "COMPUTE" in _tgt_upper and "LKD" in _jira_title:
+            continue
+        if _sp_is_sanitizer_non_system_crash(d):
+            continue
+        counted_rows += 1
+
+        ticket = _sp_primary_ticket(d)
+        if not ticket:
+            continue
+        row_seen = set()
+        for tok in [x.strip() for x in ticket.split(',') if x.strip()]:
+            up = tok.upper()
+            if up.startswith('CHIPMD') or up in row_seen:
+                continue
+            row_seen.add(up)
+            ticket_counter[up] += 1
+            ticket_events.append({'ticket': up, 'reporter': reporter, 'count': 1})
+
+    pivot = _build_sp_ticket_pivot(ticket_counter, ticket_events)
+    pivot['row_count'] = counted_rows
+    pivot['stability_count'] = len(stab_seen)
+    return pivot
+
+
 def _is_snapdragon_auto_target(target: str) -> bool:
     return str(target or '').strip().lower().startswith('snapdragon_auto')
 
@@ -519,36 +793,8 @@ def _ensure_weekly_qipl_table():
         return
     cur = conn.cursor()
     try:
-        # only create if not exists -------------? never drop
-        cur.execute(f"""
-            CREATE TABLE IF NOT EXISTS `{_QIPL_DB}`.`{_QIPL_TABLE}` (
-                row_data          JSON         NOT NULL,
-                week_start        DATE         NULL,
-                week_end          DATE         NULL,
-                jira_date         DATE         NULL,
-                cr_date           DATE         NULL,
-                jira_category     VARCHAR(255) NULL,
-                cr_current_ticket TEXT         NULL,
-                cr_si             VARCHAR(255) NULL,
-                cr_title          TEXT         NULL,
-                jira_title        TEXT         NULL,
-                ticket_status     VARCHAR(255) NULL,
-                resolution        VARCHAR(512) NULL,
-                jira_reporter     VARCHAR(255) NULL,
-                fetched_date      DATE         NULL,
-                target            VARCHAR(255) NULL,
-                jira_component    VARCHAR(255) NULL,
-                pl_id             VARCHAR(255) NULL,
-                host_name         VARCHAR(255) NULL,
-                type_of_farm      VARCHAR(255) NULL,
-                cr_status         VARCHAR(255) NULL,
-                cr_area           VARCHAR(255) NULL,
-                cr_age            INT          NULL,
-                INDEX idx_week  (week_start, week_end),
-                INDEX idx_jcat  (jira_category),
-                INDEX idx_jdate (jira_date)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-        """)
+        # Keep lightweight metadata/user tables in DB. Raw QIPL CSV rows are no
+        # longer created/inserted here; normal reads use CSV/snapshot storage.
         cur.execute(f"""
             CREATE TABLE IF NOT EXISTS `{_QIPL_DB}`.`{_QIPL_IMPORT_AUDIT_TABLE}` (
                 id              BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -635,36 +881,9 @@ def _ensure_weekly_qipl_table():
             f"ALTER TABLE `{_QIPL_DB}`.`{_CONSOLIDATE_SUMMARY_TABLE}` ADD COLUMN pl_id VARCHAR(255) NULL AFTER target",
             f"ALTER TABLE `{_QIPL_DB}`.`{_CONSOLIDATE_SUMMARY_TABLE}` DROP INDEX uq_week_target",
             f"ALTER TABLE `{_QIPL_DB}`.`{_CONSOLIDATE_SUMMARY_TABLE}` ADD UNIQUE KEY uq_week_target_pl (week_end, target, pl_id)",
-            # QIPL CSV rows can contain multiple/current ticket values longer than 255 chars.
-            # Store as TEXT so weekly imports do not fail with MySQL 1406 data-too-long.
-            f"ALTER TABLE `{_QIPL_DB}`.`{_QIPL_TABLE}` MODIFY COLUMN cr_current_ticket TEXT NULL",
-            # Dedup: add stability_ticket + meta_build + unique key to weekly_qipl_data
-            f"ALTER TABLE `{_QIPL_DB}`.`{_QIPL_TABLE}` ADD COLUMN stability_ticket VARCHAR(255) NULL",
-            f"ALTER TABLE `{_QIPL_DB}`.`{_QIPL_TABLE}` ADD COLUMN meta_build VARCHAR(255) NULL",
-            # A stability ticket can legitimately appear more than once in the
-            # weekly CR_TAT source (multiple occurrences / repeated mapped rows).
-            # Older deployments added a global UNIQUE KEY, which caused uploads
-            # to silently lose rows after deduplication and prevented "full
-            # JIRAs" from appearing in Smart Build. Remove it and keep only a
-            # normal lookup index.
-            f"ALTER TABLE `{_QIPL_DB}`.`{_QIPL_TABLE}` DROP INDEX uq_stability_ticket",
-            f"ALTER TABLE `{_QIPL_DB}`.`{_QIPL_TABLE}` ADD INDEX idx_stability_ticket (stability_ticket)",
-            # QIPL CSV free-text fields can exceed the original VARCHAR sizes.
-            # Keep full values in row_data JSON, and make display columns wide
-            # enough so imports do not fail with MySQL 1406 data-too-long.
-            f"ALTER TABLE `{_QIPL_DB}`.`{_QIPL_TABLE}` MODIFY COLUMN resolution TEXT NULL",
-            f"ALTER TABLE `{_QIPL_DB}`.`{_QIPL_TABLE}` MODIFY COLUMN jira_reporter TEXT NULL",
-            f"ALTER TABLE `{_QIPL_DB}`.`{_QIPL_TABLE}` MODIFY COLUMN ticket_status TEXT NULL",
-            f"ALTER TABLE `{_QIPL_DB}`.`{_QIPL_TABLE}` MODIFY COLUMN target TEXT NULL",
-            f"ALTER TABLE `{_QIPL_DB}`.`{_QIPL_TABLE}` MODIFY COLUMN jira_component TEXT NULL",
-            f"ALTER TABLE `{_QIPL_DB}`.`{_QIPL_TABLE}` MODIFY COLUMN pl_id TEXT NULL",
-            f"ALTER TABLE `{_QIPL_DB}`.`{_QIPL_TABLE}` MODIFY COLUMN host_name TEXT NULL",
-            f"ALTER TABLE `{_QIPL_DB}`.`{_QIPL_TABLE}` MODIFY COLUMN type_of_farm TEXT NULL",
-            f"ALTER TABLE `{_QIPL_DB}`.`{_QIPL_TABLE}` MODIFY COLUMN cr_status TEXT NULL",
-            f"ALTER TABLE `{_QIPL_DB}`.`{_QIPL_TABLE}` MODIFY COLUMN cr_area TEXT NULL",
-            # Smart Build crash counts use fetched_date as the selected report
-            # week, so keep this indexed for fast weekly lookups.
-            f"ALTER TABLE `{_QIPL_DB}`.`{_QIPL_TABLE}` ADD INDEX idx_fetched_date (fetched_date)",
+            # weekly_qipl_data raw-row DDL intentionally skipped. Legacy SELECT
+            # fallbacks still work if an existing table remains in the database,
+            # but new app startup/upload/save flows no longer touch that large table.
         ):
             try:
                 cur.execute(alter_sql)
@@ -739,7 +958,9 @@ def _build_row(raw_headers: list, values: list, filepath: str, uploaded_by: str)
         'cr_status':         _get('cr_status'),
         'cr_area':           _get('cr_area'),
         'cr_age':            _safe_int(_get('cr_age')),
-        'stability_ticket':  _get('stability_ticket') or _get('stabilityticket'),
+        'stability_ticket':  (_get('stability_ticket') or _get('stabilityticket') or
+                              _get('jira') or _get('jira_id') or _get('jira_key') or
+                              _get('issue_key') or _get('key')),
         # QIPL CR_TAT CSVs often use "Build ID"/"BuildID"/"Build" instead of
         # "MetaBuild". Smart Build crash totals are matched by meta_build, so
         # preserve all common build header aliases in the DB column.
@@ -795,135 +1016,51 @@ def _parse_excel(filepath: str, uploaded_by: str):
 # --------?-------------?----- upsert --------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-----
 
 def _upsert_rows(rows: list):
+    """Persist QIPL CSV data as compact weekly JSON snapshots instead of DB rows.
+
+    Kept under the old function name so existing upload/reimport/scheduler call
+    sites continue to work, but this intentionally stops inserting the large
+    row-level CSV payload into pdt_stats_dashboard.weekly_qipl_data.
+    """
     if not rows:
         return 0, 0, 'No rows'
-    # Defensive migration: CSV import paths may be called without first hitting
-    # routes that run _ensure_weekly_qipl_table().  Ensure the live table can
-    # accept long multi-ticket CR Current Ticket values before inserting.
-    try:
-        _ensure_weekly_qipl_table()
-    except Exception:
-        pass
 
-    # Hard safety for already-running deployments / DBs where ALTERs may not
-    # have taken effect yet.  The full original values are still preserved
-    # inside row_data JSON; these indexed/display columns must never block CSV
-    # import with MySQL 1406 data-too-long.
-    column_limits = {
-        'cr_current_ticket': 4096,
-        'resolution': 4096,
-        'jira_reporter': 1024,
-        'ticket_status': 1024,
-        'target': 1024,
-        'jira_component': 1024,
-        'pl_id': 1024,
-        'host_name': 1024,
-        'type_of_farm': 1024,
-        'cr_status': 1024,
-        'cr_area': 1024,
-        'stability_ticket': 255,
-        'meta_build': 1024,
-    }
+    by_week = {}
     for row in rows:
-        for col, limit in column_limits.items():
-            val = row.get(col)
-            if val is not None and len(str(val)) > limit:
-                row[col] = str(val)[:limit]
+        ws = _safe_date(row.get('week_start'))
+        we = _safe_date(row.get('week_end'))
+        if not ws or not we:
+            continue
+        by_week.setdefault((ws, we), []).append(row)
 
-    conn = get_mysql_connection_db(bu_key=None)
-    if not conn:
-        return 0, 0, 'DB connection failed'
-    cur = conn.cursor()
-    try:
-        for stmt in (
-            "SET SESSION wait_timeout=600",
-            "SET SESSION interactive_timeout=600",
-            "SET SESSION net_read_timeout=600",
-            "SET SESSION net_write_timeout=600",
-        ):
-            try:
-                cur.execute(stmt)
-            except Exception:
-                pass
+    if not by_week:
+        return 0, 0, 'No valid week rows for snapshot'
 
-        weeks = set(
-            (r['week_start'], r['week_end'])
-            for r in rows if r.get('week_start') and r.get('week_end')
-        )
+    saved = 0
+    messages = []
+    for (ws, we), week_rows in by_week.items():
+        result = _save_qipl_week_snapshot(ws, we, week_rows)
+        if result.get('success'):
+            saved += len(week_rows)
+        messages.append(f"{we.isoformat()}: {result.get('message')} ({result.get('rows') or 0} rows)")
 
-        # Step 1: delete the report-week rows being refreshed.
-        #
-        # Smart Build reads/report-counts weekly_qipl_data by fetched_date because
-        # the QIPL CR_TAT CSV is a reporting-week snapshot.  Older imports could
-        # leave rows with fetched_date in the selected report week but
-        # week_start/week_end derived from each Jira-created date.  Deleting only
-        # by week_start/week_end leaves those stale rows behind and inflates the
-        # top-level "Total Crashes" KPI (for example Aug 31-Sep 06 can show
-        # ~37k even when the CSV has ~28k after CHIPMD removal).
-        #
-        # Delete by both the canonical stamped report-week bucket and the
-        # fetched_date reporting window so a re-import fully replaces that week's
-        # CSV snapshot while still preserving occurrence-level duplicate tickets
-        # inside the latest CSV.
-        # Step 2: insert all latest occurrence-level rows fresh from CSV.
-        deleted = 0
-        for ws_del, we_del in weeks:
-            cur.execute(
-                f"DELETE FROM `{_QIPL_DB}`.`{_QIPL_TABLE}`"
-                " WHERE (week_start=%s AND week_end=%s)"
-                "    OR (fetched_date >= %s AND fetched_date <= %s)",
-                (ws_del, we_del, ws_del, we_del)
-            )
-            deleted += cur.rowcount
-
-        conn.commit()
-
-        sql = f"""
-            INSERT INTO `{_QIPL_DB}`.`{_QIPL_TABLE}`
-            (row_data, week_start, week_end, jira_date, cr_date,
-             jira_category, cr_current_ticket, cr_si, cr_title, jira_title,
-             ticket_status, resolution, jira_reporter, fetched_date,
-             target, jira_component, pl_id, host_name, type_of_farm,
-             cr_status, cr_area, cr_age, stability_ticket, meta_build)
-            VALUES
-            (%(row_data)s, %(week_start)s, %(week_end)s, %(jira_date)s, %(cr_date)s,
-             %(jira_category)s, %(cr_current_ticket)s, %(cr_si)s, %(cr_title)s,
-             %(jira_title)s, %(ticket_status)s, %(resolution)s, %(jira_reporter)s,
-             %(fetched_date)s, %(target)s, %(jira_component)s, %(pl_id)s,
-             %(host_name)s, %(type_of_farm)s, %(cr_status)s, %(cr_area)s, %(cr_age)s,
-             %(stability_ticket)s, %(meta_build)s)
-        """
-
-        BATCH = 500
-        inserted = 0
-        for i in range(0, len(rows), BATCH):
-            cur.executemany(sql, rows[i:i + BATCH])
-            inserted += cur.rowcount
-            conn.commit()
-
-        return inserted, deleted, 'OK'
-    except Exception as exc:
-        try:
-            conn.rollback()
-        except Exception:
-            pass
-        return 0, 0, str(exc)
-    finally:
-        cur.close()
-        conn.close()
+    return saved, 0, 'Snapshot saved; DB raw insert skipped. ' + '; '.join(messages)
 
 
 # --------?-------------?----- fetch --------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-----
 
 def _fetch_rows(week_start: date, week_end: date) -> list:
+    rows = _load_qipl_week_rows(week_start, week_end)
+    if rows:
+        return sorted(rows, key=lambda r: int(_safe_int(r.get('cr_age')) or 0), reverse=True)
+
     conn = get_mysql_connection_db(bu_key=None)
     if not conn:
         return []
     cur = conn.cursor(dictionary=True)
     try:
-        # Weekly report tabs use the selected CR_TAT CSV/reporting week.
-        # week_start/week_end columns are Jira-created-date buckets, which can
-        # be much smaller for a report generated after prior-week executions.
+        # Legacy fallback only.  New reads should normally be served from
+        # compact JSON snapshots or source CSV, not from weekly_qipl_data.
         cur.execute(f"""
             SELECT row_data, week_start, week_end, jira_date, cr_date, jira_category,
                    cr_current_ticket, cr_si, cr_title, jira_title,
@@ -957,12 +1094,43 @@ def _fetch_rows(week_start: date, week_end: date) -> list:
 
 
 def _get_available_weeks() -> list:
-    """Return Weekly QIPL DB weeks from May 1, 2026 onward.
+    """Return available Weekly QIPL report weeks.
 
-    Do not hide future-dated weeks here. The upstream QIPL/Unique-CR reports can
-    publish a week-ending workbook before that week has elapsed, and those rows
-    should still be selectable if they already exist in the database.
+    Prefer JSON snapshots and source CSV filenames so the UI does not require
+    the large weekly_qipl_data table.  DB lookup remains a legacy fallback.
     """
+    weeks = {}
+    try:
+        for base in (_CONSOLIDATE_JSON_LOCAL, _CONSOLIDATE_JSON_NET):
+            if not base or not os.path.isdir(base):
+                continue
+            for fname in os.listdir(base):
+                if not fname.startswith('qipl_week_') or not fname.endswith('.json'):
+                    continue
+                path = os.path.join(base, fname)
+                try:
+                    with open(path, 'r', encoding='utf-8') as fh:
+                        payload = json.load(fh)
+                    ws = _safe_date(payload.get('week_start'))
+                    we = _safe_date(payload.get('week_end'))
+                    if ws and we and we >= _QIPL_MIN_DATE:
+                        weeks[(ws.isoformat(), we.isoformat())] = (ws, we)
+                except Exception:
+                    continue
+    except Exception:
+        pass
+
+    try:
+        for e in _list_qipl_source_files():
+            ws, we = _qipl_report_week_for_file_date(e.get('file_date'))
+            if ws and we and we >= _QIPL_MIN_DATE:
+                weeks[(ws.isoformat(), we.isoformat())] = (ws, we)
+    except Exception:
+        pass
+
+    if weeks:
+        return sorted(weeks.values(), key=lambda r: r[0], reverse=True)[:52]
+
     conn = get_mysql_connection_db(bu_key=None)
     if not conn:
         return []
@@ -1312,12 +1480,15 @@ def _finish_import_audit(file_key: str, status: str, row_count: int = 0, message
         conn.close()
 
 
-def _find_qipl_source_file_for_week(week_start: date, week_end: date) -> str:
+def _find_qipl_source_file_for_week(week_start: date, week_end: date, include_imported: bool = False) -> str:
     """Find the latest ready CR_TAT_Jira source file for the selected report week.
 
     Accept Monday-after-week files because QIPL often publishes the completed
     week report just after Sunday midnight, e.g. filename date 08/24 for report
     week 08/17-08/23.
+
+    include_imported=True is used by the CSV-direct read path: an already
+    imported/snapshotted file is still a valid source for rebuilding cache.
     """
     candidates = []
     for e in _list_qipl_source_files():
@@ -1329,10 +1500,11 @@ def _find_qipl_source_file_for_week(week_start: date, week_end: date) -> str:
         ready, reason = _is_qipl_file_ready(entry['path'])
         if not ready:
             continue
-        fp = _qipl_file_fingerprint(entry['path'])
-        audit = _get_import_audit(fp['key'])
-        if audit and str(audit.get('status') or '') in ('done', 'in_progress'):
-            continue
+        if not include_imported:
+            fp = _qipl_file_fingerprint(entry['path'])
+            audit = _get_import_audit(fp['key'])
+            if audit and str(audit.get('status') or '') in ('done', 'in_progress'):
+                continue
         return entry['path']
     return ''
 
@@ -1380,6 +1552,7 @@ def _auto_load_qipl_week(week_start: date, week_end: date, username: str) -> dic
             'deleted': deleted,
             'message': msg,
             'path': src_path,
+            'storage': 'json_snapshot',
         }
     except Exception as exc:
         _finish_import_audit(fp['key'], 'failed', 0, str(exc))
@@ -3129,24 +3302,30 @@ def _sp2_non_chipmd_sql_predicate() -> str:
 def _sp2_weekly_crash_map(week_start, week_end) -> dict:
     """Return crash counts keyed by (meta_build_upper, pl_id_upper).
 
-    Rules:
-      - Smart Build uses weekly_qipl_data as the crash source.
-      - The Smart Build report week is based on the CSV Fetched Date/reporting
-        week, not the JIRA-created week_start/week_end bucket. Using
-        week_start/week_end under-counts because those columns are derived from
-        Jira Date and only include JIRAs created in the selected week.
-      - Count every non-CR CSV Jira row, including repeated stability tickets
-        and closed/unmapped Jira rows.  CR-mapped rows are not counted as Smart
-        Build crashes because they are already represented in the CR sections.
-      - CHIPMD tickets are excluded from crash/JIRA counts.
-      - Crash/JIRA count = COUNT(*) per meta_build + pl_id where fetched_date is
-        within selected week_start..week_end and jira_category is not CR Mapped.
-      - Key: (meta_build.strip().upper(), pl_id.strip().upper())
+    Primary source is the compact CSV/snapshot cache.  Legacy DB fallback is
+    retained only when snapshot/CSV data is unavailable.
     """
     ws = _safe_date(week_start)
     we = _safe_date(week_end)
     if not ws or not we:
         return {}
+
+    rows = _load_qipl_week_rows(ws, we)
+    if rows:
+        result = {}
+        for row in rows:
+            if str(_qipl_pick(row, 'jira_category', 'Jira Category') or '').strip().lower() == 'cr mapped':
+                continue
+            if not _qipl_non_chipmd_row(row):
+                continue
+            mb = _sp_build_match_from_row(row).upper()
+            pl_exact = str(_qipl_pick(row, 'pl_id', 'PL-ID', 'PL ID') or '').strip()
+            if mb and pl_exact:
+                for pl in {pl_exact.upper(), _sp2_pl_group(pl_exact).upper()}:
+                    if pl:
+                        result[(mb, pl)] = result.get((mb, pl), 0) + 1
+        return result
+
     conn = get_mysql_connection_db(bu_key=None)
     if not conn:
         return {}
@@ -3183,7 +3362,7 @@ def _sp2_weekly_crash_map(week_start, week_end) -> dict:
 def _sp2_weekly_total_crashes_count(week_start, week_end) -> int:
     """Authoritative Smart Build top-level crash/Jira total for one report week.
 
-    This count intentionally comes from the full weekly CSV import, not from
+    This count intentionally comes from the full weekly CSV/snapshot, not from
     build-row matches. Some valid non-CR Jira rows may not map to an Axiom
     build/PL row, so summing per-build crashes can under-count the top KPI.
     """
@@ -3191,6 +3370,15 @@ def _sp2_weekly_total_crashes_count(week_start, week_end) -> int:
     we = _safe_date(week_end)
     if not ws or not we:
         return 0
+
+    rows = _load_qipl_week_rows(ws, we)
+    if rows:
+        return sum(
+            1 for row in rows
+            if str(_qipl_pick(row, 'jira_category', 'Jira Category') or '').strip().lower() != 'cr mapped'
+            and _qipl_non_chipmd_row(row)
+        )
+
     conn = get_mysql_connection_db(bu_key=None)
     if not conn:
         return 0
@@ -3426,6 +3614,17 @@ def _sp2_capped_pl_hours(hours, device_count, week_start=None, week_end=None) ->
     return round(min(raw, cap), 3)
 
 
+def _sp2_week_device_capacity_hours(device_count, week_start=None, week_end=None) -> float:
+    """Expected weekly device-hours: unique devices * selected days * 20 h/day.
+
+    Smart Build's headline Total Hours is a capacity/available-hours KPI, not
+    only the sum of observed Axiom job runtime.  For a normal Mon-Sun week this
+    is devices * 140, matching the business check:
+        1600 devices * 20 hours/day * 7 days = 224,000 hours
+    """
+    return round(_sp2_pl_week_hour_cap(device_count, week_start, week_end), 1)
+
+
 def _cap_sp2_static_snapshot_hours(ws, we) -> int:
     """Persistently cap Smart Build snapshot hours per Target+PL.
 
@@ -3592,7 +3791,11 @@ def _sp2_crash_count_for_build(crash_map: dict, build_name: str = '', build_id: 
 
 
 def _count_sharepoint_crashes_from_weekly_qipl(cur, target: str, pl_id: str, build_ids, week_start=None, week_end=None, jira_reporters=None) -> dict:
-    """Count Target+PL-ID+build crashes from weekly_qipl_data using pivot rules."""
+    """Count Target+PL-ID+build crashes using QIPL CSV/snapshot rows.
+
+    The DB cursor argument is retained for legacy callers; normal reads no
+    longer need weekly_qipl_data.
+    """
     normalized_builds = sorted({str(b or '').strip().upper() for b in (build_ids or []) if str(b or '').strip()})
     if not normalized_builds:
         pivot = _build_sp_ticket_pivot(Counter())
@@ -3600,10 +3803,25 @@ def _count_sharepoint_crashes_from_weekly_qipl(cur, target: str, pl_id: str, bui
         pivot['stability_count'] = 0
         return pivot
 
-    where = ["TRIM(target)=TRIM(%s)", "TRIM(pl_id)=TRIM(%s)"]
-    params = [str(target or '').strip(), str(pl_id or '').strip()]
     ws = _safe_date(week_start)
     we = _safe_date(week_end)
+    csv_rows = _load_qipl_week_rows(ws, we) if ws and we else []
+    if csv_rows:
+        tgt = str(target or '').strip().upper()
+        pl = str(pl_id or '').strip().upper()
+        filtered = []
+        for row in csv_rows:
+            row_target = str(_qipl_pick(row, 'target', 'Target') or '').strip().upper()
+            row_pl = str(_qipl_pick(row, 'pl_id', 'PL-ID', 'PL ID') or '').strip().upper()
+            if row_target != tgt or row_pl != pl:
+                continue
+            if _sp_build_match_from_row(row).upper() not in normalized_builds:
+                continue
+            filtered.append(row)
+        return _count_sharepoint_crashes_from_qipl_rows(filtered, target, jira_reporters)
+
+    where = ["TRIM(target)=TRIM(%s)", "TRIM(pl_id)=TRIM(%s)"]
+    params = [str(target or '').strip(), str(pl_id or '').strip()]
     if ws:
         where.append("fetched_date >= %s")
         params.append(ws.isoformat())
@@ -3621,58 +3839,7 @@ def _count_sharepoint_crashes_from_weekly_qipl(cur, target: str, pl_id: str, bui
         WHERE {' AND '.join(where)}
     """, tuple(params))
     live_rows = cur.fetchall() or []
-
-    selected_reporters = {str(r or '').strip().upper() for r in (jira_reporters or []) if str(r or '').strip()}
-    stab_seen = set()
-    ticket_counter = Counter()
-    ticket_events = []
-    counted_rows = 0
-    for lr in live_rows:
-        try:
-            d = json.loads(lr.get('row_data') or '{}') if isinstance(lr, dict) else json.loads(lr['row_data'] or '{}')
-        except Exception:
-            d = {}
-        if isinstance(lr, dict):
-            for k in ('cr_current_ticket', 'stability_ticket', 'meta_build', 'target', 'pl_id', 'jira_reporter'):
-                if lr.get(k) not in (None, ''):
-                    d[k] = lr.get(k)
-
-        stab = str(_sp_pick(d, 'Stability Ticket', 'StabilityTicket', 'stability_ticket') or '').strip()
-        if stab:
-            stab_key = stab.upper()
-            if stab_key in stab_seen:
-                continue
-            stab_seen.add(stab_key)
-        reporter = str(_sp_pick(d, 'JIRA Reporter', 'Jira Reporter', 'jira_reporter', 'Reporter', 'Reported By') or '').strip()
-        if selected_reporters and reporter.upper() not in selected_reporters:
-            continue
-        # Compute BU: exclude crashes where JIRA title contains "LKD"
-        _jira_title = str(_sp_pick(d, "JIRA Title", "Title", "Summary", "jira_title", "title", "summary") or "").strip().upper()
-        _tgt_upper  = str(target or "").strip().upper()
-        if "COMPUTE" in _tgt_upper and "LKD" in _jira_title:
-            continue
-        # KASAN/SANITIZER/SANITIZED rows are non-system-crash diagnostics.
-        # Do not count them in System Crashes or include them in crash details.
-        if _sp_is_sanitizer_non_system_crash(d):
-            continue
-        counted_rows += 1
-
-        ticket = _sp_primary_ticket(d)
-        if not ticket:
-            continue
-        row_seen = set()
-        for tok in [x.strip() for x in ticket.split(',') if x.strip()]:
-            up = tok.upper()
-            if up.startswith('CHIPMD') or up in row_seen:
-                continue
-            row_seen.add(up)
-            ticket_counter[up] += 1
-            ticket_events.append({'ticket': up, 'reporter': reporter, 'count': 1})
-
-    pivot = _build_sp_ticket_pivot(ticket_counter, ticket_events)
-    pivot['row_count'] = counted_rows
-    pivot['stability_count'] = len(stab_seen)
-    return pivot
+    return _count_sharepoint_crashes_from_qipl_rows(live_rows, target, jira_reporters)
 
 
 def _build_sharepoint_context(sp_rows: list, week_start: date, week_end: date) -> dict:
@@ -5733,10 +5900,11 @@ def _sp2_landing_summary(week_start, week_end):
             total_hours += float(r.get('hours') or 0)
             total_crashes += int(r.get('total_crashes') or 0)
         weekly_total_crashes = _sp2_weekly_total_crashes_count(week_start, week_end)
+        device_count = len(all_chips)
         return {
             'sp2_build_count': len(active_static_rows),
-            'sp2_device_count': len(all_chips),
-            'sp2_total_hours': round(total_hours, 1),
+            'sp2_device_count': device_count,
+            'sp2_total_hours': _sp2_week_device_capacity_hours(device_count, week_start, week_end),
             'sp2_crash_count': weekly_total_crashes if weekly_total_crashes > 0 else total_crashes,
         }
 
@@ -5822,10 +5990,11 @@ def _sp2_landing_summary(week_start, week_end):
         total_crashes += g['crashes']
 
     weekly_total_crashes = _sp2_weekly_total_crashes_count(week_start, week_end)
+    device_count = len(all_chips)
     return {
         'sp2_build_count':  len(grouped),
-        'sp2_device_count': len(all_chips),
-        'sp2_total_hours':  round(total_hours, 1),
+        'sp2_device_count': device_count,
+        'sp2_total_hours':  _sp2_week_device_capacity_hours(device_count, week_start, week_end),
         'sp2_crash_count':  weekly_total_crashes if weekly_total_crashes > 0 else total_crashes,
     }
 
@@ -8522,26 +8691,13 @@ def _seed_sp2_build_type_overrides_from_axiom(ws, we, username: str = '') -> int
     # Insert missing snapshot rows every time. INSERT IGNORE below preserves any
     # existing/static user-edited rows, but this avoids a partial snapshot (for
     # example from an earlier failed seed) permanently limiting Consolidate.
-    # Seed only after the weekly CRM CSV data is available. Until then the page
-    # can still show live Axiom rows, but no static snapshot is frozen.
-    conn_chk = get_mysql_connection_db(bu_key=None)
-    if not conn_chk:
+    # Seed only after the weekly CRM CSV/snapshot data is available. Until then
+    # the page can still show live Axiom rows, but no static snapshot is frozen.
+    # This intentionally avoids the large weekly_qipl_data table.
+    if not _load_qipl_week_rows(ws, we):
         return 0
-    cur_chk = conn_chk.cursor()
-    try:
-        cur_chk.execute(
-            f"SELECT COUNT(*) FROM `{_QIPL_DB}`.`{_QIPL_TABLE}` WHERE fetched_date >= %s AND fetched_date <= %s",
-            (ws.isoformat(), we.isoformat())
-        )
-        row = cur_chk.fetchone()
-        if int((row[0] if isinstance(row, (tuple, list)) else list(row.values())[0]) or 0) <= 0:
-            return 0
-    except Exception:
-        return 0
-    finally:
-        cur_chk.close(); conn_chk.close()
 
-        # Crash counts from the same CRM CSV import used by the CR cards.
+    # Crash counts from the same CRM CSV/snapshot used by the CR cards.
     crash_map = _sp2_weekly_crash_map(ws, we)
 
 
@@ -9012,7 +9168,7 @@ def _build_and_save_sp2_consolidate_from_static(ws, we, username: str) -> bool:
                     updated_at=CURRENT_TIMESTAMP
             """, (ws.isoformat(), we.isoformat(), g['target'], g['pl_id'],
                   f"__consolidated__{g['target']}__{g['pl_id']}", build_type,
-                                    _sp2_capped_pl_hours(g['hours'], device_count_by_key.get(key, 0), ws, we), int(g['crashes'] or 0),
+                                    _sp2_week_device_capacity_hours(device_count_by_key.get(key, 0), ws, we), int(g['crashes'] or 0),
                   int(device_count_by_key.get(key, 0)), json.dumps(chip_ids),
                   bu, timelines, pdt_status, _ucr_count_for_sharepoint_pair(ucr_counts, g['target'], g['pl_id']),
                   len(g['build_names']), username))
@@ -9565,7 +9721,7 @@ def _build_and_save_sp2_consolidate(ws, we, username: str):
                 g['target'], g['pl_id'],
                 f"__consolidated__{g['target']}__{g['pl_id']}",
                                 g['build_type'],
-                _sp2_capped_pl_hours(g['hours'], _dev_cnt, ws, we),
+                _sp2_week_device_capacity_hours(_dev_cnt, ws, we),
                 g['crashes'],
                 _dev_cnt,
                 json.dumps(chip_ids),
@@ -10212,11 +10368,11 @@ def api_sp2_admin_force_refresh_week():
 @weekly_summary_bp.route('/api/sp2/reimport_csv', methods=['POST'])
 @login_required
 def api_sp2_reimport_csv():
-    """Admin: force re-read the weekly CSV into weekly_qipl_data, then rebuild SP2 snapshot.
+    """Admin: force re-read the weekly CSV into a JSON snapshot, then rebuild SP2 snapshot.
 
     Steps:
       1. Reset any stuck in_progress/done audit record for this week's file.
-      2. Re-run _auto_load_qipl_week (DELETE old rows, INSERT all CSV rows).
+      2. Re-parse the CSV and save compact qipl_week_YYYY-MM-DD.json rows.
       3. Clear + rebuild SP2 static build snapshot from Axiom.
       4. Rebuild SP2 consolidate snapshot.
     """
@@ -10241,7 +10397,7 @@ def api_sp2_reimport_csv():
     # Admin/manual "Re-import CSV" is a hard override.  Do not block on the
     # EXE-output/ready marker here; operators use this button exactly when the
     # normal scheduled import/ready audit path is stuck or stale.  Pick the
-    # newest matching week file and re-read it into weekly_qipl_data.
+    # newest matching week file and re-read it into the compact JSON snapshot.
     if candidates:
         src_path = candidates[0].get('path') or ''
     if not src_path:
@@ -10268,7 +10424,7 @@ def api_sp2_reimport_csv():
     except Exception:
         pass  # non-fatal
 
-    # Step 3: force re-import CSV -> weekly_qipl_data.
+    # Step 3: force re-import CSV -> qipl_week JSON snapshot.
     # Do not go through _auto_load_qipl_week() here because that path honors
     # import-audit locks and can return import_in_progress after a failed/stuck
     # attempt. Admin re-import is intentionally a hard override.
@@ -10337,7 +10493,7 @@ def api_sp2_builds():
     Hours summed, chip_ids unioned (unique devices), crashes summed.
     Each row has build_type (CRM/Eng) that the user can toggle per row.
     Hours are week-bounded: running builds capped at week_end Sunday 23:59:59.
-    Crashes from weekly_qipl_data (same CSV as CR Pie / CR Age).
+    Crashes from the weekly QIPL CSV/snapshot (same source as CR Pie / CR Age).
     """
     import re as _re
     ws_arg = request.args.get('week_start', '').strip()
@@ -10453,6 +10609,7 @@ def api_sp2_builds():
         # fix and can still contain stale prior-week builds until a refresh.
         _total_devices = len(all_chips)
         return jsonify(success=True, builds=out, total_devices=_total_devices,
+                       total_hours=_sp2_week_device_capacity_hours(_total_devices, ws, we),
                        total_crashes_csv=_sp2_weekly_total_crashes_count(ws, we),
                        bu_list=sorted(bu_opts),
                        week_start=ws.isoformat(), week_end=we.isoformat(), static=True)
@@ -10491,7 +10648,7 @@ def api_sp2_builds():
         _log.getLogger('weekly_summary_routes').warning('[SP2 BUILDS] DB read failed: %s', _exc)
 
     if not db_rows:
-        return jsonify(success=True, builds=[], total_devices=0,
+        return jsonify(success=True, builds=[], total_devices=0, total_hours=0,
                        week_start=ws.isoformat(), week_end=we.isoformat())
 
         # 2. Week + PL bounded crash map from weekly_qipl_data.
@@ -10733,6 +10890,7 @@ def api_sp2_builds():
     # and can still contain stale prior-week builds until a refresh.
     _total_devices2 = len(all_chips)
     return jsonify(success=True, builds=out, total_devices=_total_devices2,
+                   total_hours=_sp2_week_device_capacity_hours(_total_devices2, ws, we),
                    total_crashes_csv=_sp2_weekly_total_crashes_count(ws, we),
                    bu_list=bu_list,
                    week_start=ws.isoformat(), week_end=we.isoformat())
@@ -11107,14 +11265,31 @@ def api_sp2_stability_health():
                 weekly_total_jiras_count = _sp2_weekly_total_crashes_count(week_start, week_end)
 
                 # Distinct CR Mapped tickets for the Unique CRs bar.
-                cur.execute(
-                    f"""SELECT COUNT(DISTINCT NULLIF(TRIM(cr_current_ticket), '')) AS cr_count
-                      FROM `{_QIPL_DB}`.`{_QIPL_TABLE}`
-                      WHERE fetched_date >= %s AND fetched_date <= %s
-                        AND LOWER(TRIM(COALESCE(jira_category,'')))='cr mapped'""",
-                    (week_start.isoformat(), week_end.isoformat()))
-                cr_row = cur.fetchone() or {}
-                weekly_cr_mapped_distinct = int(cr_row.get('cr_count') or 0)
+                # Prefer the CSV/snapshot cache so stability-health trend does
+                # not depend on the large weekly_qipl_data table.
+                qipl_rows_for_week = _load_qipl_week_rows(week_start, week_end)
+                if qipl_rows_for_week:
+                    weekly_cr_mapped_distinct = len({
+                        str(_qipl_pick(r, 'cr_current_ticket', 'CR Current Ticket', 'CR/Current Ticket') or '').strip().upper()
+                        for r in qipl_rows_for_week
+                        if str(_qipl_pick(r, 'jira_category', 'Jira Category') or '').strip().lower() == 'cr mapped'
+                        and str(_qipl_pick(r, 'cr_current_ticket', 'CR Current Ticket', 'CR/Current Ticket') or '').strip()
+                    })
+                else:
+                    # Legacy DB fallback only. weekly_qipl_data may already be
+                    # retired after snapshot coverage is complete, so absence of
+                    # that table must not break the trend API.
+                    try:
+                        cur.execute(
+                            f"""SELECT COUNT(DISTINCT NULLIF(TRIM(cr_current_ticket), '')) AS cr_count
+                              FROM `{_QIPL_DB}`.`{_QIPL_TABLE}`
+                              WHERE fetched_date >= %s AND fetched_date <= %s
+                                AND LOWER(TRIM(COALESCE(jira_category,'')))='cr mapped'""",
+                            (week_start.isoformat(), week_end.isoformat()))
+                        cr_row = cur.fetchone() or {}
+                        weekly_cr_mapped_distinct = int(cr_row.get('cr_count') or 0)
+                    except Exception:
+                        weekly_cr_mapped_distinct = 0
             finally:
                 cur.close(); conn.close()
 
@@ -11132,23 +11307,30 @@ def api_sp2_stability_health():
                 pass
         dev = float(len(_stab_chip_union)) if _stab_chip_union else sum(float(r.get('device_count') or 0) for r in rows)
 
-        # Distinct CR count is sourced from weekly_qipl_data, not from the
-        # SharePoint consolidate unique_crs column.
+        # Distinct CR count is sourced from weekly QIPL snapshot data, not from
+        # the SharePoint consolidate unique_crs column. However, this graph is a
+        # stability-health trend and needs real usage data (hours/devices). A
+        # week that has only QIPL Jira rows but no Axiom/consolidate usage data
+        # would otherwise render as a misleading 0 Hours / 0 Time-per-Crash
+        # point, so fallback to legacy consolidate first and skip pure QIPL-only
+        # weeks for this graph.
         old_rows = _fetch_consolidate_summary(week_end)
         unique_crs = weekly_cr_mapped_distinct
-        # Use the total JIRA count from weekly_qipl_data as the authoritative
-        # Total JIRAs metric. Fall back to crash count only when no QIPL data
-        # exists for the week (older weeks before CSV import was available).
-        if weekly_total_jiras_count > 0:
-            crashes = weekly_total_jiras_count
-
         if not (hrs > 0 or crashes > 0 or dev > 0):
             source = 'weekly_sharepoint_consolidate_summary'
             hrs     = sum(float(r.get('total_hours')       or 0) for r in old_rows)
             crashes = sum(float(r.get('total_crashes')     or 0) for r in old_rows)
             dev     = sum(float(r.get('number_of_devices') or 0) for r in old_rows)
 
-        if not (hrs > 0 or crashes > 0 or dev > 0 or unique_crs > 0):
+        has_usage_data = (hrs > 0 or dev > 0)
+        # Use the total JIRA count from weekly QIPL as the authoritative Total
+        # JIRAs metric only when the week has usage/device data. This avoids
+        # plotting a zero-value stability point for weeks where only Jira rows
+        # exist but device-hour data was never consolidated.
+        if weekly_total_jiras_count > 0 and has_usage_data:
+            crashes = weekly_total_jiras_count
+
+        if not (hrs > 0 or crashes > 0 or dev > 0 or unique_crs > 0) or not has_usage_data:
             continue
         weeks.append({
             'week_end':              week_end.isoformat(),

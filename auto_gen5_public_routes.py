@@ -22,6 +22,10 @@ from live_status_view_api import (
 public_auto_gen5_bp = Blueprint("public_auto_gen5_bp", __name__)
 
 _DEFAULT_TARGET = "nord_hqx"
+# 2026-09-15: Public API should not expose saved rows with mtbf=0.
+# Bump this when changing public filtering semantics so callers can confirm
+# they are hitting the refreshed server code.
+_PUBLIC_GEN5_API_VERSION = "2026-09-15_drop_zero_mtbf_rows"
 _DEFAULT_DOMAIN_ORDER = ["ADAS", "FLEX", _MTBF_NONSAFE_IVI_DOMAIN, _MTBF_SAFE_IVI_DOMAIN, "IVI"]
 # SECA LE IVI 1.0 — folder is SECA_LE_IVI_1_0, file is mtbf_ivi_10.json (SP key "10")
 _KNOWN_TARGETS = ["nord_hqx", "nord_hgy", "seca_le_ivi_1_0"]
@@ -132,7 +136,7 @@ def _resolve_domain(target_name: str, domain: str) -> Optional[str]:
 
 def _domain_summary(target_name: str, domain: str) -> Dict[str, Any]:
     data = _load_adas_mtbf(target_name, domain)
-    rows = _sort_adas_rows_by_date(data.get("rows") or [])
+    rows = _positive_mtbf_raw_rows(data.get("rows") or [])
     latest = rows[-1] if rows else {}
     return {
         "domain":           domain,
@@ -146,20 +150,84 @@ def _domain_summary(target_name: str, domain: str) -> Dict[str, Any]:
 
 
 def _system_only_mtbf(row: Dict[str, Any]) -> Any:
-    """Return MTBF calculated from system crashes only.
+    """Return the public MTBF value.
 
-    If manual_mtbf=1 the user explicitly locked the value — return it as-is.
-    Otherwise recalculate from hours / system_crashes so the API always
-    reflects the system-crashes-only MTBF policy.
+    Public AutoGen5 should not emit stale saved ``mtbf: 0`` when the row has
+    enough crash data to calculate a valid MTBF.  Prefer the user-locked manual
+    MTBF only when it is a positive value; otherwise recompute from
+    hours/system_crashes.  If system_crashes is absent, fall back to
+    total_crashes so older rows still get a non-zero public value.
     """
-    if int(row.get("manual_mtbf") or 0):
-        return row.get("mtbf")
+    stored_mtbf = row.get("mtbf")
+    if int(_num(row.get("manual_mtbf")) or 0) and _mtbf_value_is_positive(stored_mtbf):
+        return stored_mtbf
+
     hours = _num(row.get("hours"))
     system_c = _num(row.get("system_crashes"))
+    total_c = _num(row.get("total_crashes"))
     if hours and system_c:
         return round(hours / system_c, 2)
-    # Fall back to stored value when system_crashes is missing/zero
-    return row.get("mtbf")
+    if hours and total_c:
+        return round(hours / total_c, 2)
+
+    return stored_mtbf
+
+
+def _mtbf_value_is_positive(value: Any) -> bool:
+    """Return True only when an MTBF value represents a value greater than zero."""
+    if isinstance(value, (int, float)):
+        return float(value) > 0
+    text = str(value or "").replace(",", "").strip()
+    if not text:
+        return False
+    if text.startswith("<"):
+        # Values like "<1" still mean a positive MTBF, just below one hour.
+        try:
+            return float(text[1:].strip()) > 0
+        except Exception:
+            return text == "<1"
+    try:
+        return float(text) > 0
+    except Exception:
+        return False
+
+
+def _row_has_positive_mtbf(row: Dict[str, Any]) -> bool:
+    """Public API should not expose rows whose saved MTBF is explicitly 0.
+
+    These rows are treated as unpublished/incomplete for public consumers,
+    including search/filter endpoints.
+    """
+    stored_text = str(row.get("mtbf") if row.get("mtbf") is not None else "").replace(",", "").strip()
+    try:
+        # Product request: remove rows like
+        # SA8797P.HQX.5.7.7.0-00731-STD.INT-1 from every public endpoint when
+        # their saved MTBF is explicitly 0/0.0, even if hours/crashes exist.
+        if stored_text != "" and float(stored_text) <= 0:
+            return False
+    except Exception:
+        pass
+    return _mtbf_value_is_positive(_system_only_mtbf(row))
+
+
+def _positive_mtbf_raw_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    return [r for r in _sort_adas_rows_by_date(rows or []) if _row_has_positive_mtbf(r)]
+
+
+def _positive_public_rows(rows: List[Dict[str, Any]], domain: str) -> List[Dict[str, Any]]:
+    """Return rows that are safe to publish through the Gen5 public API.
+
+    Rows with saved/effective MTBF <= 0 are not published.
+    """
+    result: List[Dict[str, Any]] = []
+    for row in _sort_adas_rows_by_date(rows or []):
+        if not _row_has_positive_mtbf(row):
+            continue
+        pub_row = _public_row(row, domain)
+        if not _mtbf_value_is_positive(pub_row.get("mtbf")):
+            continue
+        result.append(pub_row)
+    return result
 
 
 def _public_row(row: Dict[str, Any], domain: str) -> Dict[str, Any]:
@@ -278,7 +346,7 @@ def _sp_load(target_name: str, domain: str, sp_cpl: str) -> Dict[str, Any]:
 def _sp_domain_summary(target_name: str, domain: str, sp: str) -> Dict[str, Any]:
     """Summary for one SP+domain combination."""
     data = _sp_load(target_name, domain, sp)
-    rows = _sort_adas_rows_by_date(data.get("rows") or [])
+    rows = _positive_mtbf_raw_rows(data.get("rows") or [])
     latest = rows[-1] if rows else {}
     return {
         "cpl":                _sp_key_to_cpl(_sp_key(sp)),
@@ -319,10 +387,13 @@ def public_auto_gen5_docs():
             details = []
             for dom in sp["domains"]:
                 try:
-                    details.append(_sp_domain_summary("nord_hqx", dom, sp["cpl"]))
+                    detail = _sp_domain_summary("nord_hqx", dom, sp["cpl"])
+                    if int(detail.get("row_count") or 0) > 0:
+                        details.append(detail)
                 except Exception:
                     pass
-            hqx_sps.append({**sp, "domain_details": details})
+            if details:
+                hqx_sps.append({**sp, "domains": [d["domain"] for d in details], "domain_details": details})
     except Exception:
         hqx_sps = []
     try:
@@ -332,10 +403,13 @@ def public_auto_gen5_docs():
             details = []
             for dom in sp["domains"]:
                 try:
-                    details.append(_sp_domain_summary("nord_hgy", dom, sp["cpl"]))
+                    detail = _sp_domain_summary("nord_hgy", dom, sp["cpl"])
+                    if int(detail.get("row_count") or 0) > 0:
+                        details.append(detail)
                 except Exception:
                     pass
-            hgy_sps.append({**sp, "domain_details": details})
+            if details:
+                hgy_sps.append({**sp, "domains": [d["domain"] for d in details], "domain_details": details})
     except Exception:
         hgy_sps = []
     # SECA LE IVI 1.0 target (folder: SECA_LE_IVI_1_0)
@@ -350,10 +424,13 @@ def public_auto_gen5_docs():
             details = []
             for dom in sp["domains"]:
                 try:
-                    details.append(_sp_domain_summary("seca_le_ivi_1_0", dom, sp["cpl"]))
+                    detail = _sp_domain_summary("seca_le_ivi_1_0", dom, sp["cpl"])
+                    if int(detail.get("row_count") or 0) > 0:
+                        details.append(detail)
                 except Exception:
                     pass
-            seca_sps.append({**sp, "domain_details": details})
+            if details:
+                seca_sps.append({**sp, "domains": [d["domain"] for d in details], "domain_details": details})
     except Exception:
         seca_sps = []
     return render_template(
@@ -383,19 +460,29 @@ def api_public_auto_gen5_domains():
             available_sps = _discover_sps_for_target(target_name)
             sp_entry = next((e for e in available_sps if e["sp_key"] == sp_k), None)
             sp_domains = sp_entry["domains"] if sp_entry else []
+            domain_summaries = []
+            for d in sp_domains:
+                summary = _sp_domain_summary(target_name, d, sp)
+                if int(summary.get("row_count") or 0) > 0:
+                    domain_summaries.append(summary)
             return jsonify({
                 "ok":     True,
                 "target": target_name,
                 "sp":     _sp_key_to_cpl(sp_k),
                 "sp_key": sp_k,
-                "count":  len(sp_domains),
-                "domains": [_sp_domain_summary(target_name, d, sp) for d in sp_domains],
+                "count":  len(domain_summaries),
+                "domains": domain_summaries,
             })
+        domain_summaries = []
+        for d in domains:
+            summary = _domain_summary(target_name, d)
+            if int(summary.get("row_count") or 0) > 0:
+                domain_summaries.append(summary)
         return jsonify({
             "ok":     True,
             "target": target_name,
-            "count":  len(domains),
-            "domains": [_domain_summary(target_name, d) for d in domains],
+            "count":  len(domain_summaries),
+            "domains": domain_summaries,
         })
     except Exception as exc:
         return jsonify({"ok": False, "message": f"Unable to list Gen5 domains: {exc}", "domains": []}), 500
@@ -421,7 +508,7 @@ def api_public_auto_gen5_domain(domain: str):
             }), 404
         sp_k = _sp_key(sp) if sp else ""
         data = _sp_load(target_name, resolved, sp) if sp_k else _load_adas_mtbf(target_name, resolved)
-        rows = [_public_row(r, resolved) for r in _sort_adas_rows_by_date(data.get("rows") or [])]
+        rows = _positive_public_rows(data.get("rows") or [], resolved)
         last_n = int(request.args.get("last_n") or 0)
         if last_n > 0:
             rows = rows[-last_n:]
@@ -460,8 +547,7 @@ def api_public_auto_gen5_search():
             if not resolved:
                 continue
             data = _sp_load(target_name, resolved, sp) if _sp_key(sp) else _load_adas_mtbf(target_name, resolved)
-            for row in _sort_adas_rows_by_date(data.get("rows") or []):
-                pub_row = _public_row(row, resolved)
+            for pub_row in _positive_public_rows(data.get("rows") or [], resolved):
                 haystack = json.dumps(pub_row, ensure_ascii=False, default=str).lower()
                 if not q or q in haystack:
                     matches.append(pub_row)
@@ -503,14 +589,18 @@ def api_public_auto_gen5_sps():
             domain_summaries = []
             for dom in sp_entry["domains"]:
                 try:
-                    domain_summaries.append(_sp_domain_summary(target_name, dom, sp_cpl))
+                    summary = _sp_domain_summary(target_name, dom, sp_cpl)
+                    if int(summary.get("row_count") or 0) > 0:
+                        domain_summaries.append(summary)
                 except Exception:
                     pass
+            if not domain_summaries:
+                continue
             enriched.append({
                 "cpl":            sp_cpl,
                 "sp_key":         sp_entry["sp_key"],
-                "domains":        sp_entry["domains"],
-                "domain_count":   len(sp_entry["domains"]),
+                "domains":        [d["domain"] for d in domain_summaries],
+                "domain_count":   len(domain_summaries),
                 "domain_details": domain_summaries,
             })
         return jsonify({"ok": True, "target": target_name, "count": len(enriched), "sps": enriched})
@@ -554,17 +644,18 @@ def api_public_auto_gen5_sp(sp: str):
         for dom in domains_to_fetch:
             try:
                 data = _sp_load(target_name, dom, sp_cpl)
-                rows = _sort_adas_rows_by_date(data.get("rows") or [])
+                rows = _positive_public_rows(data.get("rows") or [], dom)
                 if last_n > 0:
                     rows = rows[-last_n:]
                 entry: Dict[str, Any] = {
                     "domain":    dom,
                     "row_count": len(rows),
-                    "rows":      [_public_row(r, dom) for r in rows],
+                    "rows":      rows,
                 }
                 if _bool_arg("summary", True):
                     entry["summary"] = _sp_domain_summary(target_name, dom, sp_cpl)
-                result_domains.append(entry)
+                if rows:
+                    result_domains.append(entry)
             except Exception:
                 pass
         return jsonify({
@@ -601,18 +692,18 @@ def api_public_auto_gen5_sp_domain(sp: str, domain: str):
                 "row_count":        0,
             }), 404
         data = _sp_load(target_name, resolved, sp_cpl)
-        rows = _sort_adas_rows_by_date(data.get("rows") or [])
+        pub_rows = _positive_public_rows(data.get("rows") or [], resolved)
         if last_n > 0:
-            rows = rows[-last_n:]
-        pub_rows = [_public_row(r, resolved) for r in rows]
+            pub_rows = pub_rows[-last_n:]
         response: Dict[str, Any] = {
-            "ok":        True,
-            "target":    target_name,
-            "sp":        sp_cpl,
-            "sp_key":    sp_k,
-            "domain":    resolved,
-            "row_count": len(pub_rows),
-            "rows":      pub_rows,
+            "ok":          True,
+            "api_version": _PUBLIC_GEN5_API_VERSION,
+            "target":      target_name,
+            "sp":          sp_cpl,
+            "sp_key":      sp_k,
+            "domain":      resolved,
+            "row_count":   len(pub_rows),
+            "rows":        pub_rows,
         }
         if _bool_arg("summary", True):
             response["summary"] = _sp_domain_summary(target_name, resolved, sp_cpl)
@@ -634,34 +725,36 @@ def api_public_auto_gen5_all():
         base_domains = []
         for dom in _ordered_domains(target_name):
             data = _load_adas_mtbf(target_name, dom)
-            rows = _sort_adas_rows_by_date(data.get("rows") or [])
+            rows = _positive_public_rows(data.get("rows") or [], dom)
             if last_n > 0:
                 rows = rows[-last_n:]
             entry: Dict[str, Any] = {
                 "domain": dom, "sp": None,
                 "row_count": len(rows),
-                "rows": [_public_row(r, dom) for r in rows],
+                "rows": rows,
             }
             if _bool_arg("summary", True):
                 entry["summary"] = _domain_summary(target_name, dom)
-            base_domains.append(entry)
+            if rows:
+                base_domains.append(entry)
         sp_domains = []
         for sp_entry in _discover_sps_for_target(target_name):
             sp_cpl = sp_entry["cpl"]
             for dom in sp_entry["domains"]:
                 try:
                     data = _sp_load(target_name, dom, sp_cpl)
-                    rows = _sort_adas_rows_by_date(data.get("rows") or [])
+                    rows = _positive_public_rows(data.get("rows") or [], dom)
                     if last_n > 0:
                         rows = rows[-last_n:]
                     entry = {
                         "domain": dom, "sp": sp_cpl, "sp_key": sp_entry["sp_key"],
                         "row_count": len(rows),
-                        "rows": [_public_row(r, dom) for r in rows],
+                        "rows": rows,
                     }
                     if _bool_arg("summary", True):
                         entry["summary"] = _sp_domain_summary(target_name, dom, sp_cpl)
-                    sp_domains.append(entry)
+                    if rows:
+                        sp_domains.append(entry)
                 except Exception:
                     pass
         return jsonify({

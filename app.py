@@ -4620,6 +4620,10 @@ def admin_db_health():
         overview["index_size_mb"] = round(sum(_num(s.get("index_mb")) for s in schemas), 2)
         overview["free_size_mb"] = round(sum(_num(s.get("free_mb")) for s in schemas), 2)
         overview["allocated_size_mb"] = round(sum(_num(s.get("allocated_mb")) for s in schemas), 2)
+        qipl_raw_status = _admin_qipl_raw_table_status(cur)
+        qipl_snapshot_status = _admin_qipl_snapshot_inventory()
+        overview["qipl_raw_table"] = qipl_raw_status
+        overview["qipl_snapshots"] = qipl_snapshot_status
         overview["generated_in_ms"] = int((time.time() - now_started) * 1000)
 
         optimization_candidates = sorted(
@@ -4654,6 +4658,13 @@ def admin_db_health():
                 "title": f"Largest table: {largest_table.get('schema')}.{largest_table.get('table')}",
                 "message": f"This table is using {largest_table.get('total_mb')} MB. Check retention, duplicate historical rows, and whether old report/cache data can be archived.",
             })
+        if qipl_raw_status.get("exists") and _num(qipl_raw_status.get("total_mb")) >= 512:
+            recommendations.insert(0, {
+                "type": "qipl_raw_archive",
+                "severity": "high",
+                "title": "QIPL raw weekly table can be archived",
+                "message": "Normal QIPL weekly reads now prefer compact qipl_week_YYYY-MM-DD.json snapshots. Export snapshots from this table, verify coverage, then drop weekly_qipl_data to reclaim DB space.",
+            })
 
         return jsonify({
             "success": True,
@@ -4668,6 +4679,572 @@ def admin_db_health():
         logger.error(f"[admin_db_health] failed: {e}")
         logger.debug(traceback.format_exc())
         return jsonify({"success": False, "error": str(e)}), 500
+    finally:
+        try:
+            cur.close()
+        except Exception:
+            pass
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+
+_ADMIN_QIPL_DB = "pdt_stats_dashboard"
+_ADMIN_QIPL_RAW_TABLE = "weekly_qipl_data"
+_ADMIN_QIPL_SNAPSHOT_PREFIX = "qipl_week_"
+
+
+def _admin_sql_ident(name: str) -> str:
+    """Backtick-quote a fixed internal MySQL identifier."""
+    return "`" + str(name).replace("`", "``") + "`"
+
+
+def _admin_qipl_table_exists(cur) -> bool:
+    cur.execute(
+        """
+        SELECT COUNT(*) AS c
+        FROM information_schema.TABLES
+        WHERE table_schema=%s AND table_name=%s
+        """,
+        (_ADMIN_QIPL_DB, _ADMIN_QIPL_RAW_TABLE),
+    )
+    row = cur.fetchone() or {}
+    if isinstance(row, dict):
+        return int(row.get("c") or 0) > 0
+    return bool(row and int(row[0] or 0) > 0)
+
+
+def _admin_qipl_columns(cur) -> set:
+    cur.execute(
+        """
+        SELECT column_name
+        FROM information_schema.COLUMNS
+        WHERE table_schema=%s AND table_name=%s
+        """,
+        (_ADMIN_QIPL_DB, _ADMIN_QIPL_RAW_TABLE),
+    )
+    cols = set()
+    for row in cur.fetchall() or []:
+        if isinstance(row, dict):
+            cols.add(str(row.get("column_name") or row.get("COLUMN_NAME") or "").lower())
+        else:
+            cols.add(str(row[0] or "").lower())
+    return {c for c in cols if c}
+
+
+def _admin_qipl_week_exprs(cols: set) -> tuple[str | None, str | None]:
+    if not cols:
+        return None, None
+    date_candidates = [c for c in ("fetched_date", "jira_date", "cr_date") if c in cols]
+    seed_expr = "COALESCE(" + ",".join(_admin_sql_ident(c) for c in date_candidates) + ")" if date_candidates else None
+    if "week_end" in cols:
+        week_end_expr = _admin_sql_ident("week_end")
+    elif seed_expr:
+        week_end_expr = f"DATE_ADD(DATE_SUB({seed_expr}, INTERVAL WEEKDAY({seed_expr}) DAY), INTERVAL 6 DAY)"
+    else:
+        week_end_expr = None
+    if "week_start" in cols:
+        week_start_expr = _admin_sql_ident("week_start")
+    elif seed_expr:
+        week_start_expr = f"DATE_SUB({seed_expr}, INTERVAL WEEKDAY({seed_expr}) DAY)"
+    else:
+        week_start_expr = None
+    return week_start_expr, week_end_expr
+
+
+def _admin_qipl_raw_week_ends(cur) -> list[str]:
+    """Return all report week_end values present in the legacy raw QIPL table."""
+    try:
+        if not _admin_qipl_table_exists(cur):
+            return []
+        cols = _admin_qipl_columns(cur)
+        _, week_end_expr = _admin_qipl_week_exprs(cols)
+        if not week_end_expr:
+            return []
+        table_ref = f"{_admin_sql_ident(_ADMIN_QIPL_DB)}.{_admin_sql_ident(_ADMIN_QIPL_RAW_TABLE)}"
+        cur.execute(
+            f"""
+            SELECT DISTINCT {week_end_expr} AS week_end
+            FROM {table_ref}
+            WHERE {week_end_expr} IS NOT NULL
+            ORDER BY week_end
+            """
+        )
+        return [
+            _admin_date_text((r or {}).get("week_end"))
+            for r in (cur.fetchall() or [])
+            if _admin_date_text((r or {}).get("week_end"))
+        ]
+    except Exception:
+        return []
+
+
+def _admin_date_text(value) -> str:
+    if isinstance(value, datetime):
+        return value.date().isoformat()
+    if isinstance(value, date):
+        return value.isoformat()
+    text = str(value or "").strip()
+    return text[:10] if text else ""
+
+
+def _admin_num(value, default=0):
+    try:
+        return int(float(value or 0))
+    except Exception:
+        return default
+
+
+def _admin_qipl_raw_table_status(cur) -> dict:
+    status = {
+        "schema": _ADMIN_QIPL_DB,
+        "table": _ADMIN_QIPL_RAW_TABLE,
+        "exists": False,
+        "rows": 0,
+        "valid_week_rows": 0,
+        "invalid_week_rows": 0,
+        "min_week_end": "",
+        "max_week_end": "",
+        "min_fetched_date": "",
+        "max_fetched_date": "",
+        "data_mb": 0,
+        "index_mb": 0,
+        "free_mb": 0,
+        "total_mb": 0,
+        "allocated_mb": 0,
+        "snapshot_coverage_ok": False,
+    }
+    try:
+        status["exists"] = _admin_qipl_table_exists(cur)
+        if not status["exists"]:
+            return status
+        cols = _admin_qipl_columns(cur)
+        week_start_expr, week_end_expr = _admin_qipl_week_exprs(cols)
+
+        cur.execute(
+            """
+            SELECT
+                COALESCE(table_rows,0) AS approx_rows,
+                ROUND(COALESCE(data_length,0)/1024/1024,2) AS data_mb,
+                ROUND(COALESCE(index_length,0)/1024/1024,2) AS index_mb,
+                ROUND(COALESCE(data_free,0)/1024/1024,2) AS free_mb,
+                ROUND(COALESCE(data_length + index_length,0)/1024/1024,2) AS total_mb,
+                ROUND(COALESCE(data_length + index_length + data_free,0)/1024/1024,2) AS allocated_mb
+            FROM information_schema.TABLES
+            WHERE table_schema=%s AND table_name=%s
+            """,
+            (_ADMIN_QIPL_DB, _ADMIN_QIPL_RAW_TABLE),
+        )
+        size_row = cur.fetchone() or {}
+        status.update({
+            "approx_rows": _admin_num(size_row.get("approx_rows") if isinstance(size_row, dict) else size_row[0]),
+            "data_mb": float((size_row.get("data_mb") if isinstance(size_row, dict) else size_row[1]) or 0),
+            "index_mb": float((size_row.get("index_mb") if isinstance(size_row, dict) else size_row[2]) or 0),
+            "free_mb": float((size_row.get("free_mb") if isinstance(size_row, dict) else size_row[3]) or 0),
+            "total_mb": float((size_row.get("total_mb") if isinstance(size_row, dict) else size_row[4]) or 0),
+            "allocated_mb": float((size_row.get("allocated_mb") if isinstance(size_row, dict) else size_row[5]) or 0),
+        })
+
+        table_ref = f"{_admin_sql_ident(_ADMIN_QIPL_DB)}.{_admin_sql_ident(_ADMIN_QIPL_RAW_TABLE)}"
+        if week_end_expr:
+            fetched_min = "MIN(`fetched_date`)" if "fetched_date" in cols else "NULL"
+            fetched_max = "MAX(`fetched_date`)" if "fetched_date" in cols else "NULL"
+            cur.execute(
+                f"""
+                SELECT COUNT(*) AS rows_total,
+                       SUM(CASE WHEN {week_end_expr} IS NOT NULL THEN 1 ELSE 0 END) AS valid_rows,
+                       MIN({week_end_expr}) AS min_week_end,
+                       MAX({week_end_expr}) AS max_week_end,
+                       {fetched_min} AS min_fetched_date,
+                       {fetched_max} AS max_fetched_date
+                FROM {table_ref}
+                """
+            )
+            row = cur.fetchone() or {}
+            status["rows"] = _admin_num(row.get("rows_total"))
+            status["valid_week_rows"] = _admin_num(row.get("valid_rows"))
+            status["invalid_week_rows"] = max(status["rows"] - status["valid_week_rows"], 0)
+            status["min_week_end"] = _admin_date_text(row.get("min_week_end"))
+            status["max_week_end"] = _admin_date_text(row.get("max_week_end"))
+            status["min_fetched_date"] = _admin_date_text(row.get("min_fetched_date"))
+            status["max_fetched_date"] = _admin_date_text(row.get("max_fetched_date"))
+        else:
+            cur.execute(f"SELECT COUNT(*) AS rows_total FROM {table_ref}")
+            row = cur.fetchone() or {}
+            status["rows"] = _admin_num(row.get("rows_total"))
+
+        inv = _admin_qipl_snapshot_inventory()
+        raw_week_ends = _admin_qipl_raw_week_ends(cur)
+        snapshot_week_ends = set(inv.get("week_ends") or [])
+        missing_snapshot_weeks = [w for w in raw_week_ends if w not in snapshot_week_ends]
+        status["raw_week_count"] = len(raw_week_ends)
+        status["missing_snapshot_week_count"] = len(missing_snapshot_weeks)
+        status["missing_snapshot_weeks"] = missing_snapshot_weeks[:20]
+        status["snapshot_coverage_ok"] = bool(raw_week_ends and not missing_snapshot_weeks)
+    except Exception as exc:
+        status["error"] = str(exc)
+    return status
+
+
+def _admin_qipl_snapshot_meta(path: str) -> dict:
+    meta = {
+        "path": path,
+        "week_end": "",
+        "rows": 0,
+        "size_mb": 0,
+        "modified_at": "",
+    }
+    try:
+        p = Path(path)
+        st = p.stat()
+        meta["size_mb"] = round(st.st_size / 1024 / 1024, 2)
+        meta["modified_at"] = datetime.fromtimestamp(st.st_mtime).strftime("%Y-%m-%d %H:%M:%S")
+        m = re.search(r"qipl_week_(\d{4}-\d{2}-\d{2})\.json$", p.name)
+        if m:
+            meta["week_end"] = m.group(1)
+        with open(path, "r", encoding="utf-8") as fh:
+            head = fh.read(8192)
+        rows_match = re.search(r'"total_rows"\s*:\s*(\d+)', head)
+        week_match = re.search(r'"week_end"\s*:\s*"([^"]+)"', head)
+        if rows_match:
+            meta["rows"] = int(rows_match.group(1))
+        if week_match:
+            meta["week_end"] = week_match.group(1)[:10]
+    except Exception as exc:
+        meta["error"] = str(exc)
+    return meta
+
+
+def _admin_qipl_snapshot_inventory() -> dict:
+    out = {
+        "local_dir": "",
+        "network_dir": "",
+        "local_count": 0,
+        "network_count": 0,
+        "latest_week_end": "",
+        "total_rows": 0,
+        "total_size_mb": 0,
+        "week_ends": [],
+        "recent": [],
+    }
+    try:
+        from weekly_summary_routes import _CONSOLIDATE_JSON_LOCAL, _CONSOLIDATE_JSON_NET
+        out["local_dir"] = _CONSOLIDATE_JSON_LOCAL
+        out["network_dir"] = _CONSOLIDATE_JSON_NET
+        metas = []
+        seen_paths = set()
+        for base, key in ((_CONSOLIDATE_JSON_LOCAL, "local_count"), (_CONSOLIDATE_JSON_NET, "network_count")):
+            try:
+                files = sorted(Path(base).glob(f"{_ADMIN_QIPL_SNAPSHOT_PREFIX}*.json")) if base and os.path.isdir(base) else []
+            except Exception:
+                files = []
+            out[key] = len(files)
+            for p in files:
+                sp = str(p)
+                if sp in seen_paths:
+                    continue
+                seen_paths.add(sp)
+                metas.append(_admin_qipl_snapshot_meta(sp))
+        out["total_rows"] = sum(_admin_num(m.get("rows")) for m in metas)
+        out["total_size_mb"] = round(sum(float(m.get("size_mb") or 0) for m in metas), 2)
+        metas.sort(key=lambda m: (str(m.get("week_end") or ""), str(m.get("modified_at") or "")), reverse=True)
+        out["week_ends"] = sorted({str(m.get("week_end") or "") for m in metas if str(m.get("week_end") or "")})
+        out["recent"] = metas[:10]
+        if metas:
+            out["latest_week_end"] = str(metas[0].get("week_end") or "")
+    except Exception as exc:
+        out["error"] = str(exc)
+    return out
+
+
+def _admin_qipl_export_raw_to_snapshots(force: bool = False) -> dict:
+    """Export legacy weekly_qipl_data rows into compact per-week JSON snapshots."""
+    conn = get_mysql_connection_db()
+    if not conn:
+        return {"success": False, "error": "DB connection failed"}
+    cur = conn.cursor(dictionary=True)
+    exported_weeks = []
+    skipped_weeks = []
+    try:
+        if not _admin_qipl_table_exists(cur):
+            return {"success": False, "error": "weekly_qipl_data table does not exist"}
+        cols = _admin_qipl_columns(cur)
+        week_start_expr, week_end_expr = _admin_qipl_week_exprs(cols)
+        if not week_end_expr:
+            return {"success": False, "error": "Cannot determine report week from weekly_qipl_data columns"}
+
+        table_ref = f"{_admin_sql_ident(_ADMIN_QIPL_DB)}.{_admin_sql_ident(_ADMIN_QIPL_RAW_TABLE)}"
+        cur.execute(
+            f"""
+            SELECT {week_start_expr or 'NULL'} AS week_start,
+                   {week_end_expr} AS week_end,
+                   COUNT(*) AS row_count
+            FROM {table_ref}
+            WHERE {week_end_expr} IS NOT NULL
+            GROUP BY week_start, week_end
+            ORDER BY week_end
+            """
+        )
+        weeks = cur.fetchall() or []
+        if not weeks:
+            return {"success": False, "error": "No rows with a valid week_end/date were found"}
+
+        from weekly_summary_routes import (
+            _qipl_snapshot_file,
+            _qipl_compact_row,
+            _qipl_json_safe,
+            _list_qipl_source_files,
+            _qipl_report_week_for_file_date,
+            _parse_file,
+            _select_qipl_rows_for_report_week,
+            _save_qipl_week_snapshot,
+        )
+
+        select_cols = [c for c in (
+            "row_data", "week_start", "week_end", "jira_date", "cr_date", "jira_category",
+            "cr_current_ticket", "cr_si", "cr_title", "jira_title", "ticket_status",
+            "resolution", "jira_reporter", "fetched_date", "target", "jira_component",
+            "pl_id", "host_name", "type_of_farm", "cr_status", "cr_area", "cr_age",
+            "stability_ticket", "meta_build",
+        ) if c in cols]
+        if "id" in cols and "id" not in select_cols:
+            order_sql = "ORDER BY `id`"
+        else:
+            order_sql = ""
+        select_sql = f"SELECT {', '.join(_admin_sql_ident(c) for c in select_cols)} FROM {table_ref} WHERE {week_end_expr}=%s {order_sql}"
+
+        for wk in weeks:
+            ws_text = _admin_date_text(wk.get("week_start"))
+            we_text = _admin_date_text(wk.get("week_end"))
+            row_count = _admin_num(wk.get("row_count"))
+            if not we_text:
+                continue
+            we_date = date.fromisoformat(we_text)
+            ws_date = date.fromisoformat(ws_text) if ws_text else (we_date - timedelta(days=6))
+            local_path = _qipl_snapshot_file(ws_date, we_date)
+            network_path = _qipl_snapshot_file(ws_date, we_date, prefer_network=True)
+            existing_snapshot_rows = 0
+            if os.path.isfile(local_path):
+                existing_snapshot_rows = _admin_num(_admin_qipl_snapshot_meta(local_path).get("rows"))
+                if not force and existing_snapshot_rows >= 5000:
+                    skipped_weeks.append({"week_end": we_text, "rows": existing_snapshot_rows, "path": local_path, "reason": "snapshot_exists"})
+                    continue
+
+            # Prefer rebuilding from the original weekly source file.  The raw
+            # DB table may be split by row-level Jira/Fetched dates, which is
+            # exactly how an undersized snapshot (for example 796 rows) can be
+            # produced.  The source file itself is the authoritative weekly
+            # report and should contribute all parsed rows to qipl_week_*.json.
+            source_path = ""
+            source_error = ""
+            try:
+                candidates = []
+                for entry in _list_qipl_source_files():
+                    f_ws, f_we = _qipl_report_week_for_file_date(entry.get("file_date"))
+                    if f_ws == ws_date and f_we == we_date and os.path.isfile(entry.get("path") or ""):
+                        candidates.append(entry)
+                candidates.sort(key=lambda x: (x.get("file_date"), x.get("mtime") or 0), reverse=True)
+                if candidates:
+                    source_path = candidates[0].get("path") or ""
+                if source_path:
+                    parsed_rows, _headers = _parse_file(source_path, "admin_snapshot_export")
+                    selected_rows = _select_qipl_rows_for_report_week(parsed_rows, ws_date, we_date)
+                    if selected_rows and (force or len(selected_rows) > existing_snapshot_rows):
+                        source_result = _save_qipl_week_snapshot(ws_date, we_date, selected_rows, source_path=source_path)
+                        if source_result.get("success"):
+                            exported_weeks.append({
+                                "week_start": ws_date.isoformat(),
+                                "week_end": we_date.isoformat(),
+                                "rows": int(source_result.get("rows") or len(selected_rows)),
+                                "expected_rows": row_count,
+                                "path": source_result.get("path") or local_path,
+                                "network_path": source_result.get("network_path") or "",
+                                "source": "source_csv",
+                                "source_path": source_path,
+                                "previous_snapshot_rows": existing_snapshot_rows,
+                            })
+                            continue
+            except Exception as exc:
+                source_error = str(exc)
+
+            if existing_snapshot_rows > 0 and not force:
+                skipped_weeks.append({
+                    "week_end": we_text,
+                    "rows": existing_snapshot_rows,
+                    "path": local_path,
+                    "reason": "partial_snapshot_exists_no_source_csv",
+                    "source_error": source_error,
+                })
+                continue
+
+            os.makedirs(os.path.dirname(local_path), exist_ok=True)
+            tmp_path = f"{local_path}.tmp"
+            row_cur = conn.cursor(dictionary=True)
+            written = 0
+            try:
+                row_cur.execute(select_sql, (we_text,))
+                with open(tmp_path, "w", encoding="utf-8") as fh:
+                    payload_head = {
+                        "kind": "qipl_week_rows",
+                        "version": 1,
+                        "week_start": ws_date.isoformat(),
+                        "week_end": we_date.isoformat(),
+                        "generated_at": datetime.now().isoformat(timespec="seconds"),
+                        "source_path": f"db:{_ADMIN_QIPL_DB}.{_ADMIN_QIPL_RAW_TABLE}",
+                        "total_rows": row_count,
+                    }
+                    head = json.dumps(payload_head, ensure_ascii=False, separators=(",", ":"), default=_qipl_json_safe)
+                    fh.write(head[:-1] + ',"rows":[')
+                    first = True
+                    while True:
+                        batch = row_cur.fetchmany(5000)
+                        if not batch:
+                            break
+                        for db_row in batch:
+                            merged = {}
+                            rd = db_row.get("row_data")
+                            if isinstance(rd, str) and rd.strip():
+                                try:
+                                    raw = json.loads(rd)
+                                    if isinstance(raw, dict):
+                                        merged.update(raw)
+                                except Exception:
+                                    pass
+                            merged.update(db_row)
+                            compact = _qipl_compact_row(merged)
+                            if not first:
+                                fh.write(",")
+                            json.dump(compact, fh, ensure_ascii=False, separators=(",", ":"), default=_qipl_json_safe)
+                            first = False
+                            written += 1
+                    fh.write("]}")
+                os.replace(tmp_path, local_path)
+
+                network_saved = False
+                if network_path != local_path and os.path.isdir(os.path.dirname(network_path)):
+                    try:
+                        import shutil
+                        net_tmp = f"{network_path}.tmp"
+                        shutil.copyfile(local_path, net_tmp)
+                        os.replace(net_tmp, network_path)
+                        network_saved = True
+                    except Exception:
+                        network_saved = False
+                exported_weeks.append({
+                    "week_start": ws_date.isoformat(),
+                    "week_end": we_date.isoformat(),
+                    "rows": written,
+                    "expected_rows": row_count,
+                    "path": local_path,
+                    "network_path": network_path if network_saved else "",
+                    "source": "legacy_db",
+                    "source_error": source_error,
+                })
+            finally:
+                try:
+                    row_cur.close()
+                except Exception:
+                    pass
+                try:
+                    if os.path.exists(tmp_path):
+                        os.remove(tmp_path)
+                except Exception:
+                    pass
+
+        return {
+            "success": True,
+            "exported_weeks": exported_weeks,
+            "skipped_weeks": skipped_weeks,
+            "exported_rows": sum(_admin_num(w.get("rows")) for w in exported_weeks),
+            "skipped_rows": sum(_admin_num(w.get("rows")) for w in skipped_weeks),
+            "weeks_seen": len(weeks),
+            "message": f"Snapshot export complete: {len(exported_weeks)} exported, {len(skipped_weeks)} skipped.",
+        }
+    except Exception as exc:
+        logger.error(f"[admin_qipl_export_raw_to_snapshots] failed: {exc}")
+        logger.debug(traceback.format_exc())
+        return {"success": False, "error": str(exc)}
+    finally:
+        try:
+            cur.close()
+        except Exception:
+            pass
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+
+@app.route('/admin/db_health/qipl_export_snapshots', methods=['POST'])
+@login_required
+def admin_db_health_qipl_export_snapshots():
+    if not is_admin():
+        return jsonify({"success": False, "error": "Unauthorized"}), 403
+    data = request.get_json(silent=True) or {}
+    result = _admin_qipl_export_raw_to_snapshots(force=bool(data.get("force")))
+    return jsonify(result), (200 if result.get("success") else 500)
+
+
+@app.route('/admin/db_health/qipl_drop_raw_table', methods=['POST'])
+@login_required
+def admin_db_health_qipl_drop_raw_table():
+    if not is_admin():
+        return jsonify({"success": False, "error": "Unauthorized"}), 403
+    data = request.get_json(silent=True) or {}
+    if str(data.get("confirm") or "").strip() != "DROP weekly_qipl_data":
+        return jsonify({
+            "success": False,
+            "error": "Confirmation mismatch. Type DROP weekly_qipl_data exactly.",
+        }), 400
+
+    export_result = _admin_qipl_export_raw_to_snapshots(force=False)
+    if not export_result.get("success"):
+        return jsonify({
+            "success": False,
+            "error": "Snapshot export/verification failed; raw table was not dropped.",
+            "export": export_result,
+        }), 409
+
+    conn = get_mysql_connection_db()
+    if not conn:
+        return jsonify({"success": False, "error": "DB connection failed"}), 500
+    cur = conn.cursor(dictionary=True)
+    try:
+        raw_status = _admin_qipl_raw_table_status(cur)
+        if not raw_status.get("exists"):
+            return jsonify({"success": True, "message": "weekly_qipl_data already absent.", "raw_table": raw_status})
+        snapshot_status = _admin_qipl_snapshot_inventory()
+        raw_week_ends = _admin_qipl_raw_week_ends(cur)
+        snapshot_week_ends = set(snapshot_status.get("week_ends") or [])
+        missing_snapshot_weeks = [w for w in raw_week_ends if w not in snapshot_week_ends]
+        if raw_week_ends and missing_snapshot_weeks:
+            return jsonify({
+                "success": False,
+                "error": "Snapshot coverage is incomplete; raw table was not dropped.",
+                "missing_snapshot_weeks": missing_snapshot_weeks[:50],
+                "raw_table": raw_status,
+                "snapshots": snapshot_status,
+            }), 409
+
+        table_ref = f"{_admin_sql_ident(_ADMIN_QIPL_DB)}.{_admin_sql_ident(_ADMIN_QIPL_RAW_TABLE)}"
+        cur.execute(f"DROP TABLE {table_ref}")
+        conn.commit()
+        logger.warning(
+            "[admin_db_health] weekly_qipl_data dropped by %s after snapshot export",
+            getattr(current_user, "username", None) or getattr(current_user, "id", "unknown"),
+        )
+        return jsonify({
+            "success": True,
+            "message": "weekly_qipl_data dropped after snapshot export. Run DB Health refresh to confirm space.",
+            "raw_table_before_drop": raw_status,
+            "snapshots": snapshot_status,
+            "export": export_result,
+        })
+    except Exception as exc:
+        logger.error(f"[admin_db_health_qipl_drop_raw_table] failed: {exc}")
+        logger.debug(traceback.format_exc())
+        return jsonify({"success": False, "error": str(exc), "export": export_result}), 500
     finally:
         try:
             cur.close()

@@ -574,6 +574,7 @@ var _allBuilds=[], _allConsolidate=[], _allDevUtil=[], _allUniqueDevices=[];
 var _consLoaded=false, _devLoaded=false, _udLoaded=false, _adLoaded=false;
 var _sp2BuList=[];
 var _sp2CsvTotalCrashes=0;
+var _sp2KpiTotalDevices=0, _sp2KpiCapacityHours=0, _sp2KpiActualHours=0;
 
 function g(id){return document.getElementById(id)}
 function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];})}
@@ -581,7 +582,37 @@ function js(v){return JSON.stringify(String(v==null?'':v));}
 function num(v){var n=parseFloat(String(v==null?'':v).replace(/,/g,''));return isFinite(n)?n:0}
 function fmt(v,d){return num(v).toLocaleString(undefined,{maximumFractionDigits:d||0})}
 function fmtH(v){var h=num(v);return h>=1000?fmt(h,0)+'h':fmt(h,1)+'h'}
+function sp2WeekDays(){
+  var w=getWeek();
+  var ws=new Date((w.ws||'')+'T00:00:00');
+  var we=new Date((w.we||'')+'T00:00:00');
+  if(!isFinite(ws.getTime())||!isFinite(we.getTime())||we<ws)return 7;
+  return Math.round((we-ws)/86400000)+1;
+}
+function sp2CapacityHours(devices){
+  return num(devices)*20*sp2WeekDays();
+}
 function spinner(on){var s=g('sp2Spinner');if(s)s.style.display=on?'inline-flex':'none'}
+
+function _sp2EnsurePaneLayout(){
+  /*
+   * Some browsers can keep later panes effectively hidden if prior dynamic
+   * sections leave the tab panes nested under another .sp2-pane.  Normalize
+   * all Smart Build panes as direct siblings under .sp2-wrap before switching.
+   */
+  var wrap=document.querySelector('.sp2-wrap');
+  var tabs=document.querySelector('.sp2-tabs');
+  if(!wrap||!tabs)return;
+  var anchor=tabs;
+  ['builds','consolidate','devices','unique_devices','active_devices','stability'].forEach(function(name){
+    var pane=g('sp2Pane_'+name);
+    if(!pane)return;
+    if(pane.parentElement!==wrap||pane.previousElementSibling!==anchor){
+      wrap.insertBefore(pane, anchor.nextSibling);
+    }
+    anchor=pane;
+  });
+}
 
 function getWeek(){
   var sel=g('sp2WeekSel');
@@ -601,11 +632,13 @@ window.sp2OnWeekChange=function(){
 
 
 window.sp2Tab=function(name,btn){
+  _sp2EnsurePaneLayout();
   document.querySelectorAll('.sp2-tab').forEach(function(b){b.classList.remove('active');});
-  document.querySelectorAll('.sp2-pane').forEach(function(p){p.classList.remove('active');});
+  document.querySelectorAll('.sp2-pane').forEach(function(p){p.classList.remove('active');p.style.display='none';});
   if(btn)btn.classList.add('active');
-  var pane=g('sp2Pane_'+name);if(pane)pane.classList.add('active');
-    if(name==='consolidate'&&!_consLoaded)sp2LoadConsolidate(true);
+  var pane=g('sp2Pane_'+name);
+  if(pane){pane.classList.add('active');pane.style.display='block';}
+  if(name==='consolidate'&&!_consLoaded)sp2LoadConsolidate(true);
   if(name==='devices'&&!_devLoaded)sp2LoadDevUtil();
   if(name==='unique_devices'&&!_udLoaded)sp2LoadUniqueDevices();
   if(name==='active_devices'&&!_adLoaded)sp2LoadActiveDevices();
@@ -629,7 +662,7 @@ window.sp2AdminForceRefreshWeek=function(){
   }).then(function(r){return r.json().then(function(d){d._status=r.status;return d;});}).then(function(d){
     if(!d.success){throw new Error(d.message||'Force refresh failed');}
     alert('Force refresh completed.\nBuild rows: '+d.build_rows+'\nConsolidate rows: '+d.consolidate_rows+'\nConsolidate devices: '+d.consolidate_device_count);
-    _consLoaded=false;_devLoaded=false;_udLoaded=false;
+    _consLoaded=false;_devLoaded=false;_udLoaded=false;_adLoaded=false;
     sp2Load(false);
     sp2LoadConsolidate(false);
   }).catch(function(e){
@@ -670,7 +703,7 @@ window.sp2ReimportCsv=function(){
       'Rows deleted (old): '+(d.csv_rows_deleted||0).toLocaleString()+'\n'+
       'Build rows rebuilt: '+(d.build_rows||0)
     );
-    _consLoaded=false;_devLoaded=false;_udLoaded=false;
+    _consLoaded=false;_devLoaded=false;_udLoaded=false;_adLoaded=false;
     sp2Load(false);
     sp2LoadConsolidate(false);
   }).catch(function(e){
@@ -704,7 +737,11 @@ window.sp2Load=function(force){
 function _renderBuildKpis(d){
   var builds=d.builds||[];
   var targets=new Set(builds.map(function(b){return b.target;}));
-  var totalHrs=builds.reduce(function(s,b){return s+num(b.hours);},0);
+  var actualHrs=builds.reduce(function(s,b){return s+num(b.hours);},0);
+  _sp2KpiTotalDevices=num(d.total_devices);
+  _sp2KpiActualHours=actualHrs;
+  _sp2KpiCapacityHours=num(d.total_hours)>0?num(d.total_hours):sp2CapacityHours(_sp2KpiTotalDevices);
+  var totalHrs=_sp2KpiCapacityHours>0?_sp2KpiCapacityHours:actualHrs;
   var buildRowCrashes=builds.reduce(function(s,b){return s+num(b.crashes);},0);
   var totalCrashes=num(d.total_crashes_csv)>0?num(d.total_crashes_csv):buildRowCrashes;
   var mtbf=totalCrashes>0?(totalHrs/totalCrashes):0;
@@ -915,9 +952,10 @@ function _sp2RecalcKpis(){
     totalCrashes+=parseFloat(tr.dataset.crashes||0);
   });
   var displayCrashes=_sp2CsvTotalCrashes>0?_sp2CsvTotalCrashes:totalCrashes;
-  var mtbf=displayCrashes>0?(totalHrs/displayCrashes):0;
+  var displayHours=_sp2KpiCapacityHours>0?_sp2KpiCapacityHours:totalHrs;
+  var mtbf=displayCrashes>0?(displayHours/displayCrashes):0;
   function set(id,v){var el=g(id);if(el)el.textContent=v;}
-  set('kpiHours',fmtH(totalHrs));
+  set('kpiHours',fmtH(displayHours));
   set('kpiCrashes',fmt(displayCrashes));
   set('kpiMtbf',mtbf>0?fmt(mtbf,1):'-');
 }
@@ -1071,9 +1109,10 @@ function _sp2RecalcKpisFiltered(){
     totalCrashes+=parseFloat(tr.dataset.crashes||0);
   });
   var displayCrashes=_sp2CsvTotalCrashes>0?_sp2CsvTotalCrashes:totalCrashes;
-  var mtbf=displayCrashes>0?(totalHrs/displayCrashes):0;
+  var displayHours=_sp2KpiCapacityHours>0?_sp2KpiCapacityHours:totalHrs;
+  var mtbf=displayCrashes>0?(displayHours/displayCrashes):0;
   function set(id,v){var el=g(id);if(el)el.textContent=v;}
-  set('kpiHours',fmtH(totalHrs));
+  set('kpiHours',fmtH(displayHours));
   set('kpiCrashes',fmt(displayCrashes));
   set('kpiMtbf',mtbf>0?fmt(mtbf,1):'-');
 }
@@ -2164,6 +2203,7 @@ window.sp2FilterUniqueDevices=function(){
 };
 
 document.addEventListener('DOMContentLoaded',function(){
+  _sp2EnsurePaneLayout();
   sp2Load(false);
 });
 })();

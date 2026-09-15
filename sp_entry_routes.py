@@ -42,6 +42,48 @@ def _target(sp):
     p = sp.split(".")
     return (p[0]+"."+p[1]) if len(p)>=2 else p[0]
 
+def _date_from_iso(s):
+    try:
+        return date.fromisoformat(str(s or "")[:10])
+    except Exception:
+        return None
+
+def _qipl_snapshot_rows_for_week_end(week_end):
+    """Read compact weekly QIPL snapshot rows; return [] when unavailable.
+
+    This keeps SP Entry usable after the legacy weekly_qipl_data raw DB table is
+    archived/dropped.  Import is local to avoid hard module dependency at startup.
+    """
+    we = _date_from_iso(week_end)
+    if not we:
+        return []
+    ws = we - timedelta(days=6)
+    try:
+        from weekly_summary_routes import _load_qipl_week_rows
+        return _load_qipl_week_rows(ws, we) or []
+    except Exception:
+        return []
+
+def _row_text(row, *keys):
+    for k in keys:
+        v = (row or {}).get(k)
+        if v is not None and str(v).strip():
+            return str(v).strip()
+    return ""
+
+def _snapshot_has_qipl_rows(target, sp, week_end):
+    rows = _qipl_snapshot_rows_for_week_end(week_end)
+    if not rows:
+        return False
+    wanted_targets = {str(target or "").strip().lower(), str(_strip_hex(target) or "").strip().lower()}
+    wanted_sp = str(sp or "").strip().lower()
+    for row in rows:
+        row_target = _row_text(row, "target", "Target").lower()
+        row_sp = _row_text(row, "pl_id", "PL-ID", "PL ID", "software_product").lower()
+        if row_sp == wanted_sp and row_target in wanted_targets:
+            return True
+    return False
+
 def _load_swpdt():
     for path in [_SWPDT_NET, _SWPDT_LOCAL]:
         if path and os.path.exists(path):
@@ -92,6 +134,8 @@ def _next_count(conn, sp, week_end, lt):
     return (row[0] if row else 0)+1
 
 def _in_db(target, sp, week_end):
+    if _snapshot_has_qipl_rows(target, sp, week_end):
+        return True
     try:
         conn = get_mysql_connection_db(bu_key=None)
         if not conn: return False
@@ -195,6 +239,31 @@ def api_sp_entry_crashes():
     if not sp or not bids: return jsonify({"crashes":0,"per_build":{},"source":"none"})
     tgt = _target(sp); n2b = {_basename(b).upper():b for b in bids}
     pb = {b:0 for b in bids}; total = 0
+    wanted_targets = {str(tgt or "").strip().lower(), str(_strip_hex(tgt) or "").strip().lower()}
+    wanted_sp = sp.lower()
+
+    # Snapshot-first path.  This is the normal path after QIPL raw-row DB import
+    # was retired to reduce MySQL memory/disk pressure.
+    rows = _qipl_snapshot_rows_for_week_end(we)
+    if rows:
+        seen = set()
+        for row in rows:
+            if _row_text(row, "pl_id", "PL-ID", "PL ID", "software_product").lower() != wanted_sp:
+                continue
+            if _row_text(row, "target", "Target").lower() not in wanted_targets:
+                continue
+            mb = _row_text(row, "meta_build", "MetaBuild", "Build ID", "BuildID", "build_id", "Build").upper()
+            tk = _row_text(row, "stability_ticket", "Stability Ticket", "Jira", "JIRA", "Jira ID", "Jira Key")
+            if not mb: continue
+            orig = n2b.get(mb)
+            if orig is None: continue
+            if tk and tk in seen: continue
+            if tk: seen.add(tk)
+            pb[orig] = pb.get(orig,0)+1; total+=1
+        return jsonify({"crashes":total,"per_build":pb,"source":"snapshot" if total>0 else "snapshot_no_match"})
+
+    # Legacy fallback only.  Kept so old deployments still work until the raw
+    # table is exported to JSON snapshots and dropped.
     try:
         conn = get_mysql_connection_db(bu_key=None)
         if conn:
@@ -204,8 +273,8 @@ def api_sp_entry_crashes():
             for (rd,) in cur.fetchall():
                 try: row = json.loads(rd) if isinstance(rd,str) else (rd or {})
                 except Exception: continue
-                mb = str(row.get("MetaBuild") or "").strip().upper()
-                tk = str(row.get("Stability Ticket") or "").strip()
+                mb = str(row.get("MetaBuild") or row.get("meta_build") or "").strip().upper()
+                tk = str(row.get("Stability Ticket") or row.get("stability_ticket") or "").strip()
                 if not mb: continue
                 orig = n2b.get(mb)
                 if orig is None: continue

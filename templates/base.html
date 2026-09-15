@@ -86,7 +86,46 @@
       to { transform: rotate(360deg); }
     }
 
-    .topbar-center{gap:8px;flex-shrink:0;display:flex;align-items:center;position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:5;}
+    /* Keep quick-action pills in the flex flow.
+       They used to be absolutely centered, which could overlap the BU/Target
+       selector when the browser width/zoom left less room in the top bar. */
+    .topbar-center{
+      gap:8px;
+      flex:0 1 auto;
+      display:flex;
+      align-items:center;
+      justify-content:flex-end;
+      position:static;
+      left:auto;
+      top:auto;
+      transform:none;
+      z-index:5;
+      margin-left:auto;
+      min-width:0;
+      max-width:42vw;
+      overflow:hidden;
+    }
+    .topbar-center .topbar-compare-pill{
+      flex:0 1 auto;
+      min-width:0;
+    }
+    .topbar-center .topbar-compare-pill span{
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .topbar-right{
+      margin-left:8px;
+      flex-shrink:0;
+    }
+    @media (max-width: 1400px){
+      .topbar-center{max-width:34vw;}
+      .topbar-center .topbar-compare-pill{padding-left:11px;padding-right:11px;}
+    }
+    @media (max-width: 1220px){
+      .topbar-center{max-width:none;}
+      .topbar-center .topbar-compare-pill span{display:none;}
+      .topbar-center .topbar-compare-pill{padding-left:10px;padding-right:10px;}
+    }
         .topbar-compare-pill{
       position:relative;
       display:inline-flex;

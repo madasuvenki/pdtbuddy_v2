@@ -276,6 +276,22 @@ table.tm-table tr:hover td { background:#f0f4ff; }
 .dbh-rec-title { font-size:12px; font-weight:950; color:#0f172a; margin-bottom:5px; }
 .dbh-rec-msg { font-size:11px; font-weight:700; color:#64748b; line-height:1.45; }
 .dbh-sql { font-family:Consolas,monospace; font-size:10px; color:#0f766e; background:#ecfdf5; border:1px solid #a7f3d0; border-radius:7px; padding:3px 6px; white-space:nowrap; }
+.dbh-maint { display:grid; grid-template-columns:minmax(0,1.1fr) minmax(280px,.9fr); gap:12px; align-items:start; }
+@media(max-width:1000px){ .dbh-maint{ grid-template-columns:1fr; } }
+.dbh-maint-box { background:#fff; border:1px solid #dbeafe; border-radius:13px; padding:13px 14px; }
+.dbh-maint-title { font-size:12px; font-weight:950; color:#0f172a; margin-bottom:7px; display:flex; align-items:center; gap:7px; }
+.dbh-maint-line { font-size:11px; font-weight:750; color:#475569; line-height:1.65; }
+.dbh-maint-line b { color:#0f172a; }
+.dbh-maint-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+.dbh-action-btn { display:inline-flex; align-items:center; gap:6px; border:none; border-radius:9px; padding:7px 12px; color:#fff; font-size:11px; font-weight:900; cursor:pointer; box-shadow:0 4px 12px rgba(15,23,42,.12); }
+.dbh-action-btn:disabled { opacity:.45; cursor:not-allowed; }
+.dbh-action-export { background:linear-gradient(135deg,#2563eb,#06b6d4); }
+.dbh-action-force { background:linear-gradient(135deg,#7c3aed,#a855f7); }
+.dbh-action-drop { background:linear-gradient(135deg,#dc2626,#ef4444); }
+.dbh-status-note { margin-top:9px; font-size:11px; font-weight:800; color:#64748b; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:10px; padding:8px 10px; line-height:1.45; }
+.dbh-snap-list { max-height:150px; overflow:auto; border-radius:9px; border:1px solid #eef2ff; background:#f8faff; }
+.dbh-snap-row { display:grid; grid-template-columns:90px 1fr 90px; gap:8px; padding:6px 9px; border-bottom:1px solid #eef2ff; font-size:10px; font-weight:750; color:#475569; }
+.dbh-snap-row:last-child { border-bottom:none; }
 </style>
 
 <!-- Toast -->
@@ -638,6 +654,34 @@ table.tm-table tr:hover td { background:#f0f4ff; }
           <div class="dbh-card"><div class="dbh-card-label">Total DB Size</div><div class="dbh-card-value" id="dbhTotalSize">-</div><div class="dbh-card-sub" id="dbhSizeSplit">Data / index / free / allocated</div></div>
           <div class="dbh-card"><div class="dbh-card-label">Schemas / Tables</div><div class="dbh-card-value" id="dbhSchemaTables">-</div><div class="dbh-card-sub">Application-visible MySQL objects</div></div>
           <div class="dbh-card"><div class="dbh-card-label">Connections</div><div class="dbh-card-value" id="dbhConnections">-</div><div class="dbh-card-sub" id="dbhConnSub">Threads / max connections</div></div>
+        </div>
+        <div class="dbh-panel" style="margin-bottom:14px;">
+          <div class="dbh-title"><i class="fas fa-archive" style="color:#2563eb;"></i> QIPL Weekly Snapshot / Raw Table Cleanup</div>
+          <div class="dbh-maint">
+            <div class="dbh-maint-box">
+              <div class="dbh-maint-title"><i class="fas fa-table"></i> Raw DB Table</div>
+              <div id="dbhQiplRawInfo" class="dbh-maint-line">Loading weekly_qipl_data status...</div>
+              <div class="dbh-maint-actions">
+                <button id="dbhQiplExportBtn" type="button" class="dbh-action-btn dbh-action-export" onclick="dbhQiplExportSnapshots(this, false)">
+                  <i class="fas fa-file-export"></i> Export Missing Snapshots
+                </button>
+                <button id="dbhQiplForceExportBtn" type="button" class="dbh-action-btn dbh-action-force" onclick="dbhQiplExportSnapshots(this, true)">
+                  <i class="fas fa-sync"></i> Rebuild Snapshots
+                </button>
+                <button id="dbhQiplDropBtn" type="button" class="dbh-action-btn dbh-action-drop" onclick="dbhQiplDropRawTable(this)">
+                  <i class="fas fa-trash-alt"></i> Drop Raw Table
+                </button>
+              </div>
+              <div class="dbh-status-note" id="dbhQiplActionStatus">
+                Normal Weekly/Smart Build reads use weekly JSON snapshots first. Drop only after export is complete and no old job is writing to weekly_qipl_data.
+              </div>
+            </div>
+            <div class="dbh-maint-box">
+              <div class="dbh-maint-title"><i class="fas fa-layer-group"></i> Snapshot Inventory</div>
+              <div id="dbhQiplSnapshotInfo" class="dbh-maint-line">Loading snapshot inventory...</div>
+              <div id="dbhQiplSnapshotList" class="dbh-snap-list"></div>
+            </div>
+          </div>
         </div>
         <div class="dbh-panel" style="margin-bottom:14px;">
           <div class="dbh-title"><i class="fas fa-lightbulb" style="color:#f59e0b;"></i> DB Optimization Guidance</div>
@@ -1141,6 +1185,115 @@ function dbhRuntimeLine(label, value, pct) {
     + '<div class="dbh-meter"><span style="width:' + width + '%;"></span></div>'
     + '</div>';
 }
+function dbhSetQiplStatus(msg, ok) {
+  var el = document.getElementById('dbhQiplActionStatus');
+  if (!el) return;
+  el.style.borderColor = ok ? '#86efac' : '#fecaca';
+  el.style.background = ok ? '#f0fdf4' : '#fff1f2';
+  el.style.color = ok ? '#166534' : '#991b1b';
+  el.innerHTML = msg;
+}
+function dbhRenderQiplMaintenance(o) {
+  var raw = (o && o.qipl_raw_table) || {};
+  var snaps = (o && o.qipl_snapshots) || {};
+  var rawEl = document.getElementById('dbhQiplRawInfo');
+  var snapEl = document.getElementById('dbhQiplSnapshotInfo');
+  var listEl = document.getElementById('dbhQiplSnapshotList');
+  var exportBtn = document.getElementById('dbhQiplExportBtn');
+  var forceBtn = document.getElementById('dbhQiplForceExportBtn');
+  var dropBtn = document.getElementById('dbhQiplDropBtn');
+
+  if (rawEl) {
+    if (!raw.exists) {
+      rawEl.innerHTML = '<b>weekly_qipl_data:</b> not present. Snapshot-only mode is active.'
+        + '<br><b>Rows:</b> 0'
+        + '<br><b>Size:</b> 0 MB';
+    } else {
+      rawEl.innerHTML = '<b>weekly_qipl_data:</b> present'
+        + '<br><b>Rows:</b> ' + dbhFmtNum(raw.rows || raw.approx_rows || 0)
+        + ' | <b>Valid weekly rows:</b> ' + dbhFmtNum(raw.valid_week_rows || 0)
+        + '<br><b>Data range:</b> ' + escHtml(raw.min_week_end || '-') + ' to ' + escHtml(raw.max_week_end || '-')
+        + '<br><b>Size:</b> ' + dbhFmtMb(raw.total_mb) + ' + free ' + dbhFmtMb(raw.free_mb);
+    }
+  }
+
+  if (snapEl) {
+    snapEl.innerHTML = '<b>Local snapshots:</b> ' + dbhFmtNum(snaps.local_count || 0)
+      + ' | <b>Network:</b> ' + dbhFmtNum(snaps.network_count || 0)
+      + '<br><b>Latest week:</b> ' + escHtml(snaps.latest_week_end || '-')
+      + '<br><b>Snapshot rows:</b> ' + dbhFmtNum(snaps.total_rows || 0)
+      + ' | <b>Disk:</b> ' + dbhFmtMb(snaps.total_size_mb || 0);
+  }
+
+  if (listEl) {
+    var recent = snaps.recent || [];
+    listEl.innerHTML = recent.length ? recent.map(function(s){
+      return '<div class="dbh-snap-row">'
+        + '<span>' + escHtml(s.week_end || '-') + '</span>'
+        + '<span title="' + escHtml(s.path || '') + '">' + escHtml((s.path || '').split(/[\\\\/]/).pop() || '-') + '</span>'
+        + '<span>' + dbhFmtNum(s.rows || 0) + ' rows</span>'
+        + '</div>';
+    }).join('') : '<div class="dbh-snap-row" style="grid-template-columns:1fr;"><span>No qipl_week_*.json snapshots found yet.</span></div>';
+  }
+
+  var canExport = !!raw.exists;
+  var canDrop = !!raw.exists && !!raw.snapshot_coverage_ok;
+  if (exportBtn) exportBtn.disabled = !canExport;
+  if (forceBtn) forceBtn.disabled = !canExport;
+  if (dropBtn) {
+    dropBtn.disabled = !canDrop;
+    dropBtn.title = canDrop ? 'Drop weekly_qipl_data after confirming exact phrase.' : 'Export/verify snapshots first.';
+  }
+}
+function dbhQiplExportSnapshots(btn, force) {
+  if (!confirm((force ? 'Rebuild all QIPL weekly snapshots' : 'Export missing QIPL weekly snapshots') + ' from weekly_qipl_data now? This can take time for large history.')) return;
+  var old = btn ? btn.innerHTML : '';
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Exporting...'; }
+  dbhSetQiplStatus('<i class="fas fa-spinner fa-spin"></i> Snapshot export is running. Keep this page open until it finishes.', true);
+  fetch('/admin/db_health/qipl_export_snapshots', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({force:!!force})
+  })
+    .then(function(r){ return r.json().then(function(d){ if(!r.ok || !d.success) throw new Error(d.error || d.message || 'Export failed'); return d; }); })
+    .then(function(d){
+      dbhSetQiplStatus('Snapshot export complete. Exported ' + dbhFmtNum(d.exported_rows || 0) + ' rows; skipped ' + dbhFmtNum(d.skipped_rows || 0) + ' existing rows.', true);
+      admShowToast(d.message || 'Snapshot export complete.', true);
+      dbhLoad();
+    })
+    .catch(function(e){
+      dbhSetQiplStatus('Snapshot export failed: ' + escHtml(String(e.message || e)), false);
+      admShowToast('QIPL snapshot export failed.', false);
+    })
+    .finally(function(){ if (btn) { btn.disabled = false; btn.innerHTML = old; } });
+}
+function dbhQiplDropRawTable(btn) {
+  var phrase = prompt('This will DROP pdt_stats_dashboard.weekly_qipl_data after snapshot verification. Type exactly: DROP weekly_qipl_data');
+  if (phrase === null) return;
+  if (phrase !== 'DROP weekly_qipl_data') {
+    admShowToast('Confirmation mismatch. Raw table not dropped.', false);
+    return;
+  }
+  var old = btn ? btn.innerHTML : '';
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Dropping...'; }
+  dbhSetQiplStatus('<i class="fas fa-spinner fa-spin"></i> Export verification and raw-table drop are running...', true);
+  fetch('/admin/db_health/qipl_drop_raw_table', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({confirm:phrase})
+  })
+    .then(function(r){ return r.json().then(function(d){ if(!r.ok || !d.success) throw new Error(d.error || d.message || 'Drop failed'); return d; }); })
+    .then(function(d){
+      dbhSetQiplStatus(escHtml(d.message || 'Raw table dropped successfully.'), true);
+      admShowToast('weekly_qipl_data dropped after snapshot verification.', true);
+      dbhLoad();
+    })
+    .catch(function(e){
+      dbhSetQiplStatus('Drop failed: ' + escHtml(String(e.message || e)), false);
+      admShowToast('Raw table was not dropped.', false);
+    })
+    .finally(function(){ if (btn) { btn.disabled = false; btn.innerHTML = old; } });
+}
 function dbhLoad() {
   var status = document.getElementById('dbhStatus');
   var content = document.getElementById('dbhContent');
@@ -1177,6 +1330,8 @@ function dbhLoad() {
           + '<div><b>Server Time:</b> ' + escHtml(o.server_time || '-') + '</div>'
           + '</div>';
       }
+
+      dbhRenderQiplMaintenance(o);
 
       var recs = d.recommendations || [];
       var recEl = document.getElementById('dbhRecommendations');

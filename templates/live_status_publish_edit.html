@@ -2941,7 +2941,7 @@ if(typeof window.lspNavRender === 'function') window.lspNavRender();
 });
 }());
 </script>
-  <script src="{{ url_for('static', filename='js/live_status_published_safe.js') }}?v=20260830_core_autoload_fix"></script>
+  <script src="{{ url_for('static', filename='js/live_status_published_safe.js') }}?v=20260915_mtbf_manual_zero"></script>
   <script src="{{ url_for('static', filename='js/live_status_nonau.js') }}?v=20260623_nonau4"></script>
 <script>
 // Stubs for functions called in Open CRs tab that may not be defined in all JS bundles
@@ -5206,11 +5206,21 @@ return types.length ? types : ['system'];
 // This ensures edit/delete/save always target the correct JSON file on the server.
 function _adasCurrentSp(){ return _adasLoadedSp || _adasActiveSp(); }
 function _adasEffective(r, crashTypes){
+crashTypes = crashTypes && crashTypes.length ? crashTypes : ['system'];
 var sys  = Number(r.system_crashes  || 0);
-var total = sys;
+var ssr  = Number(r.ssr_crashes     || 0);
+var proc = Number(r.process_crashes || 0);
+var total = 0;
+if(crashTypes.indexOf('system')  >= 0) total += sys;
+if(crashTypes.indexOf('ssr')     >= 0) total += ssr;
+if(crashTypes.indexOf('process') >= 0) total += proc;
+var manualSaved = Number(r.manual_mtbf || 0) === 1 && r.mtbf != null && String(r.mtbf).trim() !== '';
+if(manualSaved){
+return { total: total, mtbf: Number(r.mtbf || 0), manual: true };
+}
 var hours = Number(r.hours || 0);
 var mtbf = total > 0 && hours > 0 ? Math.round((hours/total)*10)/10 : 0;
-return { total: total, mtbf: mtbf };
+return { total: total, mtbf: mtbf, manual: false };
 }
 /* --- domain button styling ----------------------------------- */
 var _domColors = { ADAS:'#2563eb', FLEX:'#7c3aed', IVI:'#059669' };
@@ -5297,8 +5307,8 @@ return;
 }
 body.innerHTML = filtered.map(function(r, i){
 var eff = _adasEffective(r, crashTypes);
-var mtbfBadge = eff.mtbf > 0
-? '<span style="font-weight:900;color:#fff;background:#059669;border-radius:5px;padding:2px 9px;font-size:11px">'+eff.mtbf+'</span>'
+var mtbfBadge = (eff.manual || eff.mtbf > 0)
+? '<span style="font-weight:900;color:#fff;background:'+(eff.mtbf>0?'#059669':'#64748b')+';border-radius:5px;padding:2px 9px;font-size:11px">'+eff.mtbf+'</span>'
 : '<span style="color:#94a3b8">-</span>';
 var sys  = r.system_crashes  != null && r.system_crashes  !== '' ? r.system_crashes  : '-';
 var ssr  = r.ssr_crashes     != null && r.ssr_crashes     !== '' ? r.ssr_crashes     : '-';
@@ -5312,7 +5322,7 @@ return '<tr>'
 + '<td style="word-break:break-all;white-space:normal;line-height:1.25" title="'+_esc(r.build_id||r.meta_id||'')+'"><b style="color:#1e3a8a">'+_esc(r.build_id||r.meta_id||'')+'</b></td>'
 +'<td style="text-align:right;font-weight:700">'+_esc(r.hours||'')+'</td>'
 +'<td style="text-align:center;color:#dc2626;font-weight:800;border-left:2px solid #fca5a5;'+sysDim+'">'+_esc(sys)+'</td>'
-+'<td style="text-align:center;color:#d97706;font-weight:800;">'+_esc(ssr)+'</td>'
++'<td style="text-align:center;color:#d97706;font-weight:800;'+ssrDim+'">'+_esc(ssr)+'</td>'
 +'<td style="text-align:center;color:#7c3aed;font-weight:800;border-right:2px solid #fca5a5;'+procDim+'">'+_esc(proc)+'</td>'
 +'<td style="text-align:center;font-weight:900">'+(eff.total>0?eff.total:'-')+'</td>'
 +'<td style="text-align:center">'+mtbfBadge+'</td>'
@@ -5328,6 +5338,11 @@ if(typeof window._mtbfCrashFilters !== 'undefined'){
 window._mtbfCrashFilters.system  = _adasCrashTypes.indexOf('system')  >= 0;
 window._mtbfCrashFilters.ssr     = _adasCrashTypes.indexOf('ssr')     >= 0;
 window._mtbfCrashFilters.process = _adasCrashTypes.indexOf('process') >= 0;
+}
+// Rebuild the shared chart/table rows from raw JSON rows using the selected
+// crash types only. This is UI-only; no save/API call is made.
+if(typeof window._applyAutoMtbfRawRows === 'function'){
+window._applyAutoMtbfRawRows(_adasRows);
 }
 _adasRenderAll();
 // Re-render chart (uses _mtbfCrashFilters for effective crash calc)
