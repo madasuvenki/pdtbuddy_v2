@@ -2,6 +2,102 @@
 
 ## Current Work Focus
 
+### Weekly Smart Build Total Hours Capacity KPI Fix — Complete (2026-09-14)
+
+**User request addressed:** On `/weekly-report/smart-build-report?week_start=2026-08-31&week_end=2026-09-06`, Smart Build headline **Total Hours** was much lower than expected. The business sanity check is approximately `1600 devices * 20 hours/day * 7 days = 224,000h`, but the UI was showing about `107,636h`.
+
+**Root cause / decision:**
+- The Smart Build headline/card expectation is a weekly capacity/available-hours KPI based on unique active devices, not merely summed observed Axiom job runtime.
+- Per-build rows can still show week-bounded observed Axiom hours, but the headline and consolidated target/PL total-hours KPI should be capped/derived as `unique_devices * selected_days * 20`.
+- No extra 0.80 utilization factor is applied; the 20h/day cap is the only business constraint.
+
+**Code changes:**
+- `weekly_summary_routes.py`
+  - Added `_sp2_week_device_capacity_hours(device_count, week_start, week_end)`.
+  - Updated Smart Build landing summary to return `sp2_total_hours` using the capacity formula from the filtered unique-chip count.
+  - Updated `/api/sp2/builds` response `total_hours` in both static and live fallback paths to use capacity hours from the unique device total.
+  - Updated Smart Build consolidate sentinel saves to store `total_hours = devices * selected_days * 20`, so Consolidate Report and related charts align with the headline capacity KPI.
+  - Preserved per-build row hours and per-PL raw/hour edit behavior; build-row details remain week-bounded, while aggregate KPI totals represent weekly capacity.
+
+**Validation:**
+- `py -3 -m py_compile weekly_summary_routes.py` passed.
+- Formula validation passed for the reported week: `1600 * 20 * 7 = 224,000h`.
+- `templates/sharepoint2.html` Jinja parse passed with `SHAREPOINT2_JINJA_OK`.
+- Note: direct module import under bare/default `py -3` failed because `flask_login` is not installed in that interpreter context, so validation used syntax compilation plus pure formula checks.
+
+### Weekly QIPL Raw DB Memory Reduction + Safe Raw-Table Retirement — Complete (2026-09-13)
+
+**User request addressed:** DB Health showed `pdt_stats_dashboard.weekly_qipl_data` as the largest table (~2.8 GB with ~900k rows), and the user asked how much data exists, whether weekly snapshots can be saved in consolidated data, and whether reports can read snapshots while the Axiom/update job continues independently.
+
+**Plan/decision implemented:**
+- Keep `weekly_qipl_data` as a legacy fallback only.
+- Stop creating/altering/inserting/deleting the raw weekly QIPL row table during normal app startup/import/upload flows.
+- Persist one compact weekly JSON snapshot per report week:
+  - local: `consolidate_snapshots/qipl_week_<week_end>.json`
+  - network copy when available: `\\Sphere\pdtqipl_internal\PDTBuddy\consolidate\qipl_week_<week_end>.json`
+- Read Weekly QIPL cards, CR Pie, CR Age, Smart Build crash counts, Smart Build seed readiness, existing-build exclusion, SP-entry weekly health, and stability-health counts from:
+  1. short in-process cache,
+  2. compact weekly JSON snapshot,
+  3. source CSV on `\\sphere\pdtstats\WeeklyQIPL_PDT_CR_TAT`,
+  4. legacy DB fallback only if no snapshot/CSV is available.
+- Use a short 120-second full-row cache TTL and prune expired week row caches before loading another week, preventing long-lived large lists in Flask memory.
+- Keep lightweight audit/user summary DB tables:
+  - `weekly_qipl_import_audit`
+  - `weekly_sharepoint_build_summary`
+  - `weekly_sharepoint_consolidate_summary`
+  - `sp2_build_type_overrides`
+  - `sp2_build_consolidate`
+- Add an admin-controlled retirement path for the existing large raw table:
+  1. inspect coverage in Admin Usage → DB Health,
+  2. export any legacy raw weeks to compact snapshots,
+  3. verify every raw week has a `qipl_week_<week_end>.json`,
+  4. drop `pdt_stats_dashboard.weekly_qipl_data` only after exact confirmation.
+- DB cleanup was executed after user confirmation and coverage verification:
+  - dropped only `pdt_stats_dashboard.weekly_qipl_data`,
+  - retained all weekly JSON snapshots,
+  - reduced `pdt_stats_dashboard` schema total size from `3360.73 MB` to `536.86 MB`,
+  - reduced allocated size from `3503.73 MB` to `593.86 MB`.
+
+**Code changes:**
+- `weekly_summary_routes.py`
+  - Added `_qipl_snapshot_file()`, `_save_qipl_week_snapshot()`, `_load_qipl_week_snapshot()`, `_load_qipl_week_rows()`, and compact row helpers.
+  - `_upsert_rows()` now writes compact JSON snapshots instead of raw rows into `pdt_stats_dashboard.weekly_qipl_data`.
+  - `_select_qipl_rows_for_report_week()` stamps imported rows to the selected report week and falls back to all parsed source-file rows when row-level dates are outside/missing, so Monday-generated/previous-week CSVs do not produce undersized snapshots.
+  - `_fetch_rows()`, `_get_available_weeks()`, `_weekly_qipl_existing_build_keys()`, `_sp2_weekly_crash_map()`, `_sp2_weekly_total_crashes_count()`, `_count_sharepoint_crashes_from_weekly_qipl()`, Smart Build seed, and stability-health now prefer snapshot/CSV data.
+  - SP2 stability-health graph now uses QIPL Jira totals only when the week also has real usage/device data from SP2 consolidate or legacy consolidate; pure QIPL-only weeks are skipped so weeks such as `05-Jul-2026` do not render misleading zero Hours / zero Time-per-Crash points.
+  - Missing-snapshot legacy DB fallback for SP2 stability-health distinct CR count is guarded so dropping `weekly_qipl_data` cannot break the trend API.
+  - Admin SP2 re-import now re-parses CSV into the JSON snapshot and rebuilds SP2 static/consolidate snapshots.
+  - `_ensure_weekly_qipl_table()` no longer creates/alters the raw `weekly_qipl_data` table; legacy SELECT fallbacks remain if the table already exists.
+  - Snapshot rows preserve required aliases including Jira/stability-ticket and build/meta-build aliases while dropping duplicate `row_data` payload.
+- `sp_entry_routes.py`
+  - Weekly/SP-entry health reads now prefer the compact QIPL weekly snapshot loader before touching the legacy raw table.
+- `app.py`
+  - `/admin/db_health` now reports QIPL raw-table status and compact snapshot inventory in `overview.qipl_raw_table` and `overview.qipl_snapshots`.
+  - Added raw-to-snapshot exporter `_admin_qipl_export_raw_to_snapshots()` with streaming reads and atomic JSON writes.
+  - Follow-up fix: exporter now prefers rebuilding each week from the authoritative source CSV instead of only the legacy raw table. This prevents low-row snapshots caused by raw-table rows being split by row-level dates; existing partial snapshots are rebuilt when the source CSV has more rows, while complete snapshots are skipped unless forced.
+  - Added admin POST `/admin/db_health/qipl_export_snapshots` to export missing/forced snapshots from legacy raw DB rows.
+  - Added admin POST `/admin/db_health/qipl_drop_raw_table`, guarded by exact confirmation `DROP weekly_qipl_data`, snapshot export, and week-coverage verification before executing `DROP TABLE`.
+- `templates/admin_usage.html`
+  - DB Health tab now shows QIPL raw-table inventory, snapshot inventory, missing snapshot weeks, and recent snapshot metadata.
+  - Added guarded action buttons for **Export QIPL snapshots** and **Drop raw QIPL table after backup**.
+
+**Validation:**
+- `py -3 -m py_compile app.py sp_entry_routes.py weekly_summary_routes.py` executed successfully.
+- Follow-up validation after the low-row snapshot/exporter fix: `py -3 -m py_compile app.py weekly_summary_routes.py` executed successfully.
+- `py -3 -c "from pathlib import Path; from jinja2 import Environment; Environment().parse(Path('templates/admin_usage.html').read_text(encoding='utf-8')); print('ADMIN_USAGE_JINJA_OK')"` returned `ADMIN_USAGE_JINJA_OK`.
+- Raw QIPL table DDL/DML validation reported `QIPL_TABLE_DDL_DML_HITS 0`, confirming no remaining normal-flow `CREATE TABLE` / `ALTER TABLE` / `INSERT INTO` / `DELETE FROM` operations target `_QIPL_TABLE`; remaining DB access is legacy SELECT fallback plus explicit admin retirement/drop path.
+- `git diff --check -- app.py weekly_summary_routes.py` reported no whitespace errors; Git warned `weekly_summary_routes.py` LF will be normalized to CRLF when Git next touches it.
+- `git --no-pager diff --stat -- app.py sp_entry_routes.py weekly_summary_routes.py templates/admin_usage.html` reported expected changed files; Git warned `weekly_summary_routes.py` LF will be normalized to CRLF when Git next touches it.
+- Live DB cleanup verification:
+  - before drop: `pdt_stats_dashboard.weekly_qipl_data` existed with approx `900,459` rows, `2,823.88 MB` table size, and `2,909.88 MB` allocated including free space.
+  - coverage check: raw table had `39` weekly buckets; local snapshots had matching `39` weeks, `1,134,922` snapshot rows, and `841.77 MB` total snapshot JSON size.
+  - after drop: `weekly_qipl_data` table count is `0`.
+  - schema after drop: `536.86 MB` total, `57.0 MB` free, `593.86 MB` allocated.
+  - measured reduction: `2,823.87 MB` total DB size and `2,909.87 MB` allocated DB size.
+  - 05-Jul stability-health diagnosis: `qipl_week_2026-07-05.json` exists with `20,856` rows, but both `sp2_build_consolidate` and `weekly_sharepoint_consolidate_summary` had `0` usage rows for `week_end=2026-07-05`, so the chart was plotting QIPL-only Jira counts against zero hours/devices.
+  - Post-fix validation with Flask test request `/api/sp2/stability_health?week_end=2026-09-06&count=20` returned `success=True`, did not include `05-Jul-2026`, and had `ZERO_USAGE_ROWS []`.
+  - Project virtualenv compile validation returned `PY_COMPILE_OK` for `weekly_summary_routes.py`.
+
 ### Core Slides PPT Download Follow-up — Complete (2026-09-12)
 
 **User feedback addressed:** The visible Live Status Core Slides page needed a PPT download option, and the exported PPT must use the same currently rendered UI slides. PPT export must include domain slides for all available Core Slide domains: IVI, FLEX, and ADAS. If only one domain has data, export one domain slide; if two have data, export two; if all three have data, export all three.

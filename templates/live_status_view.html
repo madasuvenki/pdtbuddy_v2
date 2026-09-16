@@ -248,7 +248,7 @@
           <input type="checkbox" checked onchange="adasCrashTypeChanged()"> <span class="adas-ck-dot" style="background:#dc2626"></span> System
         </label>
         <label id="ck_ssr" class="adas-crash-ck" style="--ck:#d97706">
-          <input type="checkbox" onchange="adasCrashTypeChanged()"> <span class="adas-ck-dot" style="background:#d97706"></span> SSR
+          <input type="checkbox" checked onchange="adasCrashTypeChanged()"> <span class="adas-ck-dot" style="background:#d97706"></span> SSR
         </label>
         <label id="ck_process" class="adas-crash-ck" style="--ck:#7c3aed">
           <input type="checkbox" onchange="adasCrashTypeChanged()"> <span class="adas-ck-dot" style="background:#7c3aed"></span> Process
@@ -407,7 +407,7 @@
         <!-- Row 4: Total Crashes + MTBF -->
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
           <div>
-            <label style="font-size:10px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px">Total Crashes <span style="font-size:9px;color:#94a3b8">(system only)</span></label>
+            <label style="font-size:10px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px">Total Crashes <span style="font-size:9px;color:#94a3b8">(System + SSR)</span></label>
             <input type="number" id="adasModalTotal" min="0" placeholder="auto" style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:8px 11px;font-size:13px;font-weight:600;color:#0f172a;outline:none;background:#f8fafc" oninput="adasAutoMtbf()">
           </div>
           <div>
@@ -685,6 +685,7 @@
 const TARGET = JSON.parse('{{ target_name|tojson|safe }}');
 const LSV_BU = "{{ bu_key|default('') }}";
 const LSV_IS_COMPUTE = String(LSV_BU || '').toUpperCase() === 'COMPUTE' || /^(COMPUTE|GLYMUR|MAHUA|KALAMBO)/i.test(String(TARGET || ''));
+const LSV_IS_SECA_TARGET = /SECA/i.test(String(TARGET || ''));
 const LSV_JIRA_PDT_FILTER_ID = "{{ jira_pdt_filter_id|default('76997') }}";
 let _lsvLatestLimit = (new URLSearchParams(window.location.search).get('mtbf_all') === '1') ? 0 : 5;
 const META_API = `/api/live_status_view/${encodeURIComponent(TARGET)}/meta_rows`;
@@ -1156,7 +1157,7 @@ loadMetaRows();
 const ADAS_API_BASE = `/api/live_status_view/${encodeURIComponent(TARGET)}/adas_mtbf`;
 let _adasRows      = [];    // all rows for current view
 let _adasChart     = null;  // Chart.js instance
-let _adasView      = 'ADAS'; // current view: ADAS / FLEX / NONSAFE-IVI / SAFE-IVI — each has its own JSON
+let _adasView      = LSV_IS_SECA_TARGET ? 'NONSAFE-IVI' : 'ADAS'; // current view: ADAS / FLEX / NONSAFE-IVI / SAFE-IVI — each has its own JSON
 let _adasSp        = (new URLSearchParams(window.location.search)).get('sp') || ''; // active SP CPL e.g. 5.7.7.0
 let _adasSpList=[];
 async function _adasLoadSpList(){
@@ -1187,7 +1188,7 @@ function adasSwitchSp(){
 }
 
 let _adasNFilter   = _lsvLatestLimit;    // default: Last 5, or All when opened with ?mtbf_all=1
-let _adasCrashTypes = ['system']; // which crash types count toward Total Crashes (system only)
+let _adasCrashTypes = ['system','ssr']; // default Total Crashes = System + SSR
 let _adasTableRows = [];    // rows shown in table after search
 
 // Read which crash types are currently checked
@@ -1196,7 +1197,7 @@ function _adasGetCrashTypes(){
   if(document.querySelector('#ck_system input')?.checked)  types.push('system');
   if(document.querySelector('#ck_ssr input')?.checked)     types.push('ssr');
   if(document.querySelector('#ck_process input')?.checked) types.push('process');
-  return types.length ? types : ['system'];
+  return types.length ? types : ['system','ssr'];
 }
 
 // Compute effective total crashes + MTBF for a row given active crash types (display only)
@@ -1212,7 +1213,7 @@ function _adasEffective(r, crashTypes){
   if(total === 0 && Number(r.total_crashes || 0) > 0) total = Number(r.total_crashes);
   const hours = Number(r.hours || 0);
   const storedMtbf = Number(r.mtbf || 0);
-  // MTBF is always based on system crashes only; recompute from total when available
+  // MTBF is based on the selected crash total; default is System + SSR
   const mtbf = total > 0 && hours > 0 ? Math.round((hours / total) * 10) / 10 : storedMtbf;
   return { total, mtbf };
 }
@@ -1290,7 +1291,7 @@ function _adasRenderAll(){
 
 // ── chart ────────────────────────────────────────────────────────────────────────
 function _adasRenderChart(rows, crashTypes){
-  crashTypes = crashTypes || ['system'];
+  crashTypes = crashTypes || ['system','ssr'];
   const canvas = document.getElementById('adasChartCanvas');
   const empty  = document.getElementById('adasChartEmpty');
   if(!canvas) return;
@@ -1411,7 +1412,7 @@ function _adasRenderChart(rows, crashTypes){
 
 // ── table ────────────────────────────────────────────────────────────────────────
 function _adasRenderTable(rows, crashTypes){
-  crashTypes = crashTypes || ['system'];
+  crashTypes = crashTypes || ['system','ssr'];
   const body = document.getElementById('adasTableBody');
   const q    = (document.getElementById('adasTableSearch')?.value || '').toLowerCase();
   const filtered = q ? rows.filter(r => JSON.stringify(r).toLowerCase().includes(q)) : [...rows];
@@ -1592,8 +1593,9 @@ function adasCloseModal(){
 
 function adasAutoMtbf(){
   const sys  = Number(document.getElementById('adasModalSystem').value  || 0);
-  // Total crashes = system crashes only (MTBF is based on system crashes)
-  const autoTotal = sys;
+  const ssr  = Number(document.getElementById('adasModalSsr').value     || 0);
+  // Default Total Crashes / MTBF base = System + SSR crashes.
+  const autoTotal = sys + ssr;
   const totalEl = document.getElementById('adasModalTotal');
   if(totalEl && !totalEl.dataset.manualEdit) totalEl.value = autoTotal || '';
   const hours = Number(document.getElementById('adasModalHours').value || 0);
@@ -1631,7 +1633,7 @@ async function adasSaveModal(){
     process_crashes: document.getElementById('adasModalProcess').value || '',
     total_crashes:   document.getElementById('adasModalTotal').value   || '',
     mtbf:            document.getElementById('adasModalMtbf').value    || '',
-    crash_types:     ['system'],
+    crash_types:     ['system','ssr'],
   };
   const btn = document.getElementById('adasModalSaveBtn');
   btn.disabled = true; btn.innerHTML = '<i class="fas fa-circle-notch spin"></i> Saving...';
@@ -1706,7 +1708,7 @@ let _crOpenJiraGroups = [];
 let _crExcludedJiras  = [];
 let _crLastJiraCount  = null;
 let _crJqlCustom      = '';
-let _crCurrentDomain  = LSV_IS_COMPUTE ? 'FLEX' : 'ADAS';
+let _crCurrentDomain  = LSV_IS_COMPUTE ? 'FLEX' : (LSV_IS_SECA_TARGET ? 'NONSAFE-IVI' : 'ADAS');
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 function _crLeafBuild(v){
@@ -2541,7 +2543,12 @@ function crCopyRecentMetas(){
 }
 
 // Initial current-report load after all overrides are registered.
-document.addEventListener('DOMContentLoaded', () => { crLoadData(false); });
+document.addEventListener('DOMContentLoaded', () => {
+  const adasViewSelect = document.getElementById('adasViewSelect');
+  if(adasViewSelect) adasViewSelect.value = _adasView;
+  crNavSetDomain(_crCurrentDomain);
+  crLoadData(false);
+});
 
 // ═══════════════════════════════════════════════════════════════════════════
 // LSV CUSTOMIZE TABS

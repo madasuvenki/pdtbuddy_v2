@@ -1,5 +1,58 @@
 # Progress: PDTBuddy
 
+## 2026-09-14 - Weekly Smart Build Total Hours Capacity KPI Fix
+- Addressed `/weekly-report/smart-build-report?week_start=2026-08-31&week_end=2026-09-06` showing much lower **Total Hours** than expected from active devices.
+- Business expectation confirmed: `1600 devices * 20 hours/day * 7 days = 224,000h`.
+- `weekly_summary_routes.py` now treats Smart Build headline/aggregate Total Hours as weekly device capacity, not only summed observed Axiom runtime.
+- Added `_sp2_week_device_capacity_hours(device_count, week_start, week_end)`:
+  - full Mon-Sun week = `devices * 7 * 20`
+  - no extra 0.80 reduction factor
+  - selected-week length is respected for non-standard ranges
+- Updated Smart Build landing summary and `/api/sp2/builds` top-level `total_hours` in static and live fallback paths to use capacity hours from filtered unique active devices.
+- Updated Smart Build consolidate sentinel saves so `sp2_build_consolidate.total_hours` stores the same capacity-based KPI per Target+PL device allocation; Consolidate Report and related charts now align with the Smart Build headline.
+- Per-build rows still preserve their week-bounded observed Axiom runtime for detail/debug/editing; only aggregate/headline/consolidate totals use capacity hours.
+- Validation passed:
+  - `py -3 -m py_compile weekly_summary_routes.py`
+  - formula check returned `capacity_hours_formula=1600*20*7=224,000h`
+  - `templates/sharepoint2.html` Jinja parse returned `SHAREPOINT2_JINJA_OK`
+- Note: direct `weekly_summary_routes` import under the default `py -3` environment failed because `flask_login` is not installed in that interpreter context; syntax and formula validation were used instead.
+
+## 2026-09-13 - Weekly QIPL Raw DB Memory Reduction + Safe Raw-Table Retirement
+- Addressed DB Health finding where `pdt_stats_dashboard.weekly_qipl_data` was the largest table (~2.8 GB / ~900k rows).
+- `weekly_summary_routes.py` now treats `weekly_qipl_data` as a legacy fallback only.
+- Normal QIPL CSV import/upload/re-import no longer inserts raw weekly rows into MySQL. `_upsert_rows()` now writes compact per-week JSON snapshots:
+  - local: `consolidate_snapshots/qipl_week_<week_end>.json`
+  - network copy when available: `\\Sphere\pdtqipl_internal\PDTBuddy\consolidate\qipl_week_<week_end>.json`
+- Follow-up low-row snapshot fix: source CSV/report file is now treated as authoritative when rebuilding weekly snapshots. `_select_qipl_rows_for_report_week()` stamps rows to the selected report week and falls back to all parsed source-file rows when row-level dates are outside/missing, preventing undersized snapshots such as a few hundred rows from replacing a full weekly report.
+- Weekly QIPL cards, CR Pie, CR Age, Smart Build crash counts, Smart Build seed readiness, existing-build exclusion, SP-entry weekly health, and stability-health trend now read using the priority:
+  1. short in-process cache,
+  2. compact weekly JSON snapshot,
+  3. source CSV from `\\sphere\pdtstats\WeeklyQIPL_PDT_CR_TAT`,
+  4. legacy DB fallback only when snapshot/CSV is unavailable.
+- SP2 stability-health graph now uses QIPL Jira totals only when a week also has real SP2/legacy consolidate usage data. Pure QIPL-only weeks are skipped, preventing `05-Jul-2026` from appearing as a misleading zero Hours / zero Time-per-Crash point.
+- Missing-snapshot legacy DB fallback for SP2 stability-health distinct CR count is guarded so dropping `weekly_qipl_data` cannot break the trend API.
+- In-process full-row cache TTL reduced to 120 seconds and stale week entries are pruned before loading another week to avoid long-lived large row lists in Flask worker memory.
+- `_ensure_weekly_qipl_table()` no longer creates/alters the raw `weekly_qipl_data` table. It still maintains lightweight audit/summary tables needed by Weekly/Smart Build flows.
+- Admin Smart Build CSV re-import now re-parses the source CSV into the compact JSON snapshot, clears/rebuilds the SP2 static build snapshot, and rebuilds SP2 consolidate.
+- `sp_entry_routes.py` weekly-health paths now use snapshot-first QIPL reads before any legacy DB fallback.
+- `/admin/db_health` now includes QIPL raw-table and snapshot inventory in the JSON response and DB Health UI:
+  - raw table existence, approximate/actual rows, min/max week, min/max fetched date, MB usage, raw-week count, missing snapshot weeks, and `snapshot_coverage_ok`
+  - local/network snapshot counts, total snapshot rows/size, latest snapshot week, and recent snapshot files
+- Added guarded admin actions in DB Health:
+  - `POST /admin/db_health/qipl_export_snapshots` exports legacy `weekly_qipl_data` rows to compact per-week JSON snapshots using streaming reads and atomic writes.
+  - Follow-up: snapshot export now first looks for the matching source CSV by report week and rewrites partial snapshots from that full CSV when it has more rows; raw-table streaming is only the fallback if the source CSV is unavailable.
+  - `POST /admin/db_health/qipl_drop_raw_table` only drops `pdt_stats_dashboard.weekly_qipl_data` after exact confirmation text `DROP weekly_qipl_data`, snapshot export, and raw-week-vs-snapshot coverage verification.
+- Validation passed:
+  - `py -3 -m py_compile app.py sp_entry_routes.py weekly_summary_routes.py` executed successfully.
+  - Follow-up `py -3 -m py_compile app.py weekly_summary_routes.py` executed successfully after the low-row snapshot/exporter fix.
+  - `templates/admin_usage.html` Jinja parse returned `ADMIN_USAGE_JINJA_OK`.
+  - Raw QIPL table DDL/DML scan reported `QIPL_TABLE_DDL_DML_HITS 0` for normal data flows; remaining raw-table access is legacy SELECT fallback plus the explicit admin retirement/drop endpoint.
+  - `git diff --check -- app.py weekly_summary_routes.py` reported no whitespace errors; Git only warned that `weekly_summary_routes.py` LF will normalize to CRLF next time Git touches it.
+  - Live DB cleanup verified that `pdt_stats_dashboard.weekly_qipl_data` was dropped after exact user confirmation and complete snapshot coverage: schema total reduced from `3360.73 MB` to `536.86 MB`, allocated size reduced from `3503.73 MB` to `593.86 MB`, and the raw table count is now `0`.
+  - 05-Jul stability-health diagnosis confirmed `qipl_week_2026-07-05.json` has `20,856` rows, but both SP2 and legacy consolidate had `0` usage rows for that week; post-fix Flask route validation for `/api/sp2/stability_health?week_end=2026-09-06&count=20` returned `success=True`, excluded `05-Jul-2026`, and had `ZERO_USAGE_ROWS []`.
+  - Project virtualenv compile validation returned `PY_COMPILE_OK` for `weekly_summary_routes.py`.
+- Operational note: `weekly_qipl_data` has been safely retired from MySQL after snapshot coverage was confirmed. Normal app reads are snapshot/CSV-first, and remaining DB raw-table references are guarded legacy fallbacks or explicit admin paths.
+
 ## 2026-09-12 - Core Slides PPT Download Follow-up
 - Added visible **PPT Download** behavior to the actual Live Status Core Slides toolbar flow.
 - Added `/api/core_deck/download_current_pptx` in `core_deck_routes.py` so the current/saved Core Slides state can be exported directly as PPTX, instead of relying only on prior generated history.
@@ -205,7 +258,7 @@ See `activeContext.md` for full design details per item.
 ## What's Left to Build / Unknown Status
 
 ### Unknown (Not Verified Without Running)
-- ❓ `consolidate_snapshots/` — purpose and current state of snapshot consolidation
+- ✅ `consolidate_snapshots/` — stores static weekly consolidate snapshots and now compact QIPL per-week row snapshots (`qipl_week_<week_end>.json`) used to avoid the large `weekly_qipl_data` DB table
 - ❓ `ingest_autoupdate.py` — auto-update mechanism, current state unknown
 - ❓ `qdt_client.py` — QDT integration, current usage status
 - ❓ `src/stability_reports_client.py` — stability reports client, current usage

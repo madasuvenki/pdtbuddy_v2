@@ -22,10 +22,11 @@ from live_status_view_api import (
 public_auto_gen5_bp = Blueprint("public_auto_gen5_bp", __name__)
 
 _DEFAULT_TARGET = "nord_hqx"
-# 2026-09-15: Public API should not expose saved rows with mtbf=0.
+# 2026-09-15: Public API should calculate published total_crashes/MTBF from
+# System + SSR crashes (Process excluded) and should not expose saved rows with mtbf=0.
 # Bump this when changing public filtering semantics so callers can confirm
 # they are hitting the refreshed server code.
-_PUBLIC_GEN5_API_VERSION = "2026-09-15_drop_zero_mtbf_rows"
+_PUBLIC_GEN5_API_VERSION = "2026-09-15_system_ssr_mtbf"
 _DEFAULT_DOMAIN_ORDER = ["ADAS", "FLEX", _MTBF_NONSAFE_IVI_DOMAIN, _MTBF_SAFE_IVI_DOMAIN, "IVI"]
 # SECA LE IVI 1.0 — folder is SECA_LE_IVI_1_0, file is mtbf_ivi_10.json (SP key "10")
 _KNOWN_TARGETS = ["nord_hqx", "nord_hgy", "seca_le_ivi_1_0"]
@@ -143,30 +144,40 @@ def _domain_summary(target_name: str, domain: str) -> Dict[str, Any]:
         "row_count":        len(rows),
         "latest_date":      latest.get("date") or "",
         "latest_meta_id":   latest.get("meta_id") or "",
-        "latest_mtbf":      _system_only_mtbf(latest) if latest else None,
+        "latest_mtbf":      _system_ssr_mtbf(latest) if latest else None,
         "latest_manual_mtbf": int(latest.get("manual_mtbf") or 0),
         "updated_at":       data.get("updated_at") or "",
     }
 
 
-def _system_only_mtbf(row: Dict[str, Any]) -> Any:
-    """Return the public MTBF value.
+def _public_total_crashes(row: Dict[str, Any]) -> int:
+    """Return the Gen5 public crash count used for MTBF: System + SSR only.
+
+    If older saved rows do not have separate System/SSR fields, fall back to
+    their saved total_crashes so legacy data continues to publish a value.
+    """
+    system_present = row.get("system_crashes") not in (None, "")
+    ssr_present = row.get("ssr_crashes") not in (None, "")
+    if system_present or ssr_present:
+        return int(_num(row.get("system_crashes")) + _num(row.get("ssr_crashes")))
+    return int(_num(row.get("total_crashes")))
+
+
+def _system_ssr_mtbf(row: Dict[str, Any]) -> Any:
+    """Return the public MTBF value calculated from System + SSR crashes.
 
     Public AutoGen5 should not emit stale saved ``mtbf: 0`` when the row has
     enough crash data to calculate a valid MTBF.  Prefer the user-locked manual
     MTBF only when it is a positive value; otherwise recompute from
-    hours/system_crashes.  If system_crashes is absent, fall back to
-    total_crashes so older rows still get a non-zero public value.
+    hours/(system_crashes + ssr_crashes).  If both crash fields are absent, fall
+    back to total_crashes so older rows still get a non-zero public value.
     """
     stored_mtbf = row.get("mtbf")
     if int(_num(row.get("manual_mtbf")) or 0) and _mtbf_value_is_positive(stored_mtbf):
         return stored_mtbf
 
     hours = _num(row.get("hours"))
-    system_c = _num(row.get("system_crashes"))
-    total_c = _num(row.get("total_crashes"))
-    if hours and system_c:
-        return round(hours / system_c, 2)
+    total_c = _public_total_crashes(row)
     if hours and total_c:
         return round(hours / total_c, 2)
 
@@ -207,7 +218,7 @@ def _row_has_positive_mtbf(row: Dict[str, Any]) -> bool:
             return False
     except Exception:
         pass
-    return _mtbf_value_is_positive(_system_only_mtbf(row))
+    return _mtbf_value_is_positive(_system_ssr_mtbf(row))
 
 
 def _positive_mtbf_raw_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -232,6 +243,8 @@ def _positive_public_rows(rows: List[Dict[str, Any]], domain: str) -> List[Dict[
 
 def _public_row(row: Dict[str, Any], domain: str) -> Dict[str, Any]:
     system_c = row.get("system_crashes")
+    ssr_c = row.get("ssr_crashes")
+    total_c = _public_total_crashes(row)
     return {
         "domain":          domain,
         "s_no":            row.get("s_no"),
@@ -239,10 +252,10 @@ def _public_row(row: Dict[str, Any], domain: str) -> Dict[str, Any]:
         "meta_id":         row.get("meta_id") or "",
         "hours":           row.get("hours"),
         "system_crashes":  system_c,
-        "ssr_crashes":     row.get("ssr_crashes"),
+        "ssr_crashes":     ssr_c,
         "process_crashes": row.get("process_crashes"),
-        "total_crashes":   system_c,          # total_crashes = system crashes only
-        "mtbf":            _system_only_mtbf(row),  # recalculated from system crashes
+        "total_crashes":   total_c,          # total_crashes = System + SSR crashes
+        "mtbf":            _system_ssr_mtbf(row),  # recalculated from System + SSR crashes
         "manual_mtbf":     int(row.get("manual_mtbf") or 0),
         "crash_types":     row.get("crash_types") or [],
         "id":              row.get("id") or "",
@@ -355,7 +368,7 @@ def _sp_domain_summary(target_name: str, domain: str, sp: str) -> Dict[str, Any]
         "row_count":          len(rows),
         "latest_date":        latest.get("date") or "",
         "latest_meta_id":     latest.get("meta_id") or "",
-        "latest_mtbf":        _system_only_mtbf(latest) if latest else None,
+        "latest_mtbf":        _system_ssr_mtbf(latest) if latest else None,
         "latest_manual_mtbf": int(latest.get("manual_mtbf") or 0),
         "updated_at":         data.get("updated_at") or "",
     }

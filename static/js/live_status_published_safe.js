@@ -148,7 +148,7 @@ window.lspPublishJob=async function(){
 };
 let _coreDeckLoaded=false,_cdMetas=[],_cdSavedState=null,_cdLoaded=false,_cdJiraBuilds=[],_cdModalSelected=new Set(),_cdPendingFlavorRows=[],_cdFlavorMergeKeys=new Set(),_cdFlavorMergeGroups={},_cdBuildTypes={},_cdActiveDeck='IVI',_cdCrPivotMeta='',_cdSlideEditMode=false,_cdOpenFilters={NOSIR:true,IMAGE:true},_cdDeckConfig={IVI:[],FLEX:[],ADAS:[]},_cdTargetOptions=[],_cdOverallCrsTables=[],_cdConfigTables=null,_cdOverallCrsTable='',_cdOverallCrsTarget='',_cdHistoryRows=[],_cdLoadedHistoryId='',_cdWeeklyDetails=null,_cdCorePreview=null,_cdSlideDraftOverrides={},_cdTableDraftOverrides={},_cdAiSummaryCache={},_cdAiSummaryDirty=false,_cdExecSummaryDefaults={},_cdExecSummaryTopRows={},_cdExecSummaryAllRows={};
 let _crRows=[],_openJiraGroups=[],_lastJiraCount=null;
-let _mtbfLoaded=false,_mtbfChart=null,_mtbfSeriesRows=[],_mtbfBuildRows=[],_mtbfRawAutoRows=[],_mtbfAutoDeck='ADAS',_mtbfCrashFilters={system:true,ssr:false,process:false};
+let _mtbfLoaded=false,_mtbfChart=null,_mtbfSeriesRows=[],_mtbfBuildRows=[],_mtbfRawAutoRows=[],_mtbfAutoDeck='ADAS',_mtbfCrashFilters={system:true,ssr:true,process:false};
 // Expose _mtbfAutoDeck so external code (adasSetDomain) can update it
 Object.defineProperty(window,'_mtbfAutoDeck',{get:function(){return _mtbfAutoDeck;},set:function(v){_mtbfAutoDeck=String(v||'ADAS').toUpperCase();},configurable:true});
 // Expose _mtbfCrashFilters so adasCrashTypeChanged can sync it
