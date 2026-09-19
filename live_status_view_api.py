@@ -525,29 +525,82 @@ def _load_adas_mtbf(target_name: str, view: str, sp: str = '') -> Dict[str, Any]
     return {"target": target_name, "view": view_clean, "headers": list(_ADAS_MTBF_HEADERS), "rows": []}
 
 
+def _adas_row_date_key(row: Dict[str, Any]) -> Optional[Tuple[int, int, int]]:
+    """Return a sortable (YYYY, MM, DD) tuple for common MTBF date formats."""
+    text = str(
+        (row or {}).get("date")
+        or (row or {}).get("Date")
+        or (row or {}).get("report_date")
+        or (row or {}).get("week")
+        or ""
+    ).strip()
+    if not text:
+        return None
+
+    # Accept YYYY-MM-DD / YYYY/MM/DD / YYYY_MM_DD and ISO timestamps.
+    match = re.search(r"(20\d{2})[-_/](\d{1,2})[-_/](\d{1,2})", text)
+    if match:
+        try:
+            return (int(match.group(1)), int(match.group(2)), int(match.group(3)))
+        except Exception:
+            return None
+
+    # Accept compact YYYYMMDD.
+    match = re.search(r"(20\d{2})(\d{2})(\d{2})", text)
+    if match:
+        try:
+            return (int(match.group(1)), int(match.group(2)), int(match.group(3)))
+        except Exception:
+            return None
+
+    # Accept DD-MM-YYYY / DD/MM/YYYY seen in some manually edited sheets.
+    match = re.search(r"(\d{1,2})[-_/](\d{1,2})[-_/](20\d{2})", text)
+    if match:
+        try:
+            return (int(match.group(3)), int(match.group(2)), int(match.group(1)))
+        except Exception:
+            return None
+
+    return None
+
+
 def _sort_adas_rows_by_date(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Sort ADAS MTBF rows by date ascending (oldest first = left on chart).
-    Rows with no date are placed at the end. Re-numbers s_no after sorting."""
-    def _date_key(r: Dict[str, Any]):
-        d = str(r.get("date") or "").strip()
-        return d if d else "9999-99-99"  # blank dates go last
-    sorted_rows = sorted(rows, key=_date_key)
+
+    Rows with no/invalid date are placed at the end. Same-date rows keep their
+    existing order. Re-numbers s_no after sorting.
+    """
+    sorted_rows = [
+        item[1]
+        for item in sorted(
+            enumerate(rows or []),
+            key=lambda item: (
+                _adas_row_date_key(item[1]) is None,
+                _adas_row_date_key(item[1]) or (9999, 12, 31),
+                item[0],
+            ),
+        )
+    ]
     for i, r in enumerate(sorted_rows, start=1):
         r["s_no"] = i
     return sorted_rows
 
 
 def _sort_adas_rows_latest_first(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """Sort ADAS MTBF rows by date descending for UI/API display."""
-    def _date_key(r: Dict[str, Any]):
-        d = str(r.get("date") or "").strip()
-        return d[:10] if d else ""
-    sorted_rows = sorted(
-        enumerate(_sort_adas_rows_by_date(rows or [])),
-        key=lambda item: (_date_key(item[1]), item[0]),
-        reverse=True,
-    )
-    out = [r for _, r in sorted_rows]
+    """Sort ADAS MTBF rows by date descending for UI/API display.
+
+    Rows with no/invalid date stay below dated rows. Same-date rows keep their
+    existing order so manually grouped rows do not shuffle.
+    """
+    def _latest_key(item):
+        idx, row = item
+        key = _adas_row_date_key(row)
+        if key is None:
+            return (1, 0, 0, 0, idx)
+        year, month, day = key
+        return (0, -year, -month, -day, idx)
+
+    out = [row for _, row in sorted(enumerate(rows or []), key=_latest_key)]
     for i, r in enumerate(out, start=1):
         r["s_no"] = i
     return out

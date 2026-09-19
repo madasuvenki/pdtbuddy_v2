@@ -107,9 +107,14 @@
     .no-sp-state i{font-size:48px;opacity:.25}
     .no-sp-state p{font-size:14px;font-weight:700}
 
-    /* ── Status message ── */
+    /* ── Status message / refresh popup ── */
     #statusMsg{font-size:12px;font-weight:800;min-height:18px}
     .msg-ok{color:#059669} .msg-err{color:#dc2626} .msg-info{color:#4338ca}
+    .refresh-popup{position:fixed;right:22px;bottom:22px;z-index:5000;min-width:280px;max-width:min(420px,calc(100vw - 44px));display:none;align-items:flex-start;gap:12px;padding:14px 16px;border-radius:16px;background:linear-gradient(135deg,#0f172a,#1e3a8a);color:#fff;box-shadow:0 18px 48px rgba(15,23,42,.35);border:1px solid rgba(255,255,255,.14)}
+    .refresh-popup.show{display:flex}
+    .refresh-popup .rp-icon{width:30px;height:30px;border-radius:999px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.14);flex-shrink:0}
+    .refresh-popup .rp-title{font-size:12px;font-weight:950;letter-spacing:.02em}
+    .refresh-popup .rp-text{font-size:11px;color:#bfdbfe;margin-top:2px;line-height:1.35}
   </style>
 </head>
 <body>
@@ -223,6 +228,14 @@
 
 </div><!-- /shell -->
 
+<div id="refreshPopup" class="refresh-popup" role="status" aria-live="polite">
+  <div class="rp-icon"><i id="refreshPopupIcon" class="fas fa-circle-notch spin"></i></div>
+  <div>
+    <div id="refreshPopupTitle" class="rp-title">Refreshing MTBF table…</div>
+    <div id="refreshPopupText" class="rp-text">Loading selected SP / domain data.</div>
+  </div>
+</div>
+
 <!-- ══════════════════════════════════════════════════════════
      Bulk Edit Modal
 ══════════════════════════════════════════════════════════ -->
@@ -316,6 +329,23 @@ function esc(s){ const d=document.createElement('div'); d.textContent=String(s==
 function setStatus(msg, cls){ const el=document.getElementById('statusMsg'); el.textContent=msg; el.className=cls||'msg-info'; }
 function setMsg(id, msg, cls){ const el=document.getElementById(id); if(el){el.textContent=msg; el.className=cls||'msg-info';} }
 
+let refreshPopupTimer = null;
+function showRefreshPopup(title, text, done){
+  const popup = document.getElementById('refreshPopup');
+  if(!popup) return;
+  const titleEl = document.getElementById('refreshPopupTitle');
+  const textEl  = document.getElementById('refreshPopupText');
+  const iconEl  = document.getElementById('refreshPopupIcon');
+  if(titleEl) titleEl.textContent = title || 'Refreshing MTBF table…';
+  if(textEl) textEl.textContent = text || 'Loading selected SP / domain data.';
+  if(iconEl) iconEl.className = done ? 'fas fa-check' : 'fas fa-circle-notch spin';
+  popup.classList.add('show');
+  if(refreshPopupTimer) clearTimeout(refreshPopupTimer);
+  if(done){
+    refreshPopupTimer = setTimeout(()=>popup.classList.remove('show'), 2200);
+  }
+}
+
 function crashTypes(){
   const t=[];
   if(document.getElementById('ck_system').checked)  t.push('system');
@@ -363,6 +393,7 @@ function renderSpButtons(){
 ══════════════════════════════════════════════════════════ */
 function selectSp(spName){
   activeSp = spName;
+  filteredRows = [];
   renderSpButtons();
   // Update labels
   const sp = spList.find(s=>s.sp_name===spName) || {display_name: spName};
@@ -370,23 +401,24 @@ function selectSp(spName){
   document.getElementById('chartSpLabel').textContent = label;
   document.getElementById('tableSpLabel').textContent = label;
   document.getElementById('heroSub').textContent = 'SP: ' + label;
+  showRefreshPopup('Refreshing selected SP…', label + ' / ' + activeDomain + ' MTBF table is updating.');
   // Load domains then data
-  loadDomains();
+  loadDomains('sp');
 }
 
 /* ══════════════════════════════════════════════════════════
    Domains
 ══════════════════════════════════════════════════════════ */
-function loadDomains(){
-  fetch(API + '/adas_mtbf/domains')
+function loadDomains(reason){
+  fetch(API + '/adas_mtbf/domains', {cache:'no-store'})
     .then(r=>r.json())
     .then(d=>{
       domains = (d.ok && d.domains && d.domains.length) ? d.domains : ['ADAS','FLEX','IVI'];
       if(!domains.includes(activeDomain)) activeDomain = domains[0];
       renderDomainBar();
-      loadMtbf();
+      loadMtbf(reason || 'domain');
     })
-    .catch(()=>{ domains=['ADAS','FLEX','IVI']; renderDomainBar(); loadMtbf(); });
+    .catch(()=>{ domains=['ADAS','FLEX','IVI']; renderDomainBar(); loadMtbf(reason || 'domain'); });
 }
 
 const DOM_ICONS = {ADAS:'fa-car', FLEX:'fa-microchip', IVI:'fa-display'};
@@ -403,8 +435,10 @@ function renderDomainBar(){
 
 function setDomain(d){
   activeDomain = d;
+  filteredRows = [];
   renderDomainBar();
-  loadMtbf();
+  showRefreshPopup('Refreshing selected domain…', 'Loading ' + activeDomain + ' MTBF table for the selected SP.');
+  loadMtbf('domain');
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -421,27 +455,31 @@ function setFilter(n, btn){
 /* ══════════════════════════════════════════════════════════
    Load MTBF data for active SP + domain
 ══════════════════════════════════════════════════════════ */
-function loadMtbf(){
+function loadMtbf(reason){
   if(!activeSp){ return; }
   document.getElementById('mtbfSpinner').style.display='';
   setMsg('mtbfMsg','Loading…','msg-info');
   const ct = crashTypes().join(',');
   const url = API+'/sp_mtbf?sp_name='+encodeURIComponent(activeSp)
              +'&domain='+encodeURIComponent(activeDomain)
-             +'&crash_types='+encodeURIComponent(ct);
-  fetch(url)
+             +'&crash_types='+encodeURIComponent(ct)
+             +'&_='+Date.now();
+  fetch(url, {cache:'no-store'})
     .then(r=>r.json())
     .then(d=>{
       document.getElementById('mtbfSpinner').style.display='none';
       if(!d.ok){ setMsg('mtbfMsg','Error: '+(d.error||'unknown'),'msg-err'); return; }
-      allRows = d.rows || [];
-      setMsg('mtbfMsg', allRows.length ? allRows.length+' rows' : 'No data yet', allRows.length?'msg-ok':'msg-info');
+      allRows = latestFirstRows(d.rows || []);
+      filteredRows = [];
+      const latestDate = allRows.length ? (allRows[0].date || allRows[0].Date || allRows[0].report_date || '') : '';
+      setMsg('mtbfMsg', allRows.length ? allRows.length+' rows · latest first' : 'No data yet', allRows.length?'msg-ok':'msg-info');
       document.getElementById('mainContent').style.display='';
       document.getElementById('noSpState').style.display='none';
       renderChart();
       renderTable();
+      showRefreshPopup('MTBF table updated', activeDomain + ' table refreshed' + (latestDate ? ' · latest date ' + latestDate : '') + '.', true);
     })
-    .catch(e=>{ document.getElementById('mtbfSpinner').style.display='none'; setMsg('mtbfMsg','Network error','msg-err'); });
+    .catch(e=>{ document.getElementById('mtbfSpinner').style.display='none'; setMsg('mtbfMsg','Network error','msg-err'); showRefreshPopup('MTBF refresh failed', 'Unable to refresh the selected SP / domain table.', true); });
 }
 
 function refreshData(){ loadMtbf(); }
@@ -457,12 +495,23 @@ function getDisplayRows(){
 }
 
 function rowDateSortKey(r){
-  const t = Date.parse((r && (r.date || r.Date || r.report_date || r.week)) || '');
+  const text = String((r && (r.date || r.Date || r.report_date || r.week)) || '').trim();
+  if(!text) return -Infinity;
+  let m = text.match(/(20\d{2})[-_/](\d{1,2})[-_/](\d{1,2})/);
+  if(m) return Date.UTC(Number(m[1]), Number(m[2])-1, Number(m[3]));
+  m = text.match(/(20\d{2})(\d{2})(\d{2})/);
+  if(m) return Date.UTC(Number(m[1]), Number(m[2])-1, Number(m[3]));
+  m = text.match(/(\d{1,2})[-_/](\d{1,2})[-_/](20\d{2})/);
+  if(m) return Date.UTC(Number(m[3]), Number(m[2])-1, Number(m[1]));
+  const t = Date.parse(text);
   return Number.isFinite(t) ? t : -Infinity;
 }
 
 function latestFirstRows(rows){
-  return [...(rows || [])].sort((a,b)=>rowDateSortKey(b)-rowDateSortKey(a));
+  return [...(rows || [])].sort((a,b)=>{
+    const diff = rowDateSortKey(b) - rowDateSortKey(a);
+    return diff || 0;
+  });
 }
 
 function computeChartData(rows){
@@ -527,16 +576,17 @@ function copyChart(){
    Table
 ══════════════════════════════════════════════════════════ */
 function filterTable(){
-  const q = (document.getElementById('tableSearch').value||'').toLowerCase();
-  filteredRows = q ? allRows.filter(r=>(r.meta_id||r.build_id||'').toLowerCase().includes(q)) : allRows;
   renderTable();
 }
 
 function renderTable(){
-  const baseRows = filteredRows.length ? filteredRows : allRows;
+  const q = (document.getElementById('tableSearch').value||'').toLowerCase();
+  const baseRows = q
+    ? allRows.filter(r=>JSON.stringify(r || {}).toLowerCase().includes(q))
+    : allRows;
   const sortedRows = latestFirstRows(baseRows);
   const rows = nFilter>0 ? sortedRows.slice(0,nFilter) : sortedRows;
-  filteredRows = filteredRows.length ? filteredRows : allRows;
+  filteredRows = baseRows;
   const ct = crashTypes();
   const tbody = document.getElementById('mtbfTbody');
   document.getElementById('tableCount').textContent = rows.length+' rows';

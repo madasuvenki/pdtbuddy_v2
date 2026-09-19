@@ -1159,9 +1159,43 @@ if(document.getElementById('tab-buildreport').classList.contains('active')) bwrL
 </div>
 
 <script>
-// -- Top Config Modal ----------------------------------------------------------
+/* -- Top Config Modal ---------------------------------------------------------- */
 // ── SP switcher state ──────────────────────────────────────────────────────
 window._activeSp = (window.LSP_DATA && window.LSP_DATA.active_sp_cpl) || '';
+
+window._lspActiveTabLabel = function(tabId){
+  var labels = {
+    'tab-opencrs': 'Open / Analysis CRs',
+    'tab-openjiras': 'Open JIRAs',
+    'tab-mtbf': 'MTBF Trend',
+    'tab-current': 'Current Running Builds',
+    'tab-buildreport': 'Build-wise Report',
+    'tab-weekly': 'Weekly Report'
+  };
+  return labels[tabId] || 'current tab';
+};
+
+window._lspShowRefreshPopup = function(title, text, done){
+  var box = document.getElementById('lspRefreshPopup');
+  if(!box){
+    box = document.createElement('div');
+    box.id = 'lspRefreshPopup';
+    box.style.cssText = 'position:fixed;right:22px;bottom:22px;z-index:20050;min-width:300px;max-width:min(440px,calc(100vw - 44px));display:none;align-items:flex-start;gap:12px;padding:14px 16px;border-radius:16px;background:linear-gradient(135deg,#0f172a,#1e3a8a);color:#fff;box-shadow:0 18px 48px rgba(15,23,42,.35);border:1px solid rgba(255,255,255,.14);font-family:Inter,Segoe UI,Arial,sans-serif';
+    box.innerHTML = '<div id="lspRefreshPopupIcon" style="width:30px;height:30px;border-radius:999px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.14);flex-shrink:0"><i class="fas fa-circle-notch fa-spin"></i></div><div><div id="lspRefreshPopupTitle" style="font-size:12px;font-weight:950;letter-spacing:.02em">Refreshing...</div><div id="lspRefreshPopupText" style="font-size:11px;color:#bfdbfe;margin-top:2px;line-height:1.35"></div></div>';
+    document.body.appendChild(box);
+  }
+  var titleEl = document.getElementById('lspRefreshPopupTitle');
+  var textEl = document.getElementById('lspRefreshPopupText');
+  var iconEl = document.getElementById('lspRefreshPopupIcon');
+  if(titleEl) titleEl.textContent = title || 'Refreshing SP domain page...';
+  if(textEl) textEl.textContent = text || 'Updating required tab data.';
+  if(iconEl) iconEl.innerHTML = done ? '<i class="fas fa-check"></i>' : '<i class="fas fa-circle-notch fa-spin"></i>';
+  box.style.display = 'flex';
+  clearTimeout(window._lspRefreshPopupTimer);
+  if(done){
+    window._lspRefreshPopupTimer = setTimeout(function(){ box.style.display = 'none'; }, 2400);
+  }
+};
 
 // Switch active SP: update state, re-render all SP bars, reload all tabs
 // Returns { sp, domain, cfg } for the currently active SP + domain
@@ -1199,8 +1233,9 @@ window.lspReloadOpenCrs = function(){
   if(typeof window.ocLoad === 'function'){
     // patch ocLoad URL to include sp + domain params
     window._lspSpOverride = { sp: ctx.sp, domain: ctx.domain };
-    window.ocLoad(true);
+    return window.ocLoad(true);
   }
+  return Promise.resolve();
 };
 
 // Reload Open JIRAs tab with current SP + domain
@@ -1208,8 +1243,9 @@ window.lspReloadOpenJiras = function(){
   var ctx = window.lspGetActiveSpContext();
   if(typeof window.ojLoad === 'function'){
     window._lspSpOverride = { sp: ctx.sp, domain: ctx.domain };
-    window.ojLoad();
+    return window.ojLoad();
   }
+  return Promise.resolve();
 };
 
 // Reload Core Slides / MTBF with current SP domain - NO tab switching
@@ -1255,32 +1291,56 @@ window.lspSwitchSp = function(cpl){
     return '';
   }
   var activeTab = _activeTabId();
+  var _lspActiveLoads = [];
+  function _trackActiveLoad(p){
+    if(p && typeof p.then === 'function') _lspActiveLoads.push(p);
+    return p;
+  }
+  function _showDonePopup(){
+    if(activeTab === 'tab-mtbf') return; // MTBF data loader shows its own done/failure popup after chart/table render.
+    if(typeof window._lspShowRefreshPopup === 'function'){
+      window._lspShowRefreshPopup(
+        'SP/domain tab updated',
+        'SP ' + cpl + ' [' + curDom + '] refreshed for ' + window._lspActiveTabLabel(activeTab) + '.',
+        true
+      );
+    }
+  }
+  if(typeof window._lspShowRefreshPopup === 'function'){
+    window._lspShowRefreshPopup(
+      'Refreshing selected SP/domain...',
+      'SP ' + cpl + ' [' + curDom + '] - updating ' + window._lspActiveTabLabel(activeTab) + '. Please wait while data reloads.'
+    );
+  }
   // Reload the currently visible tab immediately
   if(activeTab === 'tab-opencrs'){
-    window.lspReloadOpenCrs();
+    _trackActiveLoad(window.lspReloadOpenCrs());
   } else if(activeTab === 'tab-openjiras'){
-    window.lspReloadOpenJiras();
+    _trackActiveLoad(window.lspReloadOpenJiras());
   } else if(activeTab === 'tab-mtbf'){
-    if(typeof window.adasLoadData === 'function') window.adasLoadData(true);
+    if(typeof window.adasLoadData === 'function') _trackActiveLoad(window.adasLoadData(true));
   } else if(activeTab === 'tab-current'){
     window._rbRows = [];
     if(typeof window.loadRunningBuildsDb === 'function'){
-      var _rbp2 = window.loadRunningBuildsDb();
-      // guard: loadRunningBuildsDb may return undefined on error
-    } else if(typeof window.lspEnsureRunningBuildsLoaded === 'function') window.lspEnsureRunningBuildsLoaded(true);
+      _trackActiveLoad(window.loadRunningBuildsDb());
+    } else if(typeof window.lspEnsureRunningBuildsLoaded === 'function') _trackActiveLoad(window.lspEnsureRunningBuildsLoaded(true));
   } else if(activeTab === 'tab-buildreport'){
     window._rbRows = [];
     // Immediately refresh build list with new SP
-    if(typeof window.bwrLoad === 'function') window.bwrLoad();
+    if(typeof window.bwrLoad === 'function') _trackActiveLoad(window.bwrLoad());
     if(typeof window.brRefreshBuilds === 'function'){
-      var _brp = window.brRefreshBuilds();
-      // brRefreshBuilds is async - always returns Promise, safe to ignore
-    } else if(typeof window._lspResetBuildReport === 'function') window._lspResetBuildReport();
+      _trackActiveLoad(window.brRefreshBuilds());
+    } else if(typeof window._lspResetBuildReport === 'function') _trackActiveLoad(window._lspResetBuildReport());
   }
   // ---- Background reload all other tabs (they will re-fetch when opened) ----
   if(activeTab !== 'tab-opencrs')   window.lspReloadOpenCrs();
   if(activeTab !== 'tab-openjiras') window.lspReloadOpenJiras();
-  if(activeTab !== 'tab-mtbf')      { if(typeof window.adasLoadData === 'function') window.adasLoadData(true); }
+  if(activeTab !== 'tab-mtbf' && typeof window.adasLoadData === 'function'){
+    window._lspSuppressMtbfPopup = true;
+    var _mtbfBg = window.adasLoadData(true);
+    if(_mtbfBg && typeof _mtbfBg.finally === 'function') _mtbfBg.finally(function(){ window._lspSuppressMtbfPopup = false; });
+    else window._lspSuppressMtbfPopup = false;
+  }
   if(activeTab !== 'tab-current' && activeTab !== 'tab-buildreport'){
     if(typeof window.loadRunningBuildsDb === 'function'){
       var _rbp = window.loadRunningBuildsDb();
@@ -1294,6 +1354,11 @@ window.lspSwitchSp = function(cpl){
   var msg = document.getElementById('jobStatusMessage');
   if(msg){ msg.textContent='SP '+cpl+' ['+curDom+']'; msg.style.color='#2563eb';
     setTimeout(function(){ msg.textContent=''; }, 2000); }
+  if(_lspActiveLoads.length){
+    Promise.allSettled(_lspActiveLoads).then(_showDonePopup);
+  } else {
+    setTimeout(_showDonePopup, 1200);
+  }
 };
 
 // SP switcher helper - renders pill buttons (client-side switch, no page nav)
@@ -1772,6 +1837,31 @@ function lspSaveSpConfig(){
 </script>
 </div>
 <script src="{{ url_for('static', filename='js/build_report_common.js') }}?v=20260627_no_qwinbug"></script>
+<script id="lsp-data-json" type="application/json">
+{
+"job_id": {{ job.id|tojson }},
+"primary_target": {{ primary_target|tojson }},
+"published_at": {{ (job.published_at or '')|tojson }},
+"updated_at": {{ (job.updated_at or '')|tojson }},
+"cache_checked_at": {{ ((job.current_report_cache or {}).get('last_fresh_check_at') or '')|tojson }},
+"running_rows": {{ running_rows|tojson }},
+"all_rows": {{ all_rows|tojson }},
+"can_edit": {{ can_edit|tojson }},
+"is_auto_bu": {{ is_auto_bu|default(false)|tojson }},
+"is_eng_job": {{ is_eng_job|default(false)|tojson }},
+"mtbf_only": {{ mtbf_only|default(false)|tojson }},
+"initial_tab": {{ initial_tab|default('current')|tojson }},
+"visible_tabs": {{ (visible_tabs or [])|tojson }},
+"available_domains": {{ (available_domains or [])|tojson }},
+"persisted_jql": {{ (job.current_report_jql or '')|tojson }},
+"jira_filter_id": {{ jira_pdt_filter_id|tojson }},
+"saved_weekly_selection": {{ (job.weekly_report_selection or {})|tojson }},
+"sp_siblings": {{ (sp_siblings or [])|tojson }},
+"active_sp_cpl": {{ ((sp_siblings or [])|selectattr('active')|map(attribute='cpl')|list|first|default((sp_siblings or [{'cpl':''}])[0].cpl))|tojson }},
+"sp_configs": {{ (sp_configs or {})|tojson }},
+"landing_url": {{ url_for('live_status_publish_bp.landing')|tojson }}
+}
+</script>
 <script>
 // Safety stub -- bsOpen is defined fully later in this script.
 // This early definition prevents ReferenceError from any cached page version.
@@ -1779,29 +1869,7 @@ window.bsOpen=window.bsOpen||function(){};
 window.bsClose=window.bsClose||function(){};
 /* lspEnterEditMode is defined in live_status_published_safe.js */
 window.LSP_EDIT_PAGE = true;
-window.LSP_DATA = {
-job_id: {{ job.id|tojson }},
-primary_target: {{ primary_target|tojson }},
-published_at: {{ (job.published_at or '')|tojson }},
-updated_at: {{ (job.updated_at or '')|tojson }},
-cache_checked_at: {{ ((job.current_report_cache or {}).get('last_fresh_check_at') or '')|tojson }},
-running_rows: {{ running_rows|tojson }},
-all_rows: {{ all_rows|tojson }},
-can_edit: {{ can_edit|tojson }},
-is_auto_bu: {{ is_auto_bu|default(false)|tojson }},
-is_eng_job: {{ is_eng_job|default(false)|tojson }},
-mtbf_only: {{ mtbf_only|default(false)|tojson }},
-initial_tab: {{ initial_tab|default('current')|tojson }},
-visible_tabs: {{ (visible_tabs or [])|tojson }},
-available_domains: {{ (available_domains or [])|tojson }},
-persisted_jql: {{ (job.current_report_jql or '')|tojson }},
-jira_filter_id: {{ jira_pdt_filter_id|tojson }},
-saved_weekly_selection: {{ (job.weekly_report_selection or {})|tojson }},
-sp_siblings: {{ (sp_siblings or [])|tojson }},
-active_sp_cpl: {{ ((sp_siblings or [])|selectattr('active')|map(attribute='cpl')|list|first|default((sp_siblings or [{'cpl':''}])[0].cpl))|tojson }},
-sp_configs: {{ (sp_configs or {})|tojson }},
-landing_url: {{ url_for('live_status_publish_bp.landing')|tojson }}
-};
+window.LSP_DATA = JSON.parse((document.getElementById('lsp-data-json')||{}).textContent || '{}');
 // =======================================================================
 // Current Running Build DB table -- Add Build, detail modal, publish, 15-min JQL
 // =======================================================================
@@ -2941,7 +3009,7 @@ if(typeof window.lspNavRender === 'function') window.lspNavRender();
 });
 }());
 </script>
-  <script src="{{ url_for('static', filename='js/live_status_published_safe.js') }}?v=20260915_mtbf_manual_zero"></script>
+<script src="{{ url_for('static', filename='js/live_status_published_safe.js') }}?v=20260919_mtbf_latest_first"></script>
   <script src="{{ url_for('static', filename='js/live_status_nonau.js') }}?v=20260623_nonau4"></script>
 <script>
 // Stubs for functions called in Open CRs tab that may not be defined in all JS bundles
@@ -3190,13 +3258,13 @@ window.ocClearKpiFilters=function(){_area='';var s=_g('ocStatusSel');if(s)s.valu
 window.ocSetStatusFilter=function(s){var sel=_g('ocStatusSel');if(sel){sel.value=(sel.value===s?'':s);}ocFilter();};
 window.ocSetAreaFilter=function(a){_area=(_area===a?'':a);ocFilter();};
 window.ocLoad=function(force){
-if(_loaded&&!force){ocFilter();return;}
-var tgt=((window.LSP_DATA&&window.LSP_DATA.primary_target)||'').trim();if(!tgt)return;
+if(_loaded&&!force){ocFilter();return Promise.resolve();}
+var tgt=((window.LSP_DATA&&window.LSP_DATA.primary_target)||'').trim();if(!tgt)return Promise.resolve();
 var sp=_g('ocSpinner');if(sp)sp.style.display='inline';
 var tb=_g('ocTbody');if(tb)tb.innerHTML='<tr><td colspan="12" class="empty"><i class="fas fa-circle-notch spin"></i> Loading open CRs...</td></tr>';
 var qs=[];if(_domain)qs.push('domain='+encodeURIComponent(_domain));
 var _spOvr=window._lspSpOverride||{};if(_spOvr.sp)qs.push('sp='+encodeURIComponent(_spOvr.sp));if(_spOvr.domain&&!_domain)qs.push('domain='+encodeURIComponent(_spOvr.domain));
-fetch('/api/live_status/targets/'+encodeURIComponent(tgt)+'/open_crs_full'+(qs.length?'?'+qs.join('&'):''),{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){
+return fetch('/api/live_status/targets/'+encodeURIComponent(tgt)+'/open_crs_full'+(qs.length?'?'+qs.join('&'):''),{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){
 if(!d.success)throw new Error(d.message||'Failed to load open CRs');
 _all=d.rows||[];_loaded=true;_lastData=d;_area='';_buildFilters();_kpi();ocFilter();
 }).catch(function(e){if(tb)tb.innerHTML='<tr><td colspan="12" class="empty" style="color:#dc2626">'+_e(e.message||e)+'</td></tr>';}).finally(function(){if(sp)sp.style.display='none';});
@@ -3240,7 +3308,7 @@ window.ojLoad=function(){
 var from=(_g('ojFrom')||{}).value||'';
 var to=(_g('ojTo')||{}).value||'';
 var tgt=((window.LSP_DATA&&window.LSP_DATA.primary_target)||'').trim();
-if(!tgt)return;
+if(!tgt)return Promise.resolve();
 _g('ojLoading').style.display='block';
 _g('ojContent').style.display='none';
 _g('ojError').style.display='none';
@@ -3252,7 +3320,7 @@ var _ojSpOvr=window._lspSpOverride||{};
 if(_ojSpOvr.sp)p.push('sp='+encodeURIComponent(_ojSpOvr.sp));
 if(_ojSpOvr.domain)p.push('domain='+encodeURIComponent(_ojSpOvr.domain));
 if(p.length)url+='?'+p.join('&');
-fetch(url).then(function(r){return r.json();}).then(function(d){
+return fetch(url).then(function(r){return r.json();}).then(function(d){
 _g('ojLoading').style.display='none';
 if(!d.success)throw new Error(d.message||'Load failed');
 if(d.notice&&!(d.rows&&d.rows.length)){
@@ -4809,6 +4877,7 @@ lspNavRender();
 };
 /* ---- Set domain from nav tab buttons ---- */
 window.lspNavSetDomain = function(domain){
+domain = String(domain || 'ADAS').toUpperCase();
 _lspNavDomain = window._lspNavDomain = domain;
 _lspSoloMeta  = null;
 ['ADAS','FLEX','IVI'].forEach(function(d){
@@ -4824,7 +4893,13 @@ if(tag){ tag.className='lsp-scope-tag'; tag.innerHTML='<i class="fas fa-layer-gr
 // Re-check all boxes for new domain
 _setChecked(null);
 lspNavRender();
-// Do not auto-run on domain switch. User must click a build/meta.
+// Refresh the visible tab for the newly selected SP/domain and show a popup.
+// Do not auto-run JQL; this only refreshes the required tab data/cache.
+if(window._activeSp && !window._lspDomainRefreshInProgress && typeof window.lspSwitchSp === 'function'){
+window._lspDomainRefreshInProgress = true;
+try { window.lspSwitchSp(window._activeSp); }
+finally { window._lspDomainRefreshInProgress = false; }
+}
 };
 /* ---- Run JQL for ALL builds in a domain ---- */
 window._lspRunAllDomainBuilds = function _lspRunAllDomainBuilds(domain){
@@ -5269,16 +5344,61 @@ btn.style.fontWeight  = '900';
 });
 }
 /* --- domain switch (toolbar buttons) ------------------------ */
+function _adasShowDomainLoading(domain){
+domain = String(domain || _adasView || 'MTBF').toUpperCase();
+var title = document.getElementById('mtbfTableTitle');
+if(title) title.textContent = domain + ' MTBF Builds Table - Loading...';
+var count = document.getElementById('mtbfTableCount');
+if(count) count.textContent = 'Loading...';
+var body = document.getElementById('mtbfTableBody');
+if(body){
+body.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:36px;color:#64748b;font-weight:900"><i class="fas fa-circle-notch spin" style="font-size:20px;margin-right:8px;color:#6366f1"></i> Loading '+_esc(domain)+' MTBF data...</td></tr>';
+}
+var canvas = document.getElementById('mtbfCanvas');
+if(canvas){
+try{
+var oldChart = (window.Chart && Chart.getChart) ? Chart.getChart(canvas) : null;
+if(oldChart) oldChart.destroy();
+}catch(_){}
+canvas.style.display = 'none';
+}
+var wrap = document.getElementById('mtbfChartWrap');
+if(wrap) wrap.classList.add('is-empty');
+var empty = document.getElementById('mtbfEmpty');
+if(empty){
+empty.style.display = 'block';
+empty.innerHTML = '<i class="fas fa-circle-notch spin" style="font-size:22px;color:#6366f1;display:block;margin-bottom:8px"></i> Loading '+_esc(domain)+' MTBF chart and table...';
+}
+var summary = document.getElementById('mtbfSummaryPills');
+if(summary){
+summary.style.display = 'flex';
+summary.innerHTML = '<span class="pill"><i class="fas fa-circle-notch spin"></i> Loading '+_esc(domain)+' data...</span>';
+}
+var msg = document.getElementById('adasMsg');
+if(msg){ msg.textContent = 'Loading ' + domain + ' MTBF chart and table...'; msg.style.color = '#6366f1'; }
+if(!window._lspSuppressMtbfPopup && typeof window._lspShowRefreshPopup === 'function'){
+window._lspShowRefreshPopup('Loading MTBF data...', domain + ' chart/table is refreshing. Please wait.');
+}
+}
+
+function _adasFinishDomainLoading(domain, ok, detail){
+domain = String(domain || _adasView || 'MTBF').toUpperCase();
+var title = ok ? 'MTBF data updated' : 'MTBF data update failed';
+var text = ok ? (domain + ' chart/table updated' + (detail ? ' - ' + detail : '') + '.') : (detail || ('Could not load ' + domain + ' MTBF data.'));
+if(!window._lspSuppressMtbfPopup && typeof window._lspShowRefreshPopup === 'function'){
+window._lspShowRefreshPopup(title, text, true);
+}
+}
+
 window.adasSetDomain = function(domain){
-_adasView = domain;
+_adasView = String(domain || _adasView || 'ADAS').toUpperCase();
 _styleToolbarDomBtns();
 // Sync internal _mtbfAutoDeck (via window property setter) so titles update
-window._mtbfAutoDeck = domain;
-// Update titles immediately before async load
-var ttl = document.getElementById('mtbfTableTitle');
-if(ttl) ttl.textContent = domain + ' MTBF Builds Table';
+window._mtbfAutoDeck = _adasView;
+// Clear stale chart/table content immediately and show progress until the async fetch finishes.
+_adasShowDomainLoading(_adasView);
 // adasLoadData feeds BOTH table (_adasRows) AND chart (_mtbfSeriesRows/_mtbfBuildRows)
-window.adasLoadData(true);
+return window.adasLoadData(true);
 };
 /* --- modal domain switch ------------------------------------- */
 window.adasModalSetDomain = function(domain){
@@ -5298,6 +5418,7 @@ var body = document.getElementById('mtbfTableBody');
 if(!body) return;
 var q = ((document.getElementById('mtbfTableSearch')||{}).value||'').toLowerCase();
 var filtered = q ? rows.filter(function(r){ return JSON.stringify(r).toLowerCase().indexOf(q)>=0; }) : rows.slice();
+filtered = filtered.sort(function(a,b){ var da=String(a.date||a.week||''), db=String(b.date||b.week||''); return da<db?1:da>db?-1:0; });
 _adasTableRows = filtered;
 var countEl = document.getElementById('mtbfTableCount');
 if(countEl) countEl.textContent = filtered.length + ' rows';
@@ -5818,7 +5939,8 @@ window.adasLoadData = async function(force){
 var sp  = document.getElementById('mtbfSpinner');
 var msg = document.getElementById('adasMsg');
 if(sp)  sp.style.display = 'inline';
-if(msg) msg.textContent  = '';
+if(msg){ msg.textContent  = 'Loading ' + String(_adasView || 'MTBF').toUpperCase() + ' MTBF data...'; msg.style.color = '#6366f1'; }
+_adasShowDomainLoading(_adasView);
 try{
 var _activeSpName = _adasActiveSp();
 var zeroCb = document.getElementById('mtbfIncludeZero');
@@ -5849,8 +5971,10 @@ msg.textContent = _adasView + ' updated ' + new Date(data.updated_at).toLocaleTi
 msg.style.color = '#059669';
 setTimeout(function(){ if(msg) msg.textContent=''; }, 4000);
 }
+_adasFinishDomainLoading(_adasView, true, (_adasRows.length || 0) + ' rows');
 }catch(err){
 if(msg){ msg.textContent='Error: '+err.message; msg.style.color='#dc2626'; }
+_adasFinishDomainLoading(_adasView, false, 'Error: ' + (err.message || err));
 }finally{
 if(sp) sp.style.display = 'none';
 }
