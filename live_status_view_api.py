@@ -537,6 +537,22 @@ def _sort_adas_rows_by_date(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return sorted_rows
 
 
+def _sort_adas_rows_latest_first(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Sort ADAS MTBF rows by date descending for UI/API display."""
+    def _date_key(r: Dict[str, Any]):
+        d = str(r.get("date") or "").strip()
+        return d[:10] if d else ""
+    sorted_rows = sorted(
+        enumerate(_sort_adas_rows_by_date(rows or [])),
+        key=lambda item: (_date_key(item[1]), item[0]),
+        reverse=True,
+    )
+    out = [r for _, r in sorted_rows]
+    for i, r in enumerate(out, start=1):
+        r["s_no"] = i
+    return out
+
+
 def _save_adas_mtbf(target_name: str, view: str, payload: Dict[str, Any], sp: str = '') -> Dict[str, Any]:
     view_clean = _canonical_mtbf_domain_name(view or "ADAS", target_name)
     allowed = _get_target_domains(target_name)
@@ -1292,7 +1308,7 @@ def api_adas_mtbf_get(target_name: str):
         crash_types = ["system", "ssr"]
     try:
         data = _load_adas_mtbf(target_name, view, sp)
-        rows = [_system_ssr_row_for_response(r) for r in _sort_adas_rows_by_date(data.get("rows") or [])]
+        rows = [_system_ssr_row_for_response(r) for r in _sort_adas_rows_latest_first(data.get("rows") or [])]
         chart_data = _adas_rows_to_chart_data(rows, crash_types)
         return jsonify({
             "ok": True,
@@ -1336,8 +1352,8 @@ def api_adas_mtbf_add(target_name: str):
             "ok": True,
             "message": f"Build {meta_id} added to {view} MTBF.",
             "row": new_row,
-            "rows": saved.get("rows") or [],
-            "chart_data": _adas_rows_to_chart_data(saved.get("rows") or [], crash_types),
+            "rows": [_system_ssr_row_for_response(r) for r in _sort_adas_rows_latest_first(saved.get("rows") or [])],
+            "chart_data": _adas_rows_to_chart_data([_system_ssr_row_for_response(r) for r in _sort_adas_rows_latest_first(saved.get("rows") or [])], crash_types),
         })
     except Exception as exc:
         return jsonify({"ok": False, "error": str(exc)}), 500
@@ -1372,8 +1388,8 @@ def api_adas_mtbf_edit(target_name: str):
             "ok": True,
             "message": "Row updated.",
             "row": updated_row,
-            "rows": saved.get("rows") or [],
-            "chart_data": _adas_rows_to_chart_data(saved.get("rows") or [], crash_types),
+            "rows": [_system_ssr_row_for_response(r) for r in _sort_adas_rows_latest_first(saved.get("rows") or [])],
+            "chart_data": _adas_rows_to_chart_data([_system_ssr_row_for_response(r) for r in _sort_adas_rows_latest_first(saved.get("rows") or [])], crash_types),
         })
     except Exception as exc:
         return jsonify({"ok": False, "error": str(exc)}), 500
@@ -1407,8 +1423,8 @@ def api_adas_mtbf_delete(target_name: str):
         return jsonify({
             "ok": True,
             "message": "Row deleted.",
-            "rows": saved.get("rows") or [],
-            "chart_data": _adas_rows_to_chart_data(saved.get("rows") or [], crash_types),
+            "rows": [_system_ssr_row_for_response(r) for r in _sort_adas_rows_latest_first(saved.get("rows") or [])],
+            "chart_data": _adas_rows_to_chart_data([_system_ssr_row_for_response(r) for r in _sort_adas_rows_latest_first(saved.get("rows") or [])], crash_types),
         })
     except Exception as exc:
         return jsonify({"ok": False, "error": str(exc)}), 500
@@ -1425,11 +1441,12 @@ def api_adas_mtbf_chart(target_name: str):
         view = allowed[0]
     crash_types = payload.get("crash_types") or ["system", "ssr"]
     n_filter = int(payload.get("n_filter") or 0)  # 0=all, 5=last5, 10=last10
+    sp = str(payload.get("sp") or "").strip()
     try:
-        data = _load_adas_mtbf(target_name, view)
-        rows = data.get("rows") or []
+        data = _load_adas_mtbf(target_name, view, sp)
+        rows = [_system_ssr_row_for_response(r) for r in _sort_adas_rows_latest_first(data.get("rows") or [])]
         if n_filter > 0:
-            rows = rows[-n_filter:]
+            rows = rows[:n_filter]
         chart_data = _adas_rows_to_chart_data(rows, crash_types)
         return jsonify({"ok": True, "chart_data": chart_data, "rows": rows})
     except Exception as exc:
@@ -2594,7 +2611,7 @@ def api_sp_mtbf_get(target_name: str):
     ]
     try:
         data = _load_sp_mtbf(target_name, domain, sp_name)
-        rows = [_system_ssr_row_for_response(r) for r in _sort_adas_rows_by_date(data.get('rows') or [])]
+        rows = [_system_ssr_row_for_response(r) for r in _sort_adas_rows_latest_first(data.get('rows') or [])]
         return jsonify({
             'ok': True, 'target': target_name, 'domain': domain, 'sp_name': sp_name,
             'domains': _get_target_domains(target_name), 'rows': rows,
@@ -2620,10 +2637,11 @@ def api_sp_mtbf_save(target_name: str):
         data['rows'] = built
         saved = _save_sp_mtbf(target_name, domain, sp_name, data)
         crash_types = payload.get('crash_types') or ['system', 'ssr']
+        rows_out = [_system_ssr_row_for_response(r) for r in _sort_adas_rows_latest_first(saved.get('rows') or [])]
         return jsonify({
             'ok': True, 'message': f'Saved {len(saved["rows"])} rows for SP {sp_name} / {domain}.',
-            'rows': saved.get('rows') or [],
-            'chart_data': _adas_rows_to_chart_data(saved.get('rows') or [], crash_types),
+            'rows': rows_out,
+            'chart_data': _adas_rows_to_chart_data(rows_out, crash_types),
         })
     except Exception as exc:
         return jsonify({'ok': False, 'error': str(exc)}), 500
@@ -2647,10 +2665,11 @@ def api_sp_mtbf_add(target_name: str):
         data['rows'] = rows
         saved = _save_sp_mtbf(target_name, domain, sp_name, data)
         crash_types = payload.get('crash_types') or ['system', 'ssr']
+        rows_out = [_system_ssr_row_for_response(r) for r in _sort_adas_rows_latest_first(saved.get('rows') or [])]
         return jsonify({
             'ok': True, 'message': f'Build {meta_id} added.', 'row': new_row,
-            'rows': saved.get('rows') or [],
-            'chart_data': _adas_rows_to_chart_data(saved.get('rows') or [], crash_types),
+            'rows': rows_out,
+            'chart_data': _adas_rows_to_chart_data(rows_out, crash_types),
         })
     except Exception as exc:
         return jsonify({'ok': False, 'error': str(exc)}), 500
@@ -2675,9 +2694,10 @@ def api_sp_mtbf_delete(target_name: str):
         data['rows'] = new_rows
         saved = _save_sp_mtbf(target_name, domain, sp_name, data)
         crash_types = payload.get('crash_types') or ['system', 'ssr']
+        rows_out = [_system_ssr_row_for_response(r) for r in _sort_adas_rows_latest_first(saved.get('rows') or [])]
         return jsonify({
-            'ok': True, 'message': 'Row deleted.', 'rows': saved.get('rows') or [],
-            'chart_data': _adas_rows_to_chart_data(saved.get('rows') or [], crash_types),
+            'ok': True, 'message': 'Row deleted.', 'rows': rows_out,
+            'chart_data': _adas_rows_to_chart_data(rows_out, crash_types),
         })
     except Exception as exc:
         return jsonify({'ok': False, 'error': str(exc)}), 500

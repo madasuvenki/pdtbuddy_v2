@@ -26,7 +26,7 @@ _DEFAULT_TARGET = "nord_hqx"
 # compatibility, and adds overallMTBF calculated from System + SSR + Process.
 # Bump this when changing public filtering semantics so callers can confirm
 # they are hitting the refreshed server code.
-_PUBLIC_GEN5_API_VERSION = "2026-09-18_overallmtbf_public_key"
+_PUBLIC_GEN5_API_VERSION = "2026-09-19_latest_first_rows"
 _DEFAULT_DOMAIN_ORDER = ["ADAS", "FLEX", _MTBF_NONSAFE_IVI_DOMAIN, _MTBF_SAFE_IVI_DOMAIN, "IVI"]
 # SECA LE IVI 1.0 — folder is SECA_LE_IVI_1_0, file is mtbf_ivi_10.json (SP key "10")
 _KNOWN_TARGETS = ["nord_hqx", "nord_hgy", "seca_le_ivi_1_0"]
@@ -138,7 +138,7 @@ def _resolve_domain(target_name: str, domain: str) -> Optional[str]:
 def _domain_summary(target_name: str, domain: str) -> Dict[str, Any]:
     data = _load_adas_mtbf(target_name, domain)
     rows = _positive_mtbf_raw_rows(data.get("rows") or [])
-    latest = rows[-1] if rows else {}
+    latest = _latest_raw_row(rows)
     latest_overall = _overall_mtbf(latest) if latest else None
     return {
         "domain":             domain,
@@ -251,8 +251,44 @@ def _row_has_positive_mtbf(row: Dict[str, Any]) -> bool:
     return _mtbf_value_is_positive(_system_ssr_mtbf(row))
 
 
+def _gen5_date_key(row: Dict[str, Any]) -> tuple:
+    """Return comparable date key; blanks/invalid dates sort older than dated rows."""
+    text = str((row or {}).get("date") or (row or {}).get("Date") or (row or {}).get("report_date") or (row or {}).get("week") or "").strip()
+    match = re.search(r"(20\d{2})[-_/](\d{1,2})[-_/](\d{1,2})", text)
+    if match:
+        try:
+            return (int(match.group(1)), int(match.group(2)), int(match.group(3)))
+        except Exception:
+            return (0, 0, 0)
+    compact = re.search(r"(20\d{2})(\d{2})(\d{2})", text)
+    if compact:
+        try:
+            return (int(compact.group(1)), int(compact.group(2)), int(compact.group(3)))
+        except Exception:
+            return (0, 0, 0)
+    return (0, 0, 0)
+
+
+def _latest_first_raw_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Return MTBF rows newest first, keeping original order for same/missing dates."""
+    normalized = _sort_adas_rows_by_date(rows or [])
+    return [
+        item[1]
+        for item in sorted(
+            enumerate(normalized),
+            key=lambda item: (_gen5_date_key(item[1]), item[0]),
+            reverse=True,
+        )
+    ]
+
+
+def _latest_raw_row(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
+    latest = _latest_first_raw_rows(rows or [])
+    return latest[0] if latest else {}
+
+
 def _positive_mtbf_raw_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    return [r for r in _sort_adas_rows_by_date(rows or []) if _row_has_positive_mtbf(r)]
+    return [row for row in _latest_first_raw_rows(rows or []) if _row_has_positive_mtbf(row)]
 
 
 def _positive_public_rows(rows: List[Dict[str, Any]], domain: str) -> List[Dict[str, Any]]:
@@ -261,7 +297,7 @@ def _positive_public_rows(rows: List[Dict[str, Any]], domain: str) -> List[Dict[
     Rows with saved/effective MTBF <= 0 are not published.
     """
     result: List[Dict[str, Any]] = []
-    for row in _sort_adas_rows_by_date(rows or []):
+    for row in _latest_first_raw_rows(rows or []):
         if not _row_has_positive_mtbf(row):
             continue
         pub_row = _public_row(row, domain)
@@ -394,7 +430,7 @@ def _sp_domain_summary(target_name: str, domain: str, sp: str) -> Dict[str, Any]
     """Summary for one SP+domain combination."""
     data = _sp_load(target_name, domain, sp)
     rows = _positive_mtbf_raw_rows(data.get("rows") or [])
-    latest = rows[-1] if rows else {}
+    latest = rows[0] if rows else {}
     latest_overall = _overall_mtbf(latest) if latest else None
     return {
         "cpl":                _sp_key_to_cpl(_sp_key(sp)),
@@ -560,7 +596,7 @@ def api_public_auto_gen5_domain(domain: str):
         rows = _positive_public_rows(data.get("rows") or [], resolved)
         last_n = int(request.args.get("last_n") or 0)
         if last_n > 0:
-            rows = rows[-last_n:]
+            rows = rows[:last_n]
         response: Dict[str, Any] = {
             "ok":        True,
             "target":    target_name,
@@ -695,7 +731,7 @@ def api_public_auto_gen5_sp(sp: str):
                 data = _sp_load(target_name, dom, sp_cpl)
                 rows = _positive_public_rows(data.get("rows") or [], dom)
                 if last_n > 0:
-                    rows = rows[-last_n:]
+                    rows = rows[:last_n]
                 entry: Dict[str, Any] = {
                     "domain":    dom,
                     "row_count": len(rows),
@@ -743,7 +779,7 @@ def api_public_auto_gen5_sp_domain(sp: str, domain: str):
         data = _sp_load(target_name, resolved, sp_cpl)
         pub_rows = _positive_public_rows(data.get("rows") or [], resolved)
         if last_n > 0:
-            pub_rows = pub_rows[-last_n:]
+            pub_rows = pub_rows[:last_n]
         response: Dict[str, Any] = {
             "ok":          True,
             "api_version": _PUBLIC_GEN5_API_VERSION,
@@ -776,7 +812,7 @@ def api_public_auto_gen5_all():
             data = _load_adas_mtbf(target_name, dom)
             rows = _positive_public_rows(data.get("rows") or [], dom)
             if last_n > 0:
-                rows = rows[-last_n:]
+                rows = rows[:last_n]
             entry: Dict[str, Any] = {
                 "domain": dom, "sp": None,
                 "row_count": len(rows),
@@ -794,7 +830,7 @@ def api_public_auto_gen5_all():
                     data = _sp_load(target_name, dom, sp_cpl)
                     rows = _positive_public_rows(data.get("rows") or [], dom)
                     if last_n > 0:
-                        rows = rows[-last_n:]
+                        rows = rows[:last_n]
                     entry = {
                         "domain": dom, "sp": sp_cpl, "sp_key": sp_entry["sp_key"],
                         "row_count": len(rows),
