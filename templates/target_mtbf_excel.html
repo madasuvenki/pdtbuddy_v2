@@ -1229,6 +1229,8 @@ buildMetricsBar();w.document.close();
     mxCopyViaImg(canvas.toDataURL('image/png'), btn, origHtml);
   };
   const ALL_DATA = {{ chart_data|tojson }};
+  function mxDateKey(d){const t=Date.parse((d&&(d.week||d.date||d.report_date||d.created))||'');return Number.isFinite(t)?t:-Infinity;}
+  const SORTED_ALL_DATA = ALL_DATA.map((d,idx)=>({d,idx})).sort((a,b)=>{const delta=mxDateKey(b.d)-mxDateKey(a.d);return delta||a.idx-b.idx;}).map(x=>x.d);
   const CHART_TITLE_NAME = {{ mtbf_title_name|tojson }};
   const CHART_FILE_NAME = String(CHART_TITLE_NAME || 'MTBF').replace(/[\\/:*?"<>|]+/g, '_').trim() || 'MTBF';
     const IS_COMPUTE_MTBF = {{ 'true' if is_compute_mtbf else 'false' }};
@@ -1239,7 +1241,7 @@ buildMetricsBar();w.document.close();
         let curMetrics = IS_COMPUTE_MTBF ? {mtbf: false, product_mtbf: true, qc_mtbf: true, hours: true, crashes: true} : {mtbf: true, product_mtbf: false, qc_mtbf: false, hours: true, crashes: true};
   let curLmode = 'meta';
   let curDataTable = false;
-  let curData = ALL_DATA.slice(-10);
+  let curData = SORTED_ALL_DATA.slice(0,10);
     const MX_HAS_CHART = !!(chartCanvas && ALL_DATA && ALL_DATA.length);
       window.mxSwitchViewSheet = async function(sel){
     sel = sel || document.getElementById('mxViewSheetSelect') || document.getElementById('mxSetupSheetSelect');
@@ -1866,7 +1868,7 @@ buildMetricsBar();w.document.close();
   window.mxSetAxisLabelMode = function(){ const axisToggle=document.getElementById('mxUseDetailsAxis'); curLmode = axisToggle && !axisToggle.checked ? 'meta' : 'full_build'; renderChart(curData); };
   window.mxSetDataTable = function(on){ curDataTable = on; document.querySelectorAll('.mx-gt-btn[data-dtable]').forEach(b=>b.classList.toggle('active', (b.dataset.dtable==='on')===on)); renderChart(curData); };
   document.getElementById('mxChartScroll')?.addEventListener('scroll', function(){ const t=document.getElementById('mxTableScroll'); if(t && t.style.display !== 'none') t.scrollLeft = this.scrollLeft; });
-  window.mxFilter = function(type,n){ document.querySelectorAll('.mx-flt-btn').forEach(b=>b.classList.remove('active')); let filtered = ALL_DATA.slice(); if(type==='n'){ document.querySelector(`.mx-flt-btn[data-n="${n}"]`)?.classList.add('active'); if(n>0) filtered = ALL_DATA.slice(-n); } else if(type==='date'){ const from=document.getElementById('mxDateFrom').value,to=document.getElementById('mxDateTo').value; if(!from&&!to){ filtered=ALL_DATA.slice(); } else { filtered=ALL_DATA.filter(d=>{ if(!d.week) return true; const w=d.week.substring(0,10); if(from&&w<from) return false; if(to&&w>to) return false; return true; }); } } else { document.getElementById('mxDateFrom').value=''; document.getElementById('mxDateTo').value=''; document.querySelector('.mx-flt-btn[data-n="0"]')?.classList.add('active'); } renderChart(filtered); };
+  window.mxFilter = function(type,n){ document.querySelectorAll('.mx-flt-btn').forEach(b=>b.classList.remove('active')); let filtered = SORTED_ALL_DATA.slice(); if(type==='n'){ document.querySelector(`.mx-flt-btn[data-n="${n}"]`)?.classList.add('active'); if(n>0) filtered = SORTED_ALL_DATA.slice(0,n); } else if(type==='date'){ const from=document.getElementById('mxDateFrom').value,to=document.getElementById('mxDateTo').value; if(!from&&!to){ filtered=SORTED_ALL_DATA.slice(); } else { filtered=SORTED_ALL_DATA.filter(d=>{ if(!d.week) return true; const w=d.week.substring(0,10); if(from&&w<from) return false; if(to&&w>to) return false; return true; }); } } else { document.getElementById('mxDateFrom').value=''; document.getElementById('mxDateTo').value=''; document.querySelector('.mx-flt-btn[data-n="0"]')?.classList.add('active'); } renderChart(filtered); };
   window.addEventListener('resize',()=>{ if(curData && curData.length) renderChart(curData); });
   // Redraw at correct physical size on container resize (handles 4K / zoom changes)
     if(typeof ResizeObserver !== 'undefined' && chartCanvas && chartCanvas.parentElement){

@@ -302,11 +302,12 @@
                 <th style="text-align:center;color:#7c3aed;background:#faf5ff;border-right:2px solid #fca5a5"><span style="display:block;font-size:9px;color:#b91c1c;font-weight:900;letter-spacing:.06em;margin-bottom:2px">CRASHES</span>Process</th>
                 <th>Total Crashes</th>
                 <th>MTBF</th>
+                <th>overallMTBF</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody id="adasTableBody">
-              <tr><td colspan="10" class="empty"><i class="fas fa-circle-notch spin"></i><p>Loading...</p></td></tr>
+              <tr><td colspan="11" class="empty"><i class="fas fa-circle-notch spin"></i><p>Loading...</p></td></tr>
             </tbody>
           </table>
         </div>
@@ -1215,7 +1216,10 @@ function _adasEffective(r, crashTypes){
   const storedMtbf = Number(r.mtbf || 0);
   // MTBF is based on the selected crash total; default is System + SSR
   const mtbf = total > 0 && hours > 0 ? Math.round((hours / total) * 10) / 10 : storedMtbf;
-  return { total, mtbf };
+  const overallTotal = sys + ssr + proc;
+  const storedOverallMtbf = Number(r.overallMTBF || r.overallmtbf || r.overall_mtbf || 0);
+  const overallMtbf = overallTotal > 0 && hours > 0 ? Math.round((hours / overallTotal) * 100) / 100 : storedOverallMtbf;
+  return { total, mtbf, overallTotal, overallMtbf };
 }
 
 // ── data load (fetches the JSON for the selected view) ──────────────────────────
@@ -1278,15 +1282,28 @@ function lsvSetLatestLimit(n, btn){
 function adasSetFilter(n, btn){ lsvSetLatestLimit(n, btn); }
 
 function _adasLatestRows(rows){
-  const list = [...(rows || [])];
-  return _adasNFilter > 0 ? list.slice(-_adasNFilter) : list;
+  const list = _adasLatestFirstRows(rows);
+  return _adasNFilter > 0 ? list.slice(0, _adasNFilter) : list;
+}
+
+function _adasDateSortKey(r){
+  const t = Date.parse((r && (r.date || r.Date || r.report_date || r.week)) || '');
+  return Number.isFinite(t) ? t : -Infinity;
+}
+
+function _adasLatestFirstRows(rows){
+  return [...(rows || [])].sort((a, b) => {
+    const diff = _adasDateSortKey(b) - _adasDateSortKey(a);
+    return diff || 0;
+  });
 }
 
 function _adasRenderAll(){
   _adasCrashTypes = _adasGetCrashTypes();
   const chartRows = _adasLatestRows(_adasRows);
+  const tableRows = _adasLatestFirstRows(chartRows);
   _adasRenderChart(chartRows, _adasCrashTypes);
-  _adasRenderTable(chartRows, _adasCrashTypes);
+  _adasRenderTable(tableRows, _adasCrashTypes);
 }
 
 // ── chart ────────────────────────────────────────────────────────────────────────
@@ -1419,13 +1436,16 @@ function _adasRenderTable(rows, crashTypes){
   _adasTableRows = filtered;
   document.getElementById('adasRowCount').textContent = `${filtered.length} row${filtered.length === 1 ? '' : 's'}`;
   if(!filtered.length){
-    body.innerHTML = `<tr><td colspan="10" class="empty"><i class="fas fa-inbox"></i><p>No MTBF rows yet. Click <strong>Add Build</strong> to add data.</p></td></tr>`;
+    body.innerHTML = `<tr><td colspan="11" class="empty"><i class="fas fa-inbox"></i><p>No MTBF rows yet. Click <strong>Add Build</strong> to add data.</p></td></tr>`;
     return;
   }
-  body.innerHTML = filtered.map(r => {
-    const { total: effTotal, mtbf: effMtbf } = _adasEffective(r, crashTypes);
+  body.innerHTML = filtered.map((r, idx) => {
+    const { total: effTotal, mtbf: effMtbf, overallMtbf } = _adasEffective(r, crashTypes);
     const mtbfBadge = effMtbf > 0
       ? `<span class="adas-mtbf-badge">${effMtbf}</span>`
+      : '<span class="muted">—</span>';
+    const overallBadge = overallMtbf > 0
+      ? `<span class="adas-mtbf-badge" title="Hours / (System + SSR + Process)">${overallMtbf}</span>`
       : '<span class="muted">—</span>';
     const sys  = r.system_crashes  !== '' && r.system_crashes  != null ? r.system_crashes  : '—';
     const ssr  = r.ssr_crashes     !== '' && r.ssr_crashes     != null ? r.ssr_crashes     : '—';
@@ -1435,7 +1455,7 @@ function _adasRenderTable(rows, crashTypes){
     const ssrDim  = !crashTypes.includes('ssr')     ? 'opacity:.35;' : '';
     const procDim = !crashTypes.includes('process') ? 'opacity:.35;' : '';
     return `<tr>
-      <td style="text-align:center">${esc(r.s_no || '')}</td>
+      <td style="text-align:center">${idx + 1}</td>
       <td style="white-space:nowrap">${esc(r.date || '')}</td>
       <td><b style="color:#1e3a8a">${esc(r.meta_id || '')}</b></td>
       <td style="text-align:right;font-weight:700">${esc(r.hours || '')}</td>
@@ -1444,6 +1464,7 @@ function _adasRenderTable(rows, crashTypes){
       <td style="text-align:center;color:#7c3aed;font-weight:800;border-right:2px solid #fca5a5;${procDim}">${esc(proc)}</td>
       <td style="text-align:center;font-weight:900">${effTotal > 0 ? effTotal : '—'}</td>
       <td style="text-align:center">${mtbfBadge}</td>
+      <td style="text-align:center">${overallBadge}</td>
       <td style="white-space:nowrap">
         <button class="adas-edit-btn" onclick="adasOpenEditModal('${esc(r.id || '')}')">
           <i class="fas fa-pen"></i> Edit
@@ -1456,7 +1477,7 @@ function _adasRenderTable(rows, crashTypes){
   }).join('');
 }
 
-function adasFilterTable(){ _adasRenderTable(_adasLatestRows(_adasRows), _adasCrashTypes); }
+function adasFilterTable(){ _adasRenderTable(_adasLatestFirstRows(_adasLatestRows(_adasRows)), _adasCrashTypes); }
 
 // ── modal ────────────────────────────────────────────────────────────────────────
 function _adasModalClear(){
@@ -1670,13 +1691,16 @@ async function adasDeleteRow(rowId){
 function adasCopyTable(){
   const rows = _adasTableRows.length ? _adasTableRows : _adasRows;
   if(!rows.length){ alert('No rows to copy.'); return; }
-  const headers = ['S.No.','Date','Meta-ID','Hours','System','SSR','Process','Total Crashes','MTBF'];
+  const headers = ['S.No.','Date','Meta-ID','Hours','System','SSR','Process','Total Crashes','MTBF','overallMTBF'];
   const lines   = [headers.join('\t')];
-  rows.forEach(r => lines.push([
-    r.s_no, r.date, r.meta_id, r.hours,
-    r.system_crashes, r.ssr_crashes, r.process_crashes,
-    r.total_crashes, r.mtbf
-  ].map(v => v == null || v === '' ? '' : String(v)).join('\t')));
+  rows.forEach(r => {
+    const eff = _adasEffective(r, _adasCrashTypes || ['system','ssr']);
+    lines.push([
+      r.s_no, r.date, r.meta_id, r.hours,
+      r.system_crashes, r.ssr_crashes, r.process_crashes,
+      eff.total, eff.mtbf, eff.overallMtbf
+    ].map(v => v == null || v === '' ? '' : String(v)).join('\t'));
+  });
   navigator.clipboard.writeText(lines.join('\n'))
     .then(() => { const m = document.getElementById('adasMsg'); if(m){ m.textContent='Table copied!'; m.style.color='#059669'; } })
     .catch(() => alert('Copy failed.'));

@@ -126,7 +126,7 @@ pre{padding:12px;font-size:11px;color:#e2e8f0;font-family:Consolas,monospace;lin
       <div style="padding:12px 14px">
       {% if hqx_sps %}
       <table>
-        <thead><tr><th>SP (CPL)</th><th>Domain</th><th>Rows</th><th>Latest MTBF</th><th>Latest Date</th><th>Endpoint</th></tr></thead>
+        <thead><tr><th>SP (CPL)</th><th>Domain</th><th>Rows</th><th>Latest MTBF</th><th>overallmtbf</th><th>Latest Date</th><th>Endpoint</th></tr></thead>
         <tbody>
         {% for sp in hqx_sps %}{% for dd in sp.get('domain_details',[]) %}
         <tr>
@@ -134,10 +134,11 @@ pre{padding:12px;font-size:11px;color:#e2e8f0;font-family:Consolas,monospace;lin
           <td><b style="color:#1e3a8a">{{ dd.domain }}</b></td>
           <td style="color:#475569">{{ dd.row_count }}</td>
           <td><span class="mtbf-val">{{ dd.latest_mtbf }}</span></td>
+          <td><span class="mtbf-val">{{ dd.latest_overallmtbf if dd.latest_overallmtbf not in (None, '') else '—' }}</span></td>
           <td style="font-size:11px;color:#64748b">{{ dd.latest_date or '—' }}</td>
           <td><a class="ep-link" href="{{ base }}/public/auto-gen5/api/sp/{{ sp.cpl }}/domain/{{ dd.domain }}?target=nord_hqx" target="_blank">/sp/{{ sp.cpl }}/domain/{{ dd.domain }}</a></td>
         </tr>
-        {% else %}<tr><td><span class="sp-pill">{{ sp.cpl }}</span></td><td colspan="5" style="color:#94a3b8;font-size:11px">{{ sp.domains|join(', ') }}</td></tr>
+        {% else %}<tr><td><span class="sp-pill">{{ sp.cpl }}</span></td><td colspan="6" style="color:#94a3b8;font-size:11px">{{ sp.domains|join(', ') }}</td></tr>
         {% endfor %}{% endfor %}
         </tbody>
       </table>
@@ -155,7 +156,7 @@ pre{padding:12px;font-size:11px;color:#e2e8f0;font-family:Consolas,monospace;lin
       <div style="padding:12px 14px">
       {% if hgy_sps %}
       <table>
-        <thead><tr><th>SP (CPL)</th><th>Domain</th><th>Rows</th><th>Latest MTBF</th><th>Latest Date</th><th>Endpoint</th></tr></thead>
+        <thead><tr><th>SP (CPL)</th><th>Domain</th><th>Rows</th><th>Latest MTBF</th><th>overallmtbf</th><th>Latest Date</th><th>Endpoint</th></tr></thead>
         <tbody>
         {% for sp in hgy_sps %}{% for dd in sp.get('domain_details',[]) %}
         <tr>
@@ -163,10 +164,11 @@ pre{padding:12px;font-size:11px;color:#e2e8f0;font-family:Consolas,monospace;lin
           <td><b style="color:#1e3a8a">{{ dd.domain }}</b></td>
           <td style="color:#475569">{{ dd.row_count }}</td>
           <td><span class="mtbf-val">{{ dd.latest_mtbf }}</span></td>
+          <td><span class="mtbf-val">{{ dd.latest_overallmtbf if dd.latest_overallmtbf not in (None, '') else '—' }}</span></td>
           <td style="font-size:11px;color:#64748b">{{ dd.latest_date or '—' }}</td>
           <td><a class="ep-link" href="{{ base }}/public/auto-gen5/api/sp/{{ sp.cpl }}/domain/{{ dd.domain }}?target=nord_hgy" target="_blank">/sp/{{ sp.cpl }}/domain/{{ dd.domain }}</a></td>
         </tr>
-        {% else %}<tr><td><span class="sp-pill">{{ sp.cpl }}</span></td><td colspan="5" style="color:#94a3b8;font-size:11px">{{ sp.domains|join(', ') }}</td></tr>
+        {% else %}<tr><td><span class="sp-pill">{{ sp.cpl }}</span></td><td colspan="6" style="color:#94a3b8;font-size:11px">{{ sp.domains|join(', ') }}</td></tr>
         {% endfor %}{% endfor %}
         </tbody>
       </table>
@@ -184,7 +186,7 @@ pre{padding:12px;font-size:11px;color:#e2e8f0;font-family:Consolas,monospace;lin
       <div style="padding:12px 14px">
       {% if seca_sps %}
       <table>
-        <thead><tr><th>SP (CPL)</th><th>Domain</th><th>Rows</th><th>Latest MTBF</th><th>Latest Date</th><th>Endpoint</th></tr></thead>
+        <thead><tr><th>SP (CPL)</th><th>Domain</th><th>Rows</th><th>Latest MTBF</th><th>overallmtbf</th><th>Latest Date</th><th>Endpoint</th></tr></thead>
         <tbody>
         {% for sp in seca_sps %}{% for dd in sp.get('domain_details',[]) %}
         <tr>
@@ -192,10 +194,11 @@ pre{padding:12px;font-size:11px;color:#e2e8f0;font-family:Consolas,monospace;lin
           <td><b style="color:#1e3a8a">{{ dd.domain }}</b></td>
           <td style="color:#475569">{{ dd.row_count }}</td>
           <td><span class="mtbf-val">{{ dd.latest_mtbf }}</span></td>
+          <td><span class="mtbf-val">{{ dd.latest_overallmtbf if dd.latest_overallmtbf not in (None, '') else '—' }}</span></td>
           <td style="font-size:11px;color:#64748b">{{ dd.latest_date or '—' }}</td>
           <td><a class="ep-link" href="{{ base }}/public/auto-gen5/api/sp/{{ sp.cpl }}/domain/{{ dd.domain }}?target=seca_le_ivi_1_0" target="_blank">/sp/{{ sp.cpl }}/domain/{{ dd.domain }}</a></td>
         </tr>
-        {% else %}<tr><td><span class="sp-pill">{{ sp.cpl }}</span></td><td colspan="5" style="color:#94a3b8;font-size:11px">{{ sp.domains|join(', ') if sp.domains else 'No SP data yet' }}</td></tr>
+        {% else %}<tr><td><span class="sp-pill">{{ sp.cpl }}</span></td><td colspan="6" style="color:#94a3b8;font-size:11px">{{ sp.domains|join(', ') if sp.domains else 'No SP data yet' }}</td></tr>
         {% endfor %}{% endfor %}
         </tbody>
       </table>
@@ -474,8 +477,10 @@ pre{padding:12px;font-size:11px;color:#e2e8f0;font-family:Consolas,monospace;lin
         <tr><td class="p-name">system_crashes</td><td class="p-type">int</td><td><code>2</code></td><td>System crash count</td></tr>
         <tr><td class="p-name">ssr_crashes</td><td class="p-type">int</td><td><code>0</code></td><td>SSR crash count</td></tr>
         <tr><td class="p-name">process_crashes</td><td class="p-type">int</td><td><code>0</code></td><td>Process crash count</td></tr>
-        <tr><td class="p-name">total_crashes</td><td class="p-type">int</td><td><code>2</code></td><td>Sum of all crash types</td></tr>
-        <tr><td class="p-name">mtbf</td><td class="p-type">float</td><td><code>29.0</code></td><td>Mean Time Between Failures (hours)</td></tr>
+        <tr><td class="p-name">total_crashes</td><td class="p-type">int</td><td><code>2</code></td><td>System + SSR crash count used by <code>mtbf</code></td></tr>
+        <tr><td class="p-name">overall_crashes</td><td class="p-type">int</td><td><code>3</code></td><td>System + SSR + Process crash count used by <code>overallmtbf</code></td></tr>
+        <tr><td class="p-name">mtbf</td><td class="p-type">float</td><td><code>29.0</code></td><td>Mean Time Between Failures using System + SSR crashes</td></tr>
+        <tr><td class="p-name">overallmtbf</td><td class="p-type">float</td><td><code>19.33</code></td><td>Mean Time Between Failures using System + SSR + Process crashes</td></tr>
         <tr><td class="p-name">domain</td><td class="p-type">string</td><td><code>"ADAS"</code></td><td>Domain this row belongs to</td></tr>
         <tr style="background:#fffbeb"><td class="p-name">sp <span class="badge badge-new" style="font-size:9px">SP</span></td><td class="p-type">string</td><td><code>"5.1.7.0"</code></td><td>SP CPL — present in SP-endpoint responses only</td></tr>
       </tbody>

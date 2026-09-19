@@ -593,14 +593,16 @@ function remapCols(hdrs){
   if(IS_COMPUTE_MTBF && COL.product_mtbf >= 0) COL.mtbf = COL.product_mtbf;
 }
 
+function mtbfDateKey(r){const v=(r&&r.values&&COL.date>=0)?r.values[COL.date]:'';const t=Date.parse(v||'');return Number.isFinite(t)?t:-Infinity;}
+function sortedMtbfRows(){return mtbfData.map((r,idx)=>({r,idx})).sort((a,b)=>{const d=mtbfDateKey(b.r)-mtbfDateKey(a.r);return d||a.idx-b.idx;});}
 function renderMtbfTable(){
   const tbody=document.getElementById('mtbfTbody');
   setText('rowCount',mtbfData.length+' rows');
   if(!mtbfData.length){ tbody.innerHTML='<tr><td colspan="9" class="empty">No data. Add a build to get started.</td></tr>'; return; }
-  tbody.innerHTML=mtbfData.map((r,i)=>{
+  tbody.innerHTML=sortedMtbfRows().map(({r,idx},i)=>{
     const v=r.values||[];
-    const ea=IS_ADMIN?' class="editable" ondblclick="startEdit(this,'+i+')"':'';
-    const del=IS_ADMIN?'<td><button class="btn btn-sm btn-danger" onclick="deleteRow('+i+')" title="Delete"><i class="fas fa-trash"></i></button></td>':'';
+    const ea=IS_ADMIN?' class="editable" ondblclick="startEdit(this,'+idx+')"':'';
+    const del=IS_ADMIN?'<td><button class="btn btn-sm btn-danger" onclick="deleteRow('+idx+')" title="Delete"><i class="fas fa-trash"></i></button></td>':'';
     return '<tr>'
       +'<td style="color:#94a3b8;font-size:11px">'+(i+1)+'</td>'
       +'<td'+ea+' data-col="0" style="font-weight:900;color:#1e3a8a">'+esc(v[COL.meta]||'')+'</td>'
@@ -644,8 +646,9 @@ async function saveMtbfTable(){
 }
 
 function visibleMtbfRows(){
-  if(mtbfLimit && mtbfLimit>0) return mtbfData.slice(-mtbfLimit);
-  return mtbfData.slice();
+  const ordered=sortedMtbfRows().map(x=>x.r);
+  if(mtbfLimit && mtbfLimit>0) return ordered.slice(0,mtbfLimit);
+  return ordered;
 }
 
 function setMtbfLimit(n){

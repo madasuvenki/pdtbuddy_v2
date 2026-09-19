@@ -157,8 +157,11 @@ async function selectSheet(name){
   sheetData=d.sheet; document.getElementById('pageTitle').textContent=name; document.getElementById('pageSub').textContent=(sheetData.excel_path||'')+' • JSON-backed sheet'; document.getElementById('sheetStatus').textContent='Loaded '+name; renderChart(); renderTable(); loadCurrentBuilds(false);
 }
 function shortLabel(s){s=String(s||'');let m=s.match(/Meta[-\s_]*(\d+(?:\.r\d+)?)/i);if(m)return 'Meta-'+m[1];m=s.match(/-(\d{3,6})(?:[\-.]|$)/);return m?'Meta-'+parseInt(m[1],10):s.slice(0,14);}
+function _sheetDateCol(headers){return (headers||[]).findIndex(h=>/^(date|week|report[ _-]*date|created)$/i.test(String(h||'').trim()));}
+function _latestFirstSheetRows(rows,headers){const di=_sheetDateCol(headers);if(di<0)return (rows||[]).slice();return (rows||[]).map((r,idx)=>({r,idx,t:Date.parse(((r.values||[])[di])||'')})).sort((a,b)=>{const av=Number.isFinite(a.t),bv=Number.isFinite(b.t);return av&&bv&&a.t!==b.t?b.t-a.t:a.idx-b.idx;}).map(x=>x.r);}
+function _latestFirstChartRows(rows){return (rows||[]).map((r,idx)=>({r,idx,t:Date.parse((r.date||r.week||r.report_date||'')+'')})).sort((a,b)=>{const av=Number.isFinite(a.t),bv=Number.isFinite(b.t);return av&&bv&&a.t!==b.t?b.t-a.t:a.idx-b.idx;}).map(x=>x.r);}
 function renderChart(){
-  const rows=(sheetData&&sheetData.chart_rows)||[]; document.getElementById('chartEmpty').style.display=rows.length?'none':'block'; const canvas=document.getElementById('mtbfChart'); canvas.style.display=rows.length?'block':'none'; if(chart){chart.destroy();chart=null;} if(!rows.length)return;
+  const rows=_latestFirstChartRows((sheetData&&sheetData.chart_rows)||[]); document.getElementById('chartEmpty').style.display=rows.length?'none':'block'; const canvas=document.getElementById('mtbfChart'); canvas.style.display=rows.length?'block':'none'; if(chart){chart.destroy();chart=null;} if(!rows.length)return;
   const labels=rows.map(r=>shortLabel(r.meta_id)); const hours=rows.map(r=>num(r.hours)); const crashes=rows.map(r=>num(r.total_crashes)); const mtbf=rows.map(r=>num(r.mtbf)); canvas.width=Math.max(720,labels.length*78); canvas.style.width=canvas.width+'px';
   chart=new Chart(canvas,{type:'bar',data:{labels,datasets:[{type:'bar',label:'Hours',data:hours,backgroundColor:'#1f4e79',yAxisID:'y'},{type:'line',label:'Crashes',data:crashes,borderColor:'#c55a11',backgroundColor:'transparent',yAxisID:'y1',tension:0,pointRadius:4},{type:'line',label:'MTBF',data:mtbf,borderColor:'#ed7d31',backgroundColor:'transparent',yAxisID:'y2',tension:0,pointRadius:4}]},options:{responsive:false,maintainAspectRatio:false,plugins:{legend:{position:'bottom'},title:{display:true,text:activeSheet+' MTBF Trend'}},scales:{x:{ticks:{autoSkip:false,maxRotation:35}},y:{beginAtZero:true,position:'left',title:{display:true,text:'Hours'}},y1:{beginAtZero:true,position:'left',grid:{drawOnChartArea:false},title:{display:true,text:'Crashes'}},y2:{beginAtZero:true,position:'right',grid:{drawOnChartArea:false},title:{display:true,text:'MTBF'}}}}});
   const totalHours=hours.reduce((a,b)=>a+b,0), totalCrashes=crashes.reduce((a,b)=>a+b,0); document.getElementById('kRows').textContent=(sheetData.rows||[]).length; document.getElementById('kHours').textContent=totalHours.toFixed(1); document.getElementById('kCrashes').textContent=totalCrashes; document.getElementById('kMtbf').textContent=totalCrashes? (totalHours/totalCrashes).toFixed(1):'0';
@@ -189,7 +192,7 @@ function _getColUniqueValues(rows, idx){
 
 function renderTable(){
   const headers=(sheetData&&sheetData.headers)||[];
-  const rows=(sheetData&&sheetData.rows)||[];
+  const rows=_latestFirstSheetRows((sheetData&&sheetData.rows)||[],headers);
   const q=(document.getElementById('tableFilter').value||'').toLowerCase();
 
   // Determine column types

@@ -241,6 +241,8 @@ function setBadge(type, html) {
 }
 
 /* ── Render table ── */
+function tableDateKey(r){const v=(r&&r.values&&COL.date>=0)?r.values[COL.date]:'';const t=Date.parse(v||'');return Number.isFinite(t)?t:-Infinity;}
+function latestFirstTableRows(){return tableData.map((r,idx)=>({r,idx})).sort((a,b)=>{const d=tableDateKey(b.r)-tableDateKey(a.r);return d||a.idx-b.idx;});}
 function renderTable() {
   const tbody = document.getElementById('mtbfTbody');
   document.getElementById('rowCount').textContent = tableData.length + ' rows';
@@ -248,10 +250,10 @@ function renderTable() {
     tbody.innerHTML = '<tr><td colspan="9" class="empty">No data. Add a build to get started.</td></tr>';
     return;
   }
-  tbody.innerHTML = tableData.map((r, i) => {
+  tbody.innerHTML = latestFirstTableRows().map(({r,idx}, i) => {
     const v  = r.values || [];
-    const ea = IS_ADMIN ? ' class="editable" ondblclick="startEdit(this,' + i + ')"' : '';
-    const del = IS_ADMIN ? '<td><button class="btn btn-sm btn-danger" onclick="deleteRow(' + i + ')" title="Delete"><i class="fas fa-trash"></i></button></td>' : '';
+    const ea = IS_ADMIN ? ' class="editable" ondblclick="startEdit(this,' + idx + ')"' : '';
+    const del = IS_ADMIN ? '<td><button class="btn btn-sm btn-danger" onclick="deleteRow(' + idx + ')" title="Delete"><i class="fas fa-trash"></i></button></td>' : '';
     return '<tr data-idx="' + i + '">'
       + '<td style="color:#64748b;font-size:11px">' + (i+1) + '</td>'
       + '<td' + ea + ' data-col="0" style="font-weight:900;color:#bae6fd">' + esc(v[COL.meta]||'') + '</td>'
@@ -378,9 +380,10 @@ async function submitAdd() {
 
 /* ── Chart ── */
 function renderChart() {
-  const labels   = tableData.map(r => r.values[COL.meta] || '');
-  const mtbfData = tableData.map(r => { var v = parseFloat(r.values[COL.mtbf]);  return isNaN(v) ? null : v; });
-  const hrData   = tableData.map(r => { var v = parseFloat(r.values[COL.hours]); return isNaN(v) ? null : v; });
+  const chartRows = latestFirstTableRows().map(x=>x.r);
+  const labels   = chartRows.map(r => r.values[COL.meta] || '');
+  const mtbfData = chartRows.map(r => { var v = parseFloat(r.values[COL.mtbf]);  return isNaN(v) ? null : v; });
+  const hrData   = chartRows.map(r => { var v = parseFloat(r.values[COL.hours]); return isNaN(v) ? null : v; });
   const ctx = document.getElementById('mtbfChart').getContext('2d');
   if (_chart) _chart.destroy();
   _chart = new Chart(ctx, {
@@ -410,11 +413,12 @@ function toggleChartType() { chartType = chartType==='line'?'bar':'line'; render
 /* ── KPIs ── */
 function updateKPIs() {
   document.getElementById('kpiBuilds').textContent = tableData.length;
-  var mtbfVals = tableData.map(r => parseFloat(r.values[COL.mtbf])).filter(v => !isNaN(v) && v > 0);
-  document.getElementById('kpiLatestMtbf').textContent = mtbfVals.length ? mtbfVals[mtbfVals.length-1].toFixed(1) : '\u2014';
+  var latestRows = latestFirstTableRows().map(x=>x.r);
+  var mtbfVals = latestRows.map(r => parseFloat(r.values[COL.mtbf])).filter(v => !isNaN(v) && v > 0);
+  document.getElementById('kpiLatestMtbf').textContent = mtbfVals.length ? mtbfVals[0].toFixed(1) : '\u2014';
   document.getElementById('kpiAvgMtbf').textContent    = mtbfVals.length ? (mtbfVals.reduce((a,b)=>a+b,0)/mtbfVals.length).toFixed(1) : '\u2014';
-  var dates = tableData.map(r => r.values[COL.date]).filter(Boolean);
-  document.getElementById('kpiLastDate').textContent   = dates.length ? dates[dates.length-1] : '\u2014';
+  var dates = latestRows.map(r => r.values[COL.date]).filter(Boolean);
+  document.getElementById('kpiLastDate').textContent   = dates.length ? dates[0] : '\u2014';
 }
 
 /* ── Modal close on overlay click ── */

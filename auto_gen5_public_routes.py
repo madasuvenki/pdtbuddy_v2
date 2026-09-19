@@ -22,11 +22,11 @@ from live_status_view_api import (
 public_auto_gen5_bp = Blueprint("public_auto_gen5_bp", __name__)
 
 _DEFAULT_TARGET = "nord_hqx"
-# 2026-09-15: Public API should calculate published total_crashes/MTBF from
-# System + SSR crashes (Process excluded) and should not expose saved rows with mtbf=0.
+# 2026-09-18: Public API keeps mtbf/total_crashes as System + SSR for backward
+# compatibility, and adds overallMTBF calculated from System + SSR + Process.
 # Bump this when changing public filtering semantics so callers can confirm
 # they are hitting the refreshed server code.
-_PUBLIC_GEN5_API_VERSION = "2026-09-15_system_ssr_mtbf"
+_PUBLIC_GEN5_API_VERSION = "2026-09-18_overallmtbf_public_key"
 _DEFAULT_DOMAIN_ORDER = ["ADAS", "FLEX", _MTBF_NONSAFE_IVI_DOMAIN, _MTBF_SAFE_IVI_DOMAIN, "IVI"]
 # SECA LE IVI 1.0 — folder is SECA_LE_IVI_1_0, file is mtbf_ivi_10.json (SP key "10")
 _KNOWN_TARGETS = ["nord_hqx", "nord_hgy", "seca_le_ivi_1_0"]
@@ -139,14 +139,16 @@ def _domain_summary(target_name: str, domain: str) -> Dict[str, Any]:
     data = _load_adas_mtbf(target_name, domain)
     rows = _positive_mtbf_raw_rows(data.get("rows") or [])
     latest = rows[-1] if rows else {}
+    latest_overall = _overall_mtbf(latest) if latest else None
     return {
-        "domain":           domain,
-        "row_count":        len(rows),
-        "latest_date":      latest.get("date") or "",
-        "latest_meta_id":   latest.get("meta_id") or "",
-        "latest_mtbf":      _system_ssr_mtbf(latest) if latest else None,
+        "domain":             domain,
+        "row_count":          len(rows),
+        "latest_date":        latest.get("date") or "",
+        "latest_meta_id":     latest.get("meta_id") or "",
+        "latest_mtbf":        _system_ssr_mtbf(latest) if latest else None,
+        "latest_overallmtbf": latest_overall,
         "latest_manual_mtbf": int(latest.get("manual_mtbf") or 0),
-        "updated_at":       data.get("updated_at") or "",
+        "updated_at":         data.get("updated_at") or "",
     }
 
 
@@ -161,6 +163,34 @@ def _public_total_crashes(row: Dict[str, Any]) -> int:
     if system_present or ssr_present:
         return int(_num(row.get("system_crashes")) + _num(row.get("ssr_crashes")))
     return int(_num(row.get("total_crashes")))
+
+
+def _overall_crashes(row: Dict[str, Any]) -> int:
+    """Return all crash types used for overallMTBF: System + SSR + Process.
+
+    Rows with no separate crash fields fall back to total_crashes so legacy data
+    remains compatible.
+    """
+    system_present = row.get("system_crashes") not in (None, "")
+    ssr_present = row.get("ssr_crashes") not in (None, "")
+    process_present = row.get("process_crashes") not in (None, "")
+    if system_present or ssr_present or process_present:
+        return int(
+            _num(row.get("system_crashes"))
+            + _num(row.get("ssr_crashes"))
+            + _num(row.get("process_crashes"))
+        )
+    return int(_num(row.get("total_crashes")))
+
+
+def _overall_mtbf(row: Dict[str, Any]) -> Any:
+    """Return overallMTBF calculated from hours / (System + SSR + Process)."""
+    hours = _num(row.get("hours"))
+    total_c = _overall_crashes(row)
+    if hours and total_c:
+        return round(hours / total_c, 2)
+    stored = row.get("overallMTBF") or row.get("overallmtbf") or row.get("overall_mtbf")
+    return stored if stored not in (None, "") else ""
 
 
 def _system_ssr_mtbf(row: Dict[str, Any]) -> Any:
@@ -245,6 +275,8 @@ def _public_row(row: Dict[str, Any], domain: str) -> Dict[str, Any]:
     system_c = row.get("system_crashes")
     ssr_c = row.get("ssr_crashes")
     total_c = _public_total_crashes(row)
+    overall_c = _overall_crashes(row)
+    overall_mtbf = _overall_mtbf(row)
     return {
         "domain":          domain,
         "s_no":            row.get("s_no"),
@@ -255,7 +287,9 @@ def _public_row(row: Dict[str, Any], domain: str) -> Dict[str, Any]:
         "ssr_crashes":     ssr_c,
         "process_crashes": row.get("process_crashes"),
         "total_crashes":   total_c,          # total_crashes = System + SSR crashes
+        "overall_crashes": overall_c,        # overall_crashes = System + SSR + Process
         "mtbf":            _system_ssr_mtbf(row),  # recalculated from System + SSR crashes
+        "overallmtbf":     overall_mtbf,     # hours / (System + SSR + Process)
         "manual_mtbf":     int(row.get("manual_mtbf") or 0),
         "crash_types":     row.get("crash_types") or [],
         "id":              row.get("id") or "",
@@ -361,6 +395,7 @@ def _sp_domain_summary(target_name: str, domain: str, sp: str) -> Dict[str, Any]
     data = _sp_load(target_name, domain, sp)
     rows = _positive_mtbf_raw_rows(data.get("rows") or [])
     latest = rows[-1] if rows else {}
+    latest_overall = _overall_mtbf(latest) if latest else None
     return {
         "cpl":                _sp_key_to_cpl(_sp_key(sp)),
         "sp_key":             _sp_key(sp),
@@ -369,6 +404,7 @@ def _sp_domain_summary(target_name: str, domain: str, sp: str) -> Dict[str, Any]
         "latest_date":        latest.get("date") or "",
         "latest_meta_id":     latest.get("meta_id") or "",
         "latest_mtbf":        _system_ssr_mtbf(latest) if latest else None,
+        "latest_overallmtbf": latest_overall,
         "latest_manual_mtbf": int(latest.get("manual_mtbf") or 0),
         "updated_at":         data.get("updated_at") or "",
     }

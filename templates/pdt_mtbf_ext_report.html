@@ -363,10 +363,11 @@ async function loadMtbf(force){
   }
 }
 
+function _pdtMtbfDateKey(r){var t=Date.parse((r&&(r.week||r.date||r.report_date||r.created))||'');return isNaN(t)?-Infinity:t;}
 function renderMtbf(){
-  var rows = mtbfRows.slice();
+  var rows = mtbfRows.slice().sort(function(a,b){var d=_pdtMtbfDateKey(b)-_pdtMtbfDateKey(a);return d||0;});
   var n = parseInt(($('showN')||{}).value||'10');
-  if(n>0) rows=rows.slice(-n);
+  if(n>0) rows=rows.slice(0,n);
   var canvas=$('mtbfCanvas'), empty=$('mtbfEmpty'), wrap=$('mtbfChartWrap');
   if(!rows.length){ canvas.style.display='none'; empty.style.display='block'; return; }
   canvas.style.display='block'; empty.style.display='none';

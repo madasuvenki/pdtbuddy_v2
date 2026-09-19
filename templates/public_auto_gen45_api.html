@@ -6,81 +6,146 @@
   <title>Auto Gen4.5 Public API</title>
   <link rel="stylesheet" href="/static/css/fontawesome/all.min.css">
   <style>
-    *{box-sizing:border-box}
-    body{margin:0;font-family:Inter,Segoe UI,system-ui,sans-serif;color:#0f172a;background:#f1f5f9;min-height:100vh}
-    .wrap{max-width:1100px;margin:0 auto;padding:32px 20px 60px}
-    .hero{border-radius:24px;padding:30px;background:linear-gradient(135deg,#0f172a,#1d4ed8 60%,#7c3aed);color:#fff;margin-bottom:20px}
-    .hero h1{margin:0 0 8px;font-size:28px;letter-spacing:-.02em}
-    .hero p{margin:0;color:#bfdbfe;font-size:14px;font-weight:600}
-    .card{background:#fff;border:1px solid #e2e8f0;border-radius:18px;padding:20px;margin-bottom:16px;box-shadow:0 4px 16px rgba(15,23,42,.06)}
-    .card h2{margin:0 0 14px;font-size:16px;display:flex;align-items:center;gap:8px}
-    .section-label{font-size:11px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;padding:4px 10px;border-radius:6px;display:inline-block;margin-bottom:10px}
-    .hqx-label{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe}
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Inter,Segoe UI,system-ui,sans-serif;color:#0f172a;background:#f1f5f9;min-height:100vh}
+    .wrap{max-width:1300px;margin:0 auto;padding:24px 20px 70px}
+    .hero{border-radius:0 0 20px 20px;padding:22px 28px 18px;background:linear-gradient(135deg,#0f172a 0%,#1d4ed8 55%,#7c3aed 100%);color:#fff;margin-bottom:0}
+    .hero h1{font-size:22px;font-weight:900;letter-spacing:-.02em;margin-bottom:4px}
+    .hero p{color:#bfdbfe;font-size:12px;font-weight:600}
+    .hero .urls{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:10px}
+    .hero .urls code{background:rgba(255,255,255,.12);color:#fff;padding:3px 10px;border-radius:6px;font-size:11px}
+    .card{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:18px 20px;margin-bottom:14px;box-shadow:0 2px 10px rgba(15,23,42,.05)}
+    .card-title{font-size:14px;font-weight:800;display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+    .tgt-section{border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;margin-bottom:12px}
+    .tgt-head{padding:10px 14px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+    .tgt-label{font-size:13px;font-weight:900}
+    .tgt-pill{font-size:10px;font-weight:900;padding:2px 8px;border-radius:999px}
+    .table-wrap{padding:12px 14px;overflow-x:auto}
     table{width:100%;border-collapse:collapse}
-    th,td{padding:9px 12px;border-bottom:1px solid #f1f5f9;text-align:left;font-size:13px}
-    th{background:#f8fafc;color:#475569;font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:800}
+    th{background:#f8fafc;color:#64748b;font-size:10px;text-transform:uppercase;letter-spacing:.06em;font-weight:800;padding:7px 10px;border-bottom:2px solid #e2e8f0;text-align:left;white-space:nowrap}
+    td{padding:7px 10px;border-bottom:1px solid #f1f5f9;font-size:12px;vertical-align:middle}
     tr:last-child td{border-bottom:0}
-    a.ep{color:#1d4ed8;font-weight:700;font-size:12px;text-decoration:none}
-    a.ep:hover{text-decoration:underline}
-    .api-row{background:#0f172a;border-radius:12px;padding:12px 16px;margin:10px 0;display:flex;align-items:center;gap:10px}
-    .api-row code{color:#93c5fd;font-family:Consolas,monospace;font-size:13px;flex:1;word-break:break-all}
-        .get{background:#059669;color:#fff;font-size:10px;font-weight:900;padding:3px 8px;border-radius:5px;flex-shrink:0}
-    pre{background:#0f172a;color:#e2e8f0;border-radius:12px;padding:14px;font-size:12px;overflow:auto;margin:10px 0 0;line-height:1.6}
-    .param{font-size:12px;color:#64748b;margin:8px 0 0}
+    tr:hover td{background:#fafbff}
+    .sp-pill{display:inline-block;background:#f0fdf4;border:1px solid #86efac;color:#166534;border-radius:5px;font-size:11px;font-weight:800;padding:1px 8px;white-space:nowrap}
+    .mtbf-val{font-weight:900;color:#059669}
+    .ep{color:#1d4ed8;font-weight:700;font-size:11px;text-decoration:none;white-space:nowrap}
+    .ep:hover{text-decoration:underline}
+    .api-row{background:#0f172a;border-radius:9px;padding:9px 12px;margin:7px 0;display:flex;align-items:center;gap:9px}
+    .api-row code{color:#93c5fd;font-family:Consolas,monospace;font-size:11.5px;flex:1;word-break:break-all;line-height:1.5}
+    .get{background:#059669;color:#fff;font-size:9px;font-weight:900;padding:3px 7px;border-radius:4px;flex-shrink:0;letter-spacing:.04em}
+    .post{background:#7c3aed;color:#fff;font-size:9px;font-weight:900;padding:3px 7px;border-radius:4px;flex-shrink:0;letter-spacing:.04em}
+    pre{background:#0f172a;color:#e2e8f0;border-radius:10px;padding:12px;font-size:11px;overflow:auto;margin:10px 0 0;line-height:1.6;font-family:Consolas,monospace}
+    .param{font-size:11px;color:#64748b;margin:8px 0 0;line-height:1.5;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px}
     .param b{color:#334155}
     .err{color:#dc2626;font-weight:800;font-size:13px}
-    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-    .divider{border:none;border-top:2px dashed #e2e8f0;margin:20px 0}
-    @media(max-width:760px){.grid2{grid-template-columns:1fr}}
+    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+    .muted{font-size:12px;color:#64748b;font-weight:650;line-height:1.5}
+    .divider{border:none;border-top:2px dashed #e2e8f0;margin:16px 0}
+    .no-data{color:#94a3b8;font-size:12px;padding:12px 0;text-align:center}
+    .badge{display:inline-block;border-radius:5px;font-size:10px;font-weight:900;padding:1px 7px;vertical-align:middle;margin-left:4px;background:#dcfce7;color:#166534;border:1px solid #86efac}
+    @media(max-width:760px){.grid2{grid-template-columns:1fr}.wrap{padding:20px 12px}.hero{border-radius:0 0 16px 16px;padding:18px}}
   </style>
 </head>
 <body>
-<div class="wrap">
-  <div class="hero">
-    <h1><i class="fas fa-plug"></i> Auto Gen4.5 Public MTBF API</h1>
-    <p>No login required &mdash; CORS enabled. HQX endpoints served via public API.</p>
+<div class="hero">
+  <h1><i class="fas fa-plug"></i> Auto Gen4.5 Public MTBF API</h1>
+  <p>No login required for read APIs &mdash; CORS enabled. HQX and HGY SP data are published under /public/auto-gen45.</p>
+  <div class="urls">
+    <span style="font-size:11px;color:#93c5fd;font-weight:700">Access:</span>
+    <code id="_heroUrl">https://pdt-buddy.qualcomm.com/public/auto-gen45</code>
+    <script>document.getElementById('_heroUrl').textContent=window.location.origin+'/public/auto-gen45';</script>
   </div>
+</div>
+
+<div class="wrap">
   {% if load_error %}<div class="card"><p class="err"><i class="fas fa-triangle-exclamation"></i> {{ load_error }}</p></div>{% endif %}
 
-  <!-- HQX SPs -->
   <div class="card">
-    <h2><i class="fas fa-microchip" style="color:#1d4ed8"></i> Available SPs &mdash; HQX</h2>
-    <span class="section-label hqx-label"><i class="fas fa-microchip"></i> HQX Platform</span>
-    <table>
-      <thead><tr><th>SP</th><th>Program</th><th>Domain</th><th>Rows</th><th>Endpoint</th></tr></thead>
-      <tbody>
-      {% for item in available %}
+    <div class="card-title">
+      <i class="fas fa-layer-group" style="color:#7c3aed"></i>
+      Auto Gen4.5 MTBF &mdash; SP-Scoped Data
+      <span style="font-size:11px;color:#64748b;font-weight:700">Platforms: HQX &bull; HGY</span>
+    </div>
+
+    <div class="tgt-section">
+      <div class="tgt-head" style="background:linear-gradient(90deg,#eff6ff,#f8fafc)">
+        <span class="tgt-label" style="color:#1e40af"><i class="fas fa-microchip" style="margin-right:5px"></i>HQX Platform</span>
+        <span class="tgt-pill" style="background:#dbeafe;color:#1e40af;border:1px solid #bfdbfe">platform=HQX</span>
+        <a href="{{ base }}/public/auto-gen45/api/sps" target="_blank" class="ep" style="margin-left:auto">List SPs ↗</a>
+      </div>
+      <div class="table-wrap">
+      {% if hqx_sps %}
+      <table>
+        <thead><tr><th>SP</th><th>Domain</th><th>Rows</th><th>Latest MTBF</th><th>overallmtbf</th><th>Latest Date</th><th>Endpoint</th></tr></thead>
+        <tbody>
+        {% for sp in hqx_sps %}{% for dd in sp.get('domain_details',[]) %}
         <tr>
-          <td><b style="color:#1e3a8a">{{ item.sp }}</b></td>
-          <td style="font-size:12px;color:#475569">{{ item.program }}</td>
-          <td>{{ item.domain }}</td>
-          <td>{{ item.row_count }}</td>
-          <td><a class="ep" href="{{ base }}/public/auto-gen45/api/sp/{{ item.sp }}" target="_blank">/api/sp/{{ item.sp }}</a></td>
+          {% if loop.first %}<td rowspan="{{ sp.get('domain_details',[sp])|length }}"><span class="sp-pill">{{ sp.sp }}</span></td>{% endif %}
+          <td><b style="color:#1e3a8a">{{ dd.domain }}</b></td>
+          <td style="color:#475569">{{ dd.row_count }}</td>
+          <td><span class="mtbf-val">{{ dd.latest_mtbf if dd.latest_mtbf not in (None, '') else '—' }}</span></td>
+          <td><span class="mtbf-val">{{ dd.latest_overallmtbf if dd.latest_overallmtbf not in (None, '') else '—' }}</span></td>
+          <td style="font-size:11px;color:#64748b">{{ dd.latest_date or '—' }}</td>
+          <td><a class="ep" href="{{ base }}{{ dd.endpoint }}?summary=true" target="_blank">{{ dd.endpoint }}</a></td>
         </tr>
-      {% else %}
-        <tr><td colspan="5" style="color:#94a3b8;text-align:center;padding:20px">No HQX SPs loaded.</td></tr>
-      {% endfor %}
-      </tbody>
-    </table>
+        {% else %}<tr><td><span class="sp-pill">{{ sp.sp }}</span></td><td colspan="6" style="color:#94a3b8;font-size:11px">{{ sp.domains|join(', ') }}</td></tr>
+        {% endfor %}{% endfor %}
+        </tbody>
+      </table>
+      {% else %}<p class="no-data">No HQX SP data files found yet.</p>{% endif %}
+      </div>
+    </div>
+
+    <div class="tgt-section">
+      <div class="tgt-head" style="background:linear-gradient(90deg,#faf5ff,#f8fafc)">
+        <span class="tgt-label" style="color:#5b21b6"><i class="fas fa-leaf" style="margin-right:5px"></i>HGY Platform</span>
+        <span class="tgt-pill" style="background:#ede9fe;color:#5b21b6;border:1px solid #c4b5fd">platform=HGY</span>
+        <a href="{{ base }}/public/auto-gen45/api/hgy/sps" target="_blank" class="ep" style="margin-left:auto">List SPs ↗</a>
+      </div>
+      <div class="table-wrap">
+      {% if hgy_sps %}
+      <table>
+        <thead><tr><th>SP</th><th>Domain</th><th>Rows</th><th>Latest MTBF</th><th>overallmtbf</th><th>Latest Date</th><th>Endpoint</th></tr></thead>
+        <tbody>
+        {% for sp in hgy_sps %}{% for dd in sp.get('domain_details',[]) %}
+        <tr>
+          {% if loop.first %}<td rowspan="{{ sp.get('domain_details',[sp])|length }}"><span class="sp-pill">{{ sp.sp }}</span></td>{% endif %}
+          <td><b style="color:#1e3a8a">{{ dd.domain }}</b></td>
+          <td style="color:#475569">{{ dd.row_count }}</td>
+          <td><span class="mtbf-val">{{ dd.latest_mtbf if dd.latest_mtbf not in (None, '') else '—' }}</span></td>
+          <td><span class="mtbf-val">{{ dd.latest_overallmtbf if dd.latest_overallmtbf not in (None, '') else '—' }}</span></td>
+          <td style="font-size:11px;color:#64748b">{{ dd.latest_date or '—' }}</td>
+          <td><a class="ep" href="{{ base }}{{ dd.endpoint }}?summary=true" target="_blank">{{ dd.endpoint }}</a></td>
+        </tr>
+        {% else %}<tr><td><span class="sp-pill">{{ sp.sp }}</span></td><td colspan="6" style="color:#94a3b8;font-size:11px">{{ sp.domains|join(', ') }}</td></tr>
+        {% endfor %}{% endfor %}
+        </tbody>
+      </table>
+      {% else %}<p class="no-data">No HGY SP data files found yet.</p>{% endif %}
+      </div>
+    </div>
   </div>
 
-  <!-- Endpoints -->
   <div class="card">
-    <h2><i class="fas fa-code" style="color:#6366f1"></i> Endpoints</h2>
+    <div class="card-title"><i class="fas fa-code" style="color:#6366f1"></i> Public read endpoints</div>
 
-    <span class="section-label hqx-label"><i class="fas fa-microchip"></i> HQX &mdash; Read-only (no login required)</span>
-    <p style="font-size:12px;font-weight:800;color:#1d4ed8;margin:8px 0 4px">List all HQX SPs</p>
+    <span class="badge"><i class="fas fa-microchip"></i> HQX</span>
     <div class="api-row"><span class="get">GET</span><code>{{ base }}/public/auto-gen45/api/sps</code></div>
-    <p style="font-size:12px;font-weight:800;color:#1d4ed8;margin:12px 0 4px">Get HQX rows for an SP</p>
-    <div class="api-row"><span class="get">GET</span><code>{{ base }}/public/auto-gen45/api/sp/8620?last_n=5&amp;summary=true</code></div>
-    <p class="param"><b>last_n</b> &mdash; latest N rows (0 = all) &bull; <b>summary</b> &mdash; include summary block (default true)</p>
+    <div class="api-row"><span class="get">GET</span><code>{{ base }}/public/auto-gen45/api/sp/8620?last_n=5&summary=true</code></div>
 
+    <hr class="divider">
+
+    <span class="badge"><i class="fas fa-leaf"></i> HGY</span>
+    <div class="api-row"><span class="get">GET</span><code>{{ base }}/public/auto-gen45/api/hgy/sps</code></div>
+    <div class="api-row"><span class="get">GET</span><code>{{ base }}/public/auto-gen45/api/hgy/sp/8620?last_n=5&summary=true</code></div>
+
+    <p class="param"><b>last_n</b> &mdash; latest N rows (0 = all) &bull; <b>summary</b> &mdash; include summary block (default true). Editor-only POST endpoints also exist for create/add/edit/delete/save table operations.</p>
+    <p class="muted" style="margin-top:10px">MTBF column semantics: total/system+process MTBF is published as <b>mtbf</b>. Overall MTBF is published as single JSON key <b>overallmtbf</b> and shown separately in the summary table.</p>
   </div>
 
-  <!-- Samples -->
   <div class="grid2">
     <div class="card">
-      <h2><i class="fas fa-list" style="color:#1d4ed8"></i> Sample: /api/sps (HQX)</h2>
+      <div class="card-title"><i class="fas fa-list" style="color:#1d4ed8"></i> Sample: /api/sps (HQX)</div>
 <pre>{
   "ok": true,
   "count": 5,
@@ -94,11 +159,31 @@
   ]
 }</pre>
     </div>
+
     <div class="card">
-      <h2><i class="fas fa-table" style="color:#1d4ed8"></i> Sample: /api/sp/8620 (HQX)</h2>
+      <div class="card-title"><i class="fas fa-list" style="color:#059669"></i> Sample: /api/hgy/sps (HGY)</div>
 <pre>{
   "ok": true,
-  "sp": "8620 (ADAS)",
+  "platform": "HGY",
+  "count": 2,
+  "available_sps": [
+    {
+      "sp": "8620",
+      "program": "8620 (HGY)",
+      "domain": "HGY",
+      "platform": "HGY",
+      "row_count": 12
+    }
+  ]
+}</pre>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><i class="fas fa-table" style="color:#1d4ed8"></i> Sample: /api/sp/8620 (HQX)</div>
+<pre>{
+  "ok": true,
+  "sp": "8620",
+  "resolved_program": "8620 (ADAS)",
   "row_count": 5,
   "rows": [
     {
@@ -106,26 +191,53 @@
       "build_s": "SA8620P.1.0-00123",
       "hours": 280,
       "crashes": 32,
-      "mtbf": 8.8
+      "mtbf": 8.8,
+      "comments": ""
     }
   ],
   "summary": {
     "row_count": 97,
     "latest_date": "2026-07-01",
     "latest_mtbf": 8.8,
+    "latest_system_mtbf": "",
     "total_hours": 9840,
     "total_crashes": 1120
   }
 }</pre>
     </div>
+
+    <div class="card">
+      <div class="card-title"><i class="fas fa-table" style="color:#059669"></i> Sample: /api/hgy/sp/8620 (HGY)</div>
+<pre>{
+  "ok": true,
+  "platform": "HGY",
+  "sp": "8620",
+  "resolved_program": "8620 (HGY)",
+  "row_count": 5,
+  "rows": [
+    {
+      "product_flavor": "7255_lagvm_sail_nor_monaco",
+      "devices": 4,
+      "hours": 166,
+      "crashes": 37,
+      "mtbf": 4.49,
+      "process_crash": 20,
+      "system_crash": 17,
+      "system_mtbf": 9.76,
+      "overallmtbf": 4.49,
+      "comments": ""
+    }
+  ],
+  "summary": {
+    "row_count": 12,
+    "latest_mtbf": 4.49,
+    "latest_system_mtbf": 9.76,
     "total_hours": 1200,
     "total_crashes": 48
   }
 }</pre>
     </div>
   </div>
-
-
 </div>
 </body>
 </html>

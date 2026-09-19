@@ -579,14 +579,26 @@ def _num_or_blank(v: Any, integer: bool = False) -> Any:
         return ""
 
 
+def _num0(v: Any) -> float:
+    """Parse a saved numeric value; blanks/dashes/non-numeric values become 0."""
+    try:
+        text = str(v if v is not None else "").replace(",", "").strip()
+        if not text or text == "-":
+            return 0.0
+        return float(text)
+    except Exception:
+        return 0.0
+
+
 def _adas_row_from_payload(payload: Dict[str, Any], existing_rows: List[Dict[str, Any]]) -> Dict[str, Any]:
     """Build a normalised ADAS MTBF row dict from an add/edit payload.
 
     Rules:
     - System + SSR always auto-sum into total_crashes for this row.
-    - Process crashes are retained separately but excluded from MTBF/total.
+    - Process crashes are retained separately and included in overallMTBF.
     - MTBF is auto-calculated from hours / total_crashes unless this specific
       row is sent with manual_mtbf=1.
+    - overallMTBF is auto-calculated from hours / (System + SSR + Process).
     """
     s_no      = int(payload.get("s_no") or len(existing_rows) + 1)
     system_c  = _num_or_blank(payload.get("system_crashes"),  integer=True)
@@ -596,6 +608,8 @@ def _adas_row_from_payload(payload: Dict[str, Any], existing_rows: List[Dict[str
 
     # Total crashes = System + SSR crashes only (Process excluded from MTBF)
     total_c = (int(system_c) if system_c != "" else 0) + (int(ssr_c) if ssr_c != "" else 0)
+    # Overall MTBF includes Process crashes as well.
+    overall_c = total_c + (int(process_c) if process_c != "" else 0)
 
     hours       = _num_or_blank(payload.get("hours"))
     mtbf_raw    = payload.get("mtbf")
@@ -611,6 +625,11 @@ def _adas_row_from_payload(payload: Dict[str, Any], existing_rows: List[Dict[str
         except Exception:
             mtbf = ""
 
+    try:
+        overall_mtbf = round(float(hours) / int(overall_c), 2) if hours and overall_c else ""
+    except Exception:
+        overall_mtbf = ""
+
     return {
         "id":              str(payload.get("id") or "").strip() or datetime.utcnow().strftime("%Y%m%d%H%M%S%f"),
         "s_no":            s_no,
@@ -621,7 +640,9 @@ def _adas_row_from_payload(payload: Dict[str, Any], existing_rows: List[Dict[str
         "ssr_crashes":     ssr_c,
         "process_crashes": process_c,
         "total_crashes":   total_c,
+        "overall_crashes": overall_c,
         "mtbf":            mtbf,
+        "overallMTBF":     overall_mtbf,
         "manual_mtbf":     1 if (manual_mtbf and mtbf_raw not in (None, "")) else 0,
         "comments":        str(payload.get("comments") if payload.get("comments") is not None else payload.get("comment") or "").strip(),
         "crash_types":     crash_types,
@@ -629,13 +650,17 @@ def _adas_row_from_payload(payload: Dict[str, Any], existing_rows: List[Dict[str
 
 
 def _system_ssr_row_for_response(row: Dict[str, Any]) -> Dict[str, Any]:
-    """Return a display/API copy with total_crashes and MTBF based on System + SSR crashes."""
+    """Return a display/API copy with System+SSR MTBF and overallMTBF including Process."""
     out = dict(row or {})
-    system_c = int(out.get("system_crashes") or 0)
-    ssr_c = int(out.get("ssr_crashes") or 0)
+    system_c = int(_num0(out.get("system_crashes")))
+    ssr_c = int(_num0(out.get("ssr_crashes")))
+    process_c = int(_num0(out.get("process_crashes")))
     total_c = system_c + ssr_c
-    hours = float(out.get("hours") or 0)
+    overall_c = total_c + process_c
+    hours = _num0(out.get("hours"))
     out["total_crashes"] = total_c
+    out["overall_crashes"] = overall_c
+    out["overallMTBF"] = round(hours / overall_c, 2) if hours and overall_c else ""
     manual_mtbf = bool(int(out.get("manual_mtbf") or 0))
     if not manual_mtbf:
         out["mtbf"] = round(hours / total_c, 2) if hours and total_c else ""
@@ -658,10 +683,10 @@ def _adas_rows_to_chart_data(rows: List[Dict[str, Any]], crash_types: Optional[L
         meta_id = str(r.get("meta_id") or "").strip()
         if not meta_id:
             continue
-        hours     = float(r.get("hours") or 0)
-        system_c  = int(r.get("system_crashes")  or 0)
-        ssr_c     = int(r.get("ssr_crashes")     or 0)
-        process_c = int(r.get("process_crashes") or 0)
+        hours     = _num0(r.get("hours"))
+        system_c  = int(_num0(r.get("system_crashes")))
+        ssr_c     = int(_num0(r.get("ssr_crashes")))
+        process_c = int(_num0(r.get("process_crashes")))
 
         # Recompute display total based on selected crash types
         total_c = 0
@@ -674,13 +699,13 @@ def _adas_rows_to_chart_data(rows: List[Dict[str, Any]], crash_types: Optional[L
 
         if manual_mtbf and mtbf_raw not in (None, ""):
             # User-locked MTBF: always use the saved value, never recompute
-            mtbf = float(mtbf_raw)
+            mtbf = _num0(mtbf_raw)
         elif hours and total_c:
             # Always recalculate from selected crash types (default: System + SSR)
             mtbf = round(hours / total_c, 2)
         elif mtbf_raw not in (None, ""):
             # Fall back to stored value if no crash data available
-            mtbf = float(mtbf_raw)
+            mtbf = _num0(mtbf_raw)
         else:
             mtbf = 0
 
@@ -694,6 +719,8 @@ def _adas_rows_to_chart_data(rows: List[Dict[str, Any]], crash_types: Optional[L
             "system_crashes":  system_c,
             "ssr_crashes":     ssr_c,
             "process_crashes": process_c,
+            "overall_crashes": system_c + ssr_c + process_c,
+            "overallMTBF":     round(hours / (system_c + ssr_c + process_c), 2) if hours and (system_c + ssr_c + process_c) else "",
             "mtbf":            mtbf,
             "manual_mtbf":     1 if manual_mtbf else 0,
             "comments":        r.get("comments") or r.get("comment") or "",

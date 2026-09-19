@@ -1,5 +1,63 @@
 # Active Context
 
+## 2026-09-18 - Auto Gen4.5 Public API Docs Gen5-Style Summary Table
+
+**User request addressed:** `/public/auto-gen45` needed the same kind of SP-scoped summary table shown on the Auto Gen5 public API docs page, while preserving existing Memory Bank content.
+
+**Changes made:**
+- `auto_gen45_public_routes.py`
+  - Added docs-only helpers to build Gen5-style SP/domain summary groups for Gen4.5 HQX and HGY:
+    - `_date_text()`
+    - `_latest_public_row()`
+    - `_entry_domain()`
+    - `_docs_sp_groups(platform)`
+  - `/public/auto-gen45` now passes `hqx_sps` and `hgy_sps` to the template in addition to existing `available` and `available_hgy` lists.
+  - Existing public JSON endpoints and editor-only POST routes remain unchanged.
+- `templates/public_auto_gen45_api.html`
+  - Reworked the docs page to render a Gen5-like card/table layout:
+    - HQX section with SP, Domain, Rows, Latest MTBF, overallMTBF, Latest Date, Endpoint
+    - HGY section with the same columns
+    - endpoint links still point to existing read APIs (`/api/sp/<sp>` and `/api/hgy/sp/<sp>`)
+  - Kept the existing sample endpoint documentation below the new summary table.
+
+**Follow-up fix (2026-09-18):**
+- User reported the JSON response for `/public/auto-gen5/api/sp/5.7.7.0/domain/ADAS?target=nord_hqx` did not show an overall MTBF parameter.
+- `auto_gen5_public_routes.py` now emits all common public aliases on each MTBF row:
+  - `overallMTBF`
+  - `overall_mtbf`
+  - `overallmtbf`
+- Gen5 domain/SP summaries also include:
+  - `latest_overallMTBF`
+  - `latest_overall_mtbf`
+  - `latest_overallmtbf`
+- `auto_gen45_public_routes.py` now normalizes public safe rows the same way, always adding:
+  - `overallMTBF`
+  - `overall_mtbf`
+  - `overallmtbf`
+- Gen4.5 summaries/docs details also include the matching `latest_*` overall MTBF aliases.
+
+**Follow-up fix (2026-09-19):**
+- User reported that `/public/auto-gen45` HGY rows showed generic `MTBF` domains even when the same SP existed in HQX with a specific domain.
+- `auto_gen45_public_routes.py` now resolves HGY generic/blank domains from the matching HQX SP domain when available.
+- Added helpers:
+  - `_sp_lookup_key()`
+  - `_entry_sp_lookup_key()`
+  - `_raw_entry_domain()`
+  - `_is_generic_domain_label()`
+  - `_hqx_domain_by_sp_map()`
+  - `_with_resolved_platform_domain()`
+- `/public/auto-gen45` docs table now shows matching same-SP domains across HQX/HGY, e.g. HGY `7255 -> IVI`, `8650 -> ADAS`, `8775 -> Flex`.
+- `/public/auto-gen45/api/hgy/sps` and `/public/auto-gen45/api/hgy/sp/<sp>` now return the resolved domain label for HGY when the source HGY entry is generic.
+
+**Validation:**
+- `py -3 -m py_compile auto_gen45_public_routes.py` passed.
+- Jinja parse for `templates/public_auto_gen45_api.html` returned `GEN45_PUBLIC_API_VALIDATION_OK`.
+- Runtime helper validation using the project `.venv` returned `GEN45_DOC_GROUPS_OK ['ADAS'] ['HGY']`.
+- Follow-up validation passed: `.venv\Scripts\python.exe -m py_compile auto_gen5_public_routes.py auto_gen45_public_routes.py`.
+- Public JSON field validation returned `PUBLIC_OVERALL_MTBF_FIELDS_OK 20.0 10`, confirming both Gen5 and Gen4.5 rows include `overallMTBF`, `overall_mtbf`, and `overallmtbf`.
+- HGY domain parity validation passed: `_docs_sp_groups('HGY')` returned `7255 -> IVI`, `8255 -> IVI`, `8650 -> ADAS`, `8775 -> Flex`; `/public/auto-gen45/api/hgy/sp/7255` returned top-level `domain=IVI`; `/public/auto-gen45/api/hgy/sp/8650` returned top-level `domain=ADAS`.
+- Flask test-request render check for `/public/auto-gen45` confirmed the HTML contains `IVI`, `ADAS`, and `Flex` domain markers.
+
 ## Current Work Focus
 
 ### Weekly Smart Build Total Hours Capacity KPI Fix — Complete (2026-09-14)

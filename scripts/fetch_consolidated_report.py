@@ -1750,6 +1750,7 @@ def build_hierarchical_report(issues_dicts, cr_info_map):
                 'cr_number_field'   : jira.get('cr_number_field', ''),
                 'created'           : jira['created'],
                 'reporter'          : jira['reporter'],
+                'reporters_dept'    : jira.get('reporters_dept', ''),
                 'matched_build'     : jira['matched_build'],
                 'serial_no'         : jira['serial_no'],
                 'mcn_no'            : jira['mcn_no'],

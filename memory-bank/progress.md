@@ -1,5 +1,43 @@
 # Progress: PDTBuddy
 
+## 2026-09-18 - Auto Gen4.5 Public API Docs Gen5-Style Summary Table
+- Updated `/public/auto-gen45` so the Gen4.5 public API docs page now shows Gen5-like SP-scoped summary tables for both HQX and HGY.
+- `auto_gen45_public_routes.py` now builds docs-only SP/domain groups through `_docs_sp_groups(platform)` and passes `hqx_sps` / `hgy_sps` into `templates/public_auto_gen45_api.html`.
+- `templates/public_auto_gen45_api.html` now renders HQX and HGY sections with columns:
+  - SP
+  - Domain
+  - Rows
+  - Latest MTBF
+  - overallMTBF
+  - Latest Date
+  - Endpoint
+- Existing public JSON APIs remain unchanged:
+  - HQX: `/public/auto-gen45/api/sps`, `/public/auto-gen45/api/sp/<sp>`
+  - HGY: `/public/auto-gen45/api/hgy/sps`, `/public/auto-gen45/api/hgy/sp/<sp>`
+- Follow-up: Auto Gen5 and Gen4.5 public JSON rows now always expose overall MTBF under all common API key variants:
+  - `overallMTBF`
+  - `overall_mtbf`
+  - `overallmtbf`
+- Follow-up: Gen5 and Gen4.5 summary/detail blocks also expose matching latest overall MTBF aliases:
+  - `latest_overallMTBF`
+  - `latest_overall_mtbf`
+  - `latest_overallmtbf`
+- Follow-up 2026-09-19: `/public/auto-gen45` now resolves generic/blank HGY domains from the matching HQX SP domain when the same SP exists in both platform datasets.
+  - HGY `7255` now displays/returns `IVI`.
+  - HGY `8255` now displays/returns `IVI`.
+  - HGY `8650` now displays/returns `ADAS`.
+  - HGY `8775` now displays/returns `Flex`.
+  - `/public/auto-gen45/api/hgy/sps` and `/public/auto-gen45/api/hgy/sp/<sp>` return the resolved HGY domain label.
+- Memory Bank content was preserved and updated append-only.
+- Validation passed:
+  - `py -3 -m py_compile auto_gen45_public_routes.py`
+  - Jinja parse for `templates/public_auto_gen45_api.html` returned `GEN45_PUBLIC_API_VALIDATION_OK`
+  - Runtime helper validation using `.venv\Scripts\python.exe` returned `GEN45_DOC_GROUPS_OK ['ADAS'] ['HGY']`
+  - Follow-up `.venv\Scripts\python.exe -m py_compile auto_gen5_public_routes.py auto_gen45_public_routes.py` passed
+  - Follow-up public JSON field validation returned `PUBLIC_OVERALL_MTBF_FIELDS_OK 20.0 10`
+  - HGY domain parity validation returned `_docs_sp_groups('HGY') = [('7255', ['IVI']), ('8255', ['IVI']), ('8650', ['ADAS']), ('8775', ['Flex'])]`
+  - Flask test-request checks confirmed `/public/auto-gen45` renders `IVI`, `ADAS`, and `Flex`, and HGY SP endpoints return resolved domains for `7255` and `8650`.
+
 ## 2026-09-14 - Weekly Smart Build Total Hours Capacity KPI Fix
 - Addressed `/weekly-report/smart-build-report?week_start=2026-08-31&week_end=2026-09-06` showing much lower **Total Hours** than expected from active devices.
 - Business expectation confirmed: `1600 devices * 20 hours/day * 7 days = 224,000h`.

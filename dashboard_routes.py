@@ -9680,7 +9680,13 @@ def api_build_report_export_excel():
         or sheets.get('all_jira_tickets')
         or []
     )
-    if not any(isinstance(v, list) and v for v in (cr_rows, mapped_rows, open_rows, all_jira_rows)):
+    other_team_rows = (
+        sheets.get('other_team_build')
+        or sheets.get('Other_Team_Build')
+        or sheets.get('other_team_report')
+        or []
+    )
+    if not any(isinstance(v, list) and v for v in (cr_rows, mapped_rows, open_rows, all_jira_rows, other_team_rows)):
         return jsonify({'ok': False, 'error': 'No rendered report rows to export.'}), 400
 
     try:
@@ -9841,6 +9847,36 @@ def api_build_report_export_excel():
         jira_url = f'https://jira-dc2.qualcomm.com/jira/browse/{ticket}' if ticket else ''
         _set_link(ws.cell(excel_row, 2), jira_url)
     _style_body(ws)
+
+    other_team_headers = ['#', 'CR / Ticket', 'CR Count', 'Reported Team', 'Reported Dept', 'Source JIRAs', 'Other Details', 'Status', 'Assignee', 'CR SI']
+    ws = _safe_sheet('Other_Team_Build')
+    _write_headers(ws, other_team_headers)
+    for idx, row in enumerate(other_team_rows if isinstance(other_team_rows, list) else [], start=1):
+        if not isinstance(row, dict):
+            continue
+        ticket = _br_export_text(row.get('cr') or row.get('ticket') or row.get('CR / Ticket'))
+        keys = _br_export_issue_keys(row.get('source_jiras') or row.get('src_keys') or row.get('jira_keys') or row.get('Source JIRAs'))
+        values = [
+            idx,
+            ticket,
+            row.get('cr_count') or row.get('count') or row.get('CR Count') or '',
+            _br_export_text(row.get('reported_team') or row.get('Reported Team')),
+            _br_export_text(row.get('reported_dept') or row.get('Reported Dept')),
+            ', '.join(keys),
+            _br_export_text(row.get('details') or row.get('other_details') or row.get('Other Details')),
+            _br_export_text(row.get('status') or row.get('Status')),
+            _br_export_text(row.get('assignee') or row.get('Assignee')),
+            _br_export_text(row.get('cr_si') or row.get('CR SI')),
+        ]
+        ws.append(values)
+        excel_row = ws.max_row
+        if ticket.upper().startswith('CR'):
+            _set_link(ws.cell(excel_row, 2), _cr_url(ticket))
+        elif '-' in ticket:
+            _set_link(ws.cell(excel_row, 2), f'https://jira-dc2.qualcomm.com/jira/browse/{ticket}')
+        _set_link(ws.cell(excel_row, 6), _br_export_jira_issues_url(keys))
+    _style_body(ws)
+    ws.column_dimensions['G'].width = 60
 
     raw_filename = str(body.get('filename') or 'build_report_v3.xlsx')
     filename = secure_filename(raw_filename) or 'build_report_v3.xlsx'

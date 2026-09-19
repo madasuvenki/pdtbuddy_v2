@@ -637,7 +637,7 @@ function syncHeader(){ const found = getTargetsForBu(currentBu).find(t => t.key 
 function toggleOverallBuild(){ const body = document.getElementById('overallBuildBody'); const icon = document.getElementById('overallCollapseIcon'); if(!body || !icon) return; const collapsed = body.classList.toggle('collapsed'); icon.className = collapsed ? 'fas fa-chevron-down' : 'fas fa-chevron-up'; }
 function toggleOverallEdit(){ overallEditMode = !overallEditMode; render(); }
 function updateOverallEditButton(){ const btn = document.getElementById('overallEditBtn'); if(!btn) return; btn.innerHTML = overallEditMode ? '<i class="fas fa-lock"></i> Stop Edit' : '<i class="fas fa-pen"></i> Edit Table'; }
-function getMtbfBaseRows(){ return rows.filter(r => String(r.meta_id || r.build_full || '').trim()).map(r => ({ label: String(r.meta_id || '').trim(), build: String(r.meta_id || '').trim(), full_build: String(r.build_full || r.meta_id || '').trim(), hours: Number(r.hours || 0), crashes: Number(r.crashes === 'ERR' ? 0 : (r.crashes || 0)), mtbf: Number(r.mtbf || 0), product_mtbf: Number(r.product_mtbf || 0), qc_mtbf: Number(r.qc_mtbf || 0), week: String(r.week || '').trim(), run_status: String(r.run_status || 'stopped').trim().toLowerCase() })); }
+function getMtbfBaseRows(){ return rows.filter(r => String(r.meta_id || r.build_full || '').trim()).map(r => ({ label: String(r.meta_id || '').trim(), build: String(r.meta_id || '').trim(), full_build: String(r.build_full || r.meta_id || '').trim(), hours: Number(r.hours || 0), crashes: Number(r.crashes === 'ERR' ? 0 : (r.crashes || 0)), mtbf: Number(r.mtbf || 0), product_mtbf: Number(r.product_mtbf || 0), qc_mtbf: Number(r.qc_mtbf || 0), week: String(r.week || '').trim(), run_status: String(r.run_status || 'stopped').trim().toLowerCase() })).sort((a,b)=>{ const da=Date.parse(a.week||''), db=Date.parse(b.week||''); return (Number.isFinite(da)&&Number.isFinite(db)&&da!==db) ? db-da : 0; }); }
 function getLabel(d){ return String(d.label || d.build || d.full_build || '').trim(); }
 function wrapAxisLabel(value){ const text = String(value || '').trim(); if(!text) return ''; const parts = text.split(/(?<=[._\-])|(?=[._\-])/).map(p => p.trim()).filter(Boolean); const lines = []; let line = ''; parts.forEach(part => { const next = line ? line + part : part; if(next.length > 20 && line){ lines.push(line.trim()); line = part; } else { line = next; } }); if(line) lines.push(line.trim()); return lines.slice(0, 2); }
 function compactNumber(value){ const num = Number(value || 0); if(!Number.isFinite(num)) return '0'; const abs = Math.abs(num); if(abs >= 1000000) return (num / 1000000).toFixed(abs >= 10000000 ? 0 : 1).replace(/\.0$/,'') + 'M'; if(abs >= 1000) return (num / 1000).toFixed(abs >= 10000 ? 0 : 1).replace(/\.0$/,'') + 'k'; return String(Math.round(num * 10) / 10).replace(/\.0$/,''); }
@@ -861,13 +861,13 @@ function mxMiniMetric(el){
   }
   renderMtbfChart(curData);
 }
-function mxFilter(type, n){ document.querySelectorAll('.mx-flt-btn').forEach(b => b.classList.remove('active')); const all = getMtbfBaseRows(); let filtered = all.slice(); if(type === 'n'){ document.querySelector(`.mx-flt-btn[data-n="${n}"]`)?.classList.add('active'); if(n > 0) filtered = all.slice(-n); } else if(type === 'reset'){ document.querySelector('.mx-flt-btn[data-n="0"]')?.classList.add('active'); } renderMtbfChart(filtered); }
-function mxSetZoom(value){ mxZoomLevel = Math.max(70, Math.min(180, Number(value || 100))); const slider = document.getElementById('mxZoomSlider'); if(slider && Number(slider.value) !== mxZoomLevel) slider.value = mxZoomLevel; const label = document.getElementById('mxZoomValue'); if(label) label.textContent = `${mxZoomLevel}%`; renderMtbfChart(curData && curData.length ? curData : getMtbfBaseRows().slice(-10)); }
+function mxFilter(type, n){ document.querySelectorAll('.mx-flt-btn').forEach(b => b.classList.remove('active')); const all = getMtbfBaseRows(); let filtered = all.slice(); if(type === 'n'){ document.querySelector(`.mx-flt-btn[data-n="${n}"]`)?.classList.add('active'); if(n > 0) filtered = all.slice(0,n); } else if(type === 'reset'){ document.querySelector('.mx-flt-btn[data-n="0"]')?.classList.add('active'); } renderMtbfChart(filtered); }
+function mxSetZoom(value){ mxZoomLevel = Math.max(70, Math.min(180, Number(value || 100))); const slider = document.getElementById('mxZoomSlider'); if(slider && Number(slider.value) !== mxZoomLevel) slider.value = mxZoomLevel; const label = document.getElementById('mxZoomValue'); if(label) label.textContent = `${mxZoomLevel}%`; renderMtbfChart(curData && curData.length ? curData : getMtbfBaseRows().slice(0,10)); }
 function mxAdjustZoom(delta){ mxSetZoom(mxZoomLevel + delta); }
 function mxCopyViaImg(dataUrl, btn, origHtml){ const tmp = document.createElement('div'); tmp.contentEditable = 'true'; tmp.style.cssText = 'position:fixed;left:-9999px;top:0;width:1px;height:1px;overflow:hidden;'; tmp.innerHTML = '<img src="' + dataUrl + '" style="max-width:100%;">'; document.body.appendChild(tmp); tmp.focus(); const range = document.createRange(); range.selectNodeContents(tmp); const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range); let ok = false; try { ok = document.execCommand('copy'); } catch(e) { ok = false; } sel.removeAllRanges(); tmp.remove(); if(btn){ btn.classList.add('copied'); btn.innerHTML = ok ? '<i class="fas fa-check"></i> Copied!' : '<i class="fas fa-times"></i> Failed'; setTimeout(() => { btn.classList.remove('copied'); btn.innerHTML = origHtml; }, 2500); } }
 function mxCopyChart(){ const btn = document.getElementById('mxCopyChartBtn'); const origHtml = btn ? btn.innerHTML : ''; const canvas = document.getElementById('mtbfChartCanvas'); if(!canvas) return; mxCopyViaImg(canvas.toDataURL('image/png'), btn, origHtml); }
 function mxDownloadChart(){ const btn = document.getElementById('mxDlChartBtn'); const canvas = document.getElementById('mtbfChartCanvas'); if(!canvas) return; const a = document.createElement('a'); a.download = `BU_${currentTarget || 'MTBF'}_Stability_Trend.png`; a.href = canvas.toDataURL('image/png'); a.click(); if(btn){ btn.classList.add('copied'); btn.innerHTML = '<i class="fas fa-check"></i> Downloaded!'; setTimeout(() => { btn.classList.remove('copied'); btn.innerHTML = '<i class="fas fa-download"></i> Download'; }, 2500); } }
-async function initializeWorkspace(){ try { if(IS_AUTO_MODE) loadStore(); else await loadExcelRows(); } catch(e){ rows = []; console.error(e); } render(); setTimeout(() => { try { renderMtbfChart(getMtbfBaseRows().slice(-10)); } catch(e) { console.error(e); } }, 80); autoLoadConsolidatedReport(); }
+async function initializeWorkspace(){ try { if(IS_AUTO_MODE) loadStore(); else await loadExcelRows(); } catch(e){ rows = []; console.error(e); } render(); setTimeout(() => { try { renderMtbfChart(getMtbfBaseRows().slice(0,10)); } catch(e) { console.error(e); } }, 80); autoLoadConsolidatedReport(); }
 function renderPills(){}
 function applyFilter(){ const q = (document.getElementById('rowFilter').value || '').toLowerCase(); filteredRows = q ? rows.filter(r => Object.values(r).some(v => String(v||'').toLowerCase().includes(q))) : [...rows]; renderTable(filteredRows); document.getElementById('rowCount').textContent = `${filteredRows.length} row${filteredRows.length!==1?'s':''}`; }
 
@@ -1493,7 +1493,7 @@ async function saveBuild(){
   renderBuildPills();
   renderRecentBuilds();
   refreshJqlFromSelection();
-  renderMtbfChart(getMtbfBaseRows().slice(-10));
+  renderMtbfChart(getMtbfBaseRows().slice(0,10));
   closeBuildModal();
 
   // Persist to Excel in background
@@ -1542,7 +1542,7 @@ function activateReportTab(tab){
   document.getElementById('tabMtbf')?.classList.toggle('active',tab==='mtbf');
   document.getElementById('currentBuildsSection').style.display=tab==='mtbf'?'none':'block';
   document.getElementById('mtbfSection').style.display=tab==='mtbf'?'block':'none';
-  if(tab==='mtbf') renderMtbfChart(getMtbfBaseRows().slice(-10));
+  if(tab==='mtbf') renderMtbfChart(getMtbfBaseRows().slice(0,10));
 }
 function refreshSelectedBuilds(){ renderRecentBuilds(); autoLoadConsolidatedReport(); }
 

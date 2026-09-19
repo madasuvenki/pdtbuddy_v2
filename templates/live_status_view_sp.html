@@ -295,8 +295,8 @@
 /* ══════════════════════════════════════════════════════════
    State
 ══════════════════════════════════════════════════════════ */
-const TARGET   = {{ target_name | tojson }};
-const CAN_EDIT = {{ 'true' if can_edit else 'false' }};
+const TARGET   = JSON.parse('{{ target_name|tojson|safe }}');
+const CAN_EDIT = JSON.parse('{{ can_edit|tojson|safe }}');
 const API      = '/api/live_status_view/' + encodeURIComponent(TARGET);
 
 let spList      = [];          // [{sp_name, cpl, display_name, slug}, …]
@@ -452,8 +452,17 @@ function onCrashTypeChange(){ loadMtbf(); }
    Chart
 ══════════════════════════════════════════════════════════ */
 function getDisplayRows(){
-  const rows = nFilter > 0 ? allRows.slice(-nFilter) : allRows;
-  return rows;
+  const rows = latestFirstRows(allRows);
+  return nFilter > 0 ? rows.slice(0, nFilter) : rows;
+}
+
+function rowDateSortKey(r){
+  const t = Date.parse((r && (r.date || r.Date || r.report_date || r.week)) || '');
+  return Number.isFinite(t) ? t : -Infinity;
+}
+
+function latestFirstRows(rows){
+  return [...(rows || [])].sort((a,b)=>rowDateSortKey(b)-rowDateSortKey(a));
 }
 
 function computeChartData(rows){
@@ -524,7 +533,9 @@ function filterTable(){
 }
 
 function renderTable(){
-  const rows = nFilter>0 ? (filteredRows.length?filteredRows:allRows).slice(-nFilter) : (filteredRows.length?filteredRows:allRows);
+  const baseRows = filteredRows.length ? filteredRows : allRows;
+  const sortedRows = latestFirstRows(baseRows);
+  const rows = nFilter>0 ? sortedRows.slice(0,nFilter) : sortedRows;
   filteredRows = filteredRows.length ? filteredRows : allRows;
   const ct = crashTypes();
   const tbody = document.getElementById('mtbfTbody');
@@ -555,7 +566,8 @@ function renderTable(){
 }
 
 function copyTable(){
-  const rows = nFilter>0 ? allRows.slice(-nFilter) : allRows;
+  const sortedRows = latestFirstRows(allRows);
+  const rows = nFilter>0 ? sortedRows.slice(0,nFilter) : sortedRows;
   const header = ['S.No.','Date','Meta-ID','Hours','System','SSR','Process','Total Crashes','MTBF'];
   const lines  = [header.join('\t')];
   rows.forEach((r,i)=>{

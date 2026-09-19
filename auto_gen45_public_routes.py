@@ -116,6 +116,64 @@ def _platform_sp_file_path(platform: str, program_key: str, slug: str = "") -> s
                         f"{slug or _sp_file_slug(program_key)}.json")
 
 
+def _platform_discover_and_build_index(platform: str) -> List[Dict[str, Any]]:
+    """Scan the platform directory for *.json data files and build _index.json.
+
+    Called automatically when _index.json is missing so that existing HGY JSON
+    files placed directly in the folder are discovered without a manual create step.
+    Files whose names start with '_' (e.g. _index.json, _audit_log.json) and
+    files inside sub-directories are skipped.
+    """
+    plat_dir = _platform_dir(platform)
+    if not os.path.isdir(plat_dir):
+        return []
+    index: List[Dict[str, Any]] = []
+    for fname in sorted(os.listdir(plat_dir)):
+        if not fname.endswith(".json"):
+            continue
+        if fname.startswith("_"):
+            continue
+        fpath = os.path.join(plat_dir, fname)
+        if not os.path.isfile(fpath):
+            continue
+        try:
+            with open(fpath, "r", encoding="utf-8") as fh:
+                data = json.load(fh)
+        except Exception:
+            continue
+        if not isinstance(data, dict):
+            continue
+        rows = data.get("rows") if isinstance(data, dict) else []
+        if not isinstance(rows, list):
+            rows = []
+        sp_val = str(data.get("sp") or "").strip()
+        program = str(data.get("program") or "").strip() or sp_val
+        domain = str(data.get("domain") or "").strip()
+        if not sp_val:
+            # Derive sp from filename digits
+            digits = "".join(re.findall(r"\d+", fname.replace(".json", "")))
+            sp_val = digits or fname.replace(".json", "")
+            program = program or sp_val
+        # Sort rows by date descending so the index latest_date is accurate
+        dated = [r for r in rows if isinstance(r, dict) and r.get("date")]
+        dated.sort(key=lambda r: str(r.get("date") or ""), reverse=True)
+        latest_date = dated[0].get("date", "") if dated else ""
+        entry: Dict[str, Any] = {
+            "sp": sp_val,
+            "program": program,
+            "domain": domain,
+            "platform": platform.upper(),
+            "row_count": len(rows),
+            "file": fname,
+        }
+        if latest_date:
+            entry["latest_date"] = latest_date
+        index.append(entry)
+    if index:
+        _atomic_write_json(_platform_index_path(platform), index)
+    return index
+
+
 # Keep old names as HQX aliases so existing HQX code is unchanged
 def _platform_read_index(platform: str) -> List[Dict[str, Any]]:
     path = _platform_index_path(platform)
@@ -127,6 +185,13 @@ def _platform_read_index(platform: str) -> List[Dict[str, Any]]:
                 return data
         except Exception:
             pass
+    # Index missing — try to auto-discover JSON files in the platform directory
+    try:
+        discovered = _platform_discover_and_build_index(platform)
+        if discovered:
+            return discovered
+    except Exception:
+        pass
     return []
 
 
@@ -342,6 +407,79 @@ def _find_sp_index_entry(index: List[Dict[str, Any]], sp: str) -> Optional[Dict[
     return None
 
 
+_GENERIC_DOMAIN_LABELS = {"", "MTBF", "HGY", "HQX", "AUTO", "AUTOMOTIVE", "GEN4.5", "GEN45"}
+
+
+def _sp_lookup_key(value: Any) -> str:
+    text = _clean_text(value).lower()
+    digits = "".join(re.findall(r"\d+", text))
+    return digits or text
+
+
+def _entry_sp_lookup_key(entry: Dict[str, Any]) -> str:
+    return _sp_lookup_key(entry.get("sp") or entry.get("program") or "")
+
+
+def _raw_entry_domain(entry: Dict[str, Any]) -> str:
+    domain = _clean_text(entry.get("domain") or "")
+    if domain:
+        return domain
+    program = _clean_text(entry.get("program") or "")
+    match = re.search(r"\(([^)]+)\)", program)
+    return _clean_text(match.group(1)) if match else ""
+
+
+def _is_generic_domain_label(domain: str) -> bool:
+    return _clean_text(domain).upper() in _GENERIC_DOMAIN_LABELS
+
+
+def _hqx_domain_by_sp_map() -> Dict[str, str]:
+    """Return non-generic HQX domain labels keyed by SP for HGY display parity."""
+    mapping: Dict[str, str] = {}
+    try:
+        index = _read_index()
+    except Exception:
+        index = []
+    for entry in index:
+        if not isinstance(entry, dict):
+            continue
+        key = _entry_sp_lookup_key(entry)
+        domain = _raw_entry_domain(entry)
+        if key and domain and not _is_generic_domain_label(domain):
+            mapping.setdefault(key, domain)
+    return mapping
+
+
+def _entry_domain(
+    entry: Dict[str, Any],
+    platform: str = "",
+    reference_domains: Optional[Dict[str, str]] = None,
+) -> str:
+    """Resolve the public domain label for a Gen4.5 SP index entry.
+
+    HGY source files often carry a blank/generic domain (rendered previously as
+    MTBF). When the same SP exists in HQX with a real domain label, publish the
+    same domain for HGY so the docs/API table stays consistent across platforms.
+    """
+    domain = _raw_entry_domain(entry)
+    platform_key = str(platform or "").upper().strip()
+    if platform_key == "HGY" and _is_generic_domain_label(domain):
+        ref_domain = (reference_domains or {}).get(_entry_sp_lookup_key(entry), "")
+        if ref_domain:
+            return ref_domain
+    return domain if domain else "MTBF"
+
+
+def _with_resolved_platform_domain(
+    platform: str,
+    entry: Dict[str, Any],
+    reference_domains: Optional[Dict[str, str]] = None,
+) -> Dict[str, Any]:
+    out = dict(entry or {})
+    out["domain"] = _entry_domain(out, platform, reference_domains)
+    return out
+
+
 def _read_sp_rows(entry: Dict[str, Any]) -> List[Dict[str, Any]]:
     path = _sp_file_path(entry.get("program") or "", str(entry.get("file") or "").replace(".json", ""))
     if not os.path.exists(path):
@@ -394,7 +532,9 @@ def append_sp_row(sp: str, row: Dict[str, Any]) -> Dict[str, Any]:
         return {"ok": False, "error": f"SP '{sp}' not found", "available_sps": index}
 
     rows = _read_sp_rows(entry)
-    clean_row = {k: v for k, v in (row or {}).items() if k not in _RESERVED_ROW_KEYS}
+    clean_row = _normalize_crash_mtbf_row(
+        {k: v for k, v in (row or {}).items() if k not in _RESERVED_ROW_KEYS}
+    )
 
     def _existing_ints(field: str) -> List[int]:
         out = []
@@ -409,7 +549,7 @@ def append_sp_row(sp: str, row: Dict[str, Any]) -> Dict[str, Any]:
     next_sno = (max(existing_sno) if existing_sno else len(rows)) + 1
     next_excel_row = (max(existing_excel) if existing_excel else next_sno) + 1
 
-    new_row = {"excel_row": next_excel_row, "sno": next_sno, **clean_row}
+    new_row = _normalize_crash_mtbf_row({"excel_row": next_excel_row, "sno": next_sno, **clean_row})
     rows.append(new_row)
     _write_sp_rows(entry, rows)
     return {
@@ -449,7 +589,9 @@ def replace_sp_rows(sp: str, rows_payload: List[Dict[str, Any]]) -> Dict[str, An
     for item in rows_payload:
         if not isinstance(item, dict):
             continue
-        clean_rows.append({k: v for k, v in item.items() if k not in _RESERVED_ROW_KEYS})
+        clean_rows.append(_normalize_crash_mtbf_row(
+            {k: v for k, v in item.items() if k not in _RESERVED_ROW_KEYS}
+        ))
 
     clean_rows = _renumber_rows(clean_rows)
     _write_sp_rows(entry, clean_rows)
@@ -480,9 +622,11 @@ def edit_sp_row(sp: str, sno: Any, row: Dict[str, Any]) -> Dict[str, Any]:
     if idx is None:
         return {"ok": False, "error": f"Row with sno '{sno}' not found for SP '{sp}'."}
 
-    clean_row = {k: v for k, v in (row or {}).items() if k not in _RESERVED_ROW_KEYS}
+    clean_row = _normalize_crash_mtbf_row(
+        {k: v for k, v in (row or {}).items() if k not in _RESERVED_ROW_KEYS}
+    )
     preserved = {"excel_row": rows[idx].get("excel_row"), "sno": rows[idx].get("sno")}
-    rows[idx] = {**preserved, **clean_row}
+    rows[idx] = _normalize_crash_mtbf_row({**preserved, **clean_row})
     _write_sp_rows(entry, rows)
     return {
         "ok": True,
@@ -523,28 +667,242 @@ def delete_sp_row(sp: str, sno: Any) -> Dict[str, Any]:
     }
 
 
+def _row_first(row: Dict[str, Any], keys: List[str], default: Any = "") -> Any:
+    for key in keys:
+        value = (row or {}).get(key)
+        if value is not None and str(value).strip() != "":
+            return value
+    return default
+
+
+_SYSTEM_CRASH_KEYS = ["system_crash", "SYSTEM_CRASH", "system_crashes", "SYSTEM_CRASHES"]
+_PROCESS_CRASH_KEYS = ["process_crash", "PROCESS_CRASH", "process_crashes", "PROCESS_CRASHES"]
+_SSR_CRASH_KEYS = ["ssr", "SSR", "ssr_crash", "SSR_CRASH", "ssr_crashes", "SSR_CRASHES"]
+_CRASH_KEYS = ["crashes", "Crashes", "CRASHES", "total_crashes", "TOTAL_CRASHES"]
+_HOUR_KEYS = ["hours", "Hours", "HOURS", "total_hours"]
+_OVERALL_MTBF_KEYS = ["mtbf", "MTBF", "total_mtbf", "TOTAL_MTBF", "overall_mtbf", "OVERALL_MTBF"]
+_PUBLIC_OVERALL_MTBF_KEYS = ["overallMTBF", "overallmtbf", "overall_mtbf", "OVERALL_MTBF"]
+
+
+def _has_numeric_value(row: Dict[str, Any], keys: List[str]) -> bool:
+    for key in keys:
+        value = (row or {}).get(key)
+        if value is None:
+            continue
+        text = str(value).strip()
+        if text and text != "-":
+            return True
+    return False
+
+
+def _display_number(value: float, digits: int = 2) -> Any:
+    rounded = round(float(value), digits)
+    if abs(rounded - int(rounded)) < 1e-9:
+        return int(rounded)
+    return rounded
+
+
+def _normalize_crash_mtbf_row(row: Dict[str, Any]) -> Dict[str, Any]:
+    """Apply Auto Gen4.5 crash/MTBF formulas to a row.
+
+    For HQX/HGY Gen4.5 rows, total Crashes is derived from:
+        System Crash + Process Crash
+
+    Overall MTBF is derived from:
+        Hours / (System Crash + Process Crash)
+
+    System MTBF is derived from:
+        Hours / System Crash
+
+    Existing rows without system/process crash columns keep their original
+    crash/MTBF values so legacy HQX rows remain compatible.
+    """
+    out = dict(row or {})
+    has_system = _has_numeric_value(out, _SYSTEM_CRASH_KEYS)
+    has_process = _has_numeric_value(out, _PROCESS_CRASH_KEYS)
+    if not (has_system or has_process):
+        return out
+
+    system_crash = _num(_row_first(out, _SYSTEM_CRASH_KEYS, 0))
+    process_crash = _num(_row_first(out, _PROCESS_CRASH_KEYS, 0))
+    ssr_crash = _num(_row_first(out, _SSR_CRASH_KEYS, 0))
+    total_crashes = system_crash + process_crash
+    overall_total = system_crash + ssr_crash + process_crash
+    hours = _num(_row_first(out, _HOUR_KEYS, 0))
+
+    total_value = _display_number(total_crashes, 0)
+    out["crashes"] = total_value
+    if any(k in out for k in ("total_crashes", "TOTAL_CRASHES")):
+        out["total_crashes"] = total_value
+    for alias in ("Crashes", "CRASHES"):
+        if alias in out:
+            out[alias] = total_value
+
+    if total_crashes > 0 and hours > 0:
+        overall = _display_number(hours / total_crashes, 2)
+        out["mtbf"] = overall
+        for alias in ("total_mtbf", "overall_mtbf"):
+            if alias in out:
+                out[alias] = overall
+    elif "mtbf" not in out:
+        out["mtbf"] = "-"
+
+    if system_crash > 0 and hours > 0:
+        out["system_mtbf"] = _display_number(hours / system_crash, 2)
+    elif has_system and "system_mtbf" not in out:
+        out["system_mtbf"] = "-"
+
+    # Overall MTBF = hours / (system + SSR + process), capped at 100; 0 if no crashes
+    if overall_total > 0 and hours > 0:
+        _raw_overall = hours / overall_total
+        out["overallmtbf"] = min(_display_number(_raw_overall, 2), 100)
+    else:
+        out["overallmtbf"] = 0
+
+    return out
+
+
+def _public_overall_mtbf(row: Dict[str, Any]) -> Any:
+    """Return the public overall MTBF value using a single response key."""
+    value = _row_first(row, _PUBLIC_OVERALL_MTBF_KEYS, None)
+    if value not in (None, ""):
+        return value
+    # Legacy Gen4.5 rows may only carry mtbf. Publish the same value as
+    # overallMTBF so external callers can rely on a stable key.
+    fallback = _row_first(row, _OVERALL_MTBF_KEYS, "")
+    return fallback if fallback not in (None, "") else ""
+
+
+def _public_safe_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Return rows without internal file/path metadata.
+
+    The public API intentionally preserves source JSON columns (for example
+    process_crash, system_crash, system_mtbf) so callers and the UI can render
+    columns from the JSON contract. Only local storage/path internals are hidden.
+    """
+    internal = {
+        "json_path",
+        "generated_at",
+        "updated_at",
+        "source_excel",
+        "source_excel_path",
+        "file_path",
+        "_path",
+    }
+    safe_rows: List[Dict[str, Any]] = []
+    for row in (rows or []):
+        public_row = {k: v for k, v in _normalize_crash_mtbf_row(row).items() if k not in internal}
+        overall_mtbf = _public_overall_mtbf(public_row)
+        public_row.pop("overallMTBF", None)
+        public_row.pop("overall_mtbf", None)
+        public_row["overallmtbf"] = overall_mtbf
+        safe_rows.append(public_row)
+    return safe_rows
+
+
 def _program_summary(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
-    rows = rows or []
+    rows = [_normalize_crash_mtbf_row(r) for r in (rows or [])]
     latest = rows[-1] if rows else {}
-    total_hours = round(sum(_num(r.get("hours")) for r in rows), 2)
-    total_crashes = int(sum(_num(r.get("crashes")) for r in rows))
+    total_hours = round(sum(_num(_row_first(r, _HOUR_KEYS)) for r in rows), 2)
+    total_crashes = int(sum(_num(_row_first(r, _CRASH_KEYS)) for r in rows))
     published_mtbf = []
+    published_system_mtbf = []
     for row in rows:
-        value = row.get("mtbf")
+        value = _row_first(row, _OVERALL_MTBF_KEYS)
         if isinstance(value, (int, float)):
             published_mtbf.append(float(value))
         elif str(value or "").strip().replace(".", "", 1).isdigit():
             published_mtbf.append(float(str(value).strip()))
+        system_value = _row_first(row, ["system_mtbf", "SYSTEM_MTBF"])
+        if isinstance(system_value, (int, float)):
+            published_system_mtbf.append(float(system_value))
+        elif str(system_value or "").strip().replace(".", "", 1).isdigit():
+            published_system_mtbf.append(float(str(system_value).strip()))
+    latest_overall = _public_overall_mtbf(latest)
     return {
         "row_count": len(rows),
         "latest_date": latest.get("date") or "",
         "latest_build": latest.get("build_s") or latest.get("builds") or latest.get("build") or "",
-        "latest_mtbf": latest.get("mtbf"),
+        "latest_mtbf": _row_first(latest, _OVERALL_MTBF_KEYS),
+        "latest_overallmtbf": latest_overall,
+        "latest_system_mtbf": _row_first(latest, ["system_mtbf", "SYSTEM_MTBF"]),
         "total_hours": total_hours,
         "total_crashes": total_crashes,
         "calculated_overall_mtbf": round(total_hours / total_crashes, 2) if total_crashes else total_hours,
         "max_published_mtbf": max(published_mtbf) if published_mtbf else None,
+        "max_published_system_mtbf": max(published_system_mtbf) if published_system_mtbf else None,
     }
+
+
+def _date_text(row: Dict[str, Any]) -> str:
+    return str(_row_first(row, ["date", "Date", "report_date", "Report Date"], "") or "")
+
+
+def _latest_public_row(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
+    safe_rows = _public_safe_rows(rows)
+    if not safe_rows:
+        return {}
+    dated_rows = [row for row in safe_rows if _date_text(row)]
+    if dated_rows:
+        return sorted(dated_rows, key=_date_text)[-1]
+    return safe_rows[-1]
+
+
+def _docs_sp_groups(platform: str) -> List[Dict[str, Any]]:
+    """Build Gen5-style SP/domain summary groups for the public Gen4.5 docs page."""
+    platform_key = str(platform or "HQX").upper().strip()
+    index = _platform_read_index(platform_key) if platform_key == "HGY" else _read_index()
+    reference_domains = _hqx_domain_by_sp_map() if platform_key == "HGY" else {}
+    groups: Dict[str, Dict[str, Any]] = {}
+
+    for entry in index:
+        if not isinstance(entry, dict):
+            continue
+        rows = _platform_read_sp_rows(platform_key, entry)
+        safe_rows = _public_safe_rows(rows)
+        if not safe_rows:
+            continue
+
+        sp = str(entry.get("sp") or entry.get("program") or "").strip()
+        if not sp:
+            continue
+
+        latest = _latest_public_row(rows)
+        latest_overall = _public_overall_mtbf(latest)
+        detail = {
+            "sp":                  sp,
+            "program":             entry.get("program") or sp,
+            "domain":              _entry_domain(entry, platform_key, reference_domains),
+            "row_count":           len(safe_rows),
+            "latest_date":         _date_text(latest),
+            "latest_mtbf":        _row_first(latest, _OVERALL_MTBF_KEYS),
+            "latest_overallmtbf": latest_overall,
+            "endpoint":           (
+                f"/public/auto-gen45/api/hgy/sp/{sp}"
+                if platform_key == "HGY"
+                else f"/public/auto-gen45/api/sp/{sp}"
+            ),
+        }
+        group = groups.setdefault(sp, {
+            "sp":             sp,
+            "program":        detail["program"],
+            "platform":       platform_key,
+            "domains":        [],
+            "domain_details": [],
+        })
+        group["domains"].append(detail["domain"])
+        group["domain_details"].append(detail)
+
+    def _sp_sort_key(item: Dict[str, Any]) -> Any:
+        sp_text = str(item.get("sp") or "")
+        digits = "".join(re.findall(r"\d+", sp_text))
+        return (int(digits) if digits else 10**9, sp_text)
+
+    result = list(groups.values())
+    for group in result:
+        group["domain_details"].sort(key=lambda d: str(d.get("domain") or "").upper())
+        group["domains"] = [d.get("domain") for d in group["domain_details"]]
+    return sorted(result, key=_sp_sort_key)
 
 
 def _bool_arg(name: str, default: bool = True) -> bool:
@@ -570,15 +928,25 @@ def public_auto_gen45_docs():
     base = _base_url()
     try:
         available = _read_index()
+        hqx_sps = _docs_sp_groups("HQX")
         load_error = ""
     except Exception as exc:
         available = []
+        hqx_sps = []
         load_error = str(exc)
+    try:
+        available_hgy = _platform_read_index("HGY")
+        hgy_sps = _docs_sp_groups("HGY")
+    except Exception:
+        available_hgy = []
+        hgy_sps = []
     return render_template(
         "public_auto_gen45_api.html",
         base=base,
         available=available,
-        available_hgy=_platform_read_index('HGY'),
+        available_hgy=available_hgy,
+        hqx_sps=hqx_sps,
+        hgy_sps=hgy_sps,
         load_error=load_error,
     )
 
@@ -612,10 +980,7 @@ def api_public_auto_gen45_sp(sp: str):
         if last_n > 0:
             rows = rows[-last_n:]
         # Strip any internal fields from each row before returning
-        safe_rows = [{k: v for k, v in r.items() if k not in (
-            "json_path", "generated_at", "updated_at", "source_excel",
-            "source_excel_path", "file_path", "_path"
-        )} for r in rows]
+        safe_rows = _public_safe_rows(rows)
         response = {
             "ok": True,
             "sp": entry.get("sp"),
@@ -815,8 +1180,14 @@ def api_public_hgy_sps():
         return "", 204
     try:
         index = _platform_read_index("HGY")
+        reference_domains = _hqx_domain_by_sp_map()
+        available = [
+            _with_resolved_platform_domain("HGY", entry, reference_domains)
+            for entry in index
+            if isinstance(entry, dict)
+        ]
         return jsonify({"ok": True, "platform": "HGY",
-                        "count": len(index), "available_sps": index})
+                        "count": len(available), "available_sps": available})
     except Exception as exc:
         return jsonify({"ok": False, "error": str(exc)}), 500
 
@@ -832,11 +1203,28 @@ def api_public_hgy_sp(sp: str):
         if not entry:
             return jsonify({"ok": False, "error": f"SP {sp!r} not found in HGY"}), 404
         rows = _platform_read_sp_rows("HGY", entry)
+        # Sort by date descending so the UI table shows latest date first
+        rows = sorted(
+            rows,
+            key=lambda r: str(r.get("date") or r.get("Date") or r.get("report_date") or ""),
+            reverse=True,
+        )
         last_n = request.args.get("last_n", 0, type=int)
         if last_n and last_n > 0:
-            rows = rows[-last_n:]
-        return jsonify({"ok": True, "sp": entry["sp"], "platform": "HGY",
-                        "row_count": len(rows), "rows": rows})
+            rows = rows[:last_n]
+        safe_rows = _public_safe_rows(rows)
+        response = {
+            "ok": True,
+            "sp": entry.get("sp"),
+            "resolved_program": entry.get("program"),
+            "domain": _entry_domain(entry, "HGY", _hqx_domain_by_sp_map()),
+            "platform": "HGY",
+            "row_count": len(safe_rows),
+            "rows": safe_rows,
+        }
+        if _bool_arg("summary", True):
+            response["summary"] = _program_summary(rows)
+        return jsonify(response)
     except Exception as exc:
         return jsonify({"ok": False, "error": str(exc)}), 500
 
@@ -892,15 +1280,17 @@ def api_public_hgy_add_build(sp: str):
     rows = _platform_read_sp_rows("HGY", entry)
     next_sno = max((r.get("sno", 0) or 0 for r in rows), default=0) + 1
     next_row = max((r.get("excel_row", 1) or 1 for r in rows), default=1) + 1
-    clean = {k: v for k, v in row.items() if k not in ("sno", "excel_row")}
+    clean = _normalize_crash_mtbf_row({k: v for k, v in row.items() if k not in ("sno", "excel_row")})
     clean["sno"]       = next_sno
     clean["excel_row"] = next_row
+    clean = _normalize_crash_mtbf_row(clean)
     rows.append(clean)
     _platform_write_sp_rows("HGY", entry, rows)
     actor = str(getattr(current_user, "id", "") or "").strip()
     _platform_write_audit("HGY", "add_build", entry["sp"], entry.get("program", sp), actor)
     return jsonify({"ok": True, "sp": entry["sp"], "platform": "HGY",
-                    "row_count": len(rows), "rows": rows})
+                    "row_count": len(rows), "rows": rows,
+                    "row": clean, "summary": _program_summary(rows)})
 
 
 @public_auto_gen45_bp.route("/public/auto-gen45/api/hgy/sp/<string:sp>/save_table",
@@ -924,15 +1314,16 @@ def api_public_hgy_save_table(sp: str):
     for i, r in enumerate(rows_payload, 1):
         if not isinstance(r, dict):
             continue
-        row = {k: v for k, v in r.items() if k not in ("sno", "excel_row")}
+        row = _normalize_crash_mtbf_row({k: v for k, v in r.items() if k not in ("sno", "excel_row")})
         row["sno"]       = i
         row["excel_row"] = i + 1
-        clean.append(row)
+        clean.append(_normalize_crash_mtbf_row(row))
     _platform_write_sp_rows("HGY", entry, clean)
     actor = str(getattr(current_user, "id", "") or "").strip()
     _platform_write_audit("HGY", "save_table", entry["sp"], entry.get("program", sp), actor)
     return jsonify({"ok": True, "sp": entry["sp"], "platform": "HGY",
-                    "row_count": len(clean), "rows": clean})
+                    "row_count": len(clean), "rows": clean,
+                    "summary": _program_summary(clean)})
 
 
 @public_auto_gen45_bp.route("/public/auto-gen45/api/hgy/sp/<string:sp>/edit_build",
@@ -959,13 +1350,15 @@ def api_public_hgy_edit_build(sp: str):
             updated = dict(r)
             updated.update({k: v for k, v in row.items()
                             if k not in ("sno", "excel_row")})
+            updated = _normalize_crash_mtbf_row(updated)
             rows[i] = updated
             _platform_write_sp_rows("HGY", entry, rows)
             actor = str(getattr(current_user, "id", "") or "").strip()
             _platform_write_audit("HGY", "edit_build",
                                   entry["sp"], entry.get("program", sp), actor)
             return jsonify({"ok": True, "sp": entry["sp"], "platform": "HGY",
-                            "row_count": len(rows), "rows": rows})
+                            "row_count": len(rows), "rows": rows,
+                            "row": updated, "summary": _program_summary(rows)})
     return jsonify({"ok": False, "error": f"Row sno={sno} not found"}), 404
 
 
@@ -998,7 +1391,8 @@ def api_public_hgy_delete_build(sp: str):
     _platform_write_audit("HGY", "delete_build",
                           entry["sp"], entry.get("program", sp), actor)
     return jsonify({"ok": True, "sp": entry["sp"], "platform": "HGY",
-                    "row_count": len(new_rows), "rows": new_rows})
+                    "row_count": len(new_rows), "rows": new_rows,
+                    "summary": _program_summary(new_rows)})
 
 
 @public_auto_gen45_bp.route("/public/auto-gen45/api/hgy/sp/<string:sp>/remove",
