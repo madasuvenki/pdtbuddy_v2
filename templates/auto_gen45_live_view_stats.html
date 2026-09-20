@@ -157,7 +157,7 @@
       </div>
     </section>
         <section id="tab-mtbf" class="tab-section">
-      <div class="card"><div class="card-head"><h2><i class="fas fa-chart-line" style="color:#6366f1"></i> MTBF Trend</h2><div class="toolbar"><label style="display:inline-flex;align-items:center;gap:8px;padding:6px 14px;background:#eef2ff;border:1px solid #c7d2fe;border-radius:12px;font-size:12px;font-weight:950;color:#3730a3">Product Line <select id="mtbfBuildSelect" class="input" style="height:38px;min-width:760px;max-width:72vw;padding:0 12px;font-size:13px;border-radius:10px;color:#111827" onchange="mtbfBuildSelectChanged()"><option value="">All product lines</option></select></label><button class="btn" onclick="openMtbfPlMergeModal()" title="Select product lines using checkboxes and save them as one display name"><i class="fas fa-check-square"></i> Merge PL</button><span style="display:inline-flex;align-items:center;gap:14px;margin-right:8px;padding:5px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:999px;font-size:11px;font-weight:900"><span style="display:inline-flex;align-items:center;gap:5px"><span style="display:inline-block;width:28px;height:4px;background:#fdba74;border-radius:2px"></span><span style="color:#c2410c">Hours</span></span><span style="display:inline-flex;align-items:center;gap:5px"><span style="display:inline-block;width:28px;height:3px;background:#16a34a;border-radius:2px"></span><span style="color:#16a34a">MTBF</span></span><span style="display:inline-flex;align-items:center;gap:5px"><span style="display:inline-block;width:28px;height:3px;background:#dc2626;border-radius:2px"></span><span style="color:#dc2626">Crashes</span></span></span><label style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;background:#fffbeb;border:1px solid #fde68a;border-radius:999px;font-size:11px;font-weight:900;color:#92400e;cursor:pointer;user-select:none" title="When checked: bars with MTBF=0 are shown with MTBF line at 0. When unchecked: those bars are hidden from chart entirely."><input type="checkbox" id="chkIncludeZeroMtbf" style="accent-color:#f59e0b;width:13px;height:13px;cursor:pointer" onchange="renderCharts()"> Include MTBF=0</label><input id="rowFilter" class="input" placeholder="Filter rows..." oninput="renderTable()"><button class="btn" onclick="copyMtbfChart()"><i class="fas fa-copy"></i> Copy Chart</button><span id="copyChartMsg" style="font-size:11px;font-weight:800;color:#64748b"></span></div></div><div class="card-body"><div class="chart-wrap mtbf-chart-wrap"><canvas id="mtbfChart" height="520"></canvas><div id="mtbfEmpty" class="empty">Select an SP to show MTBF trend.</div></div></div></div>
+      <div class="card"><div class="card-head"><h2><i class="fas fa-chart-line" style="color:#6366f1"></i> MTBF Trend</h2><div class="toolbar"><label style="display:inline-flex;align-items:center;gap:8px;padding:6px 14px;background:#eef2ff;border:1px solid #c7d2fe;border-radius:12px;font-size:12px;font-weight:950;color:#3730a3">Product Line <select id="mtbfBuildSelect" class="input" style="height:38px;min-width:760px;max-width:72vw;padding:0 12px;font-size:13px;border-radius:10px;color:#111827" onchange="mtbfBuildSelectChanged()"><option value="">All product lines</option></select></label><button class="btn" onclick="openMtbfPlMergeModal()" title="Select product lines using checkboxes and save them as one display name"><i class="fas fa-check-square"></i> Merge PL</button><label style="display:inline-flex;align-items:center;gap:8px;padding:6px 14px;background:#eef2ff;border:1px solid #c7d2fe;border-radius:12px;font-size:12px;font-weight:950;color:#3730a3">MTBF Type <select id="mtbfMetricSelect" class="input" style="height:32px;min-width:160px;padding:0 10px;font-size:12px" onchange="renderCharts()"><option value="system" selected>System MTBF</option><option value="overall">Overall MTBF</option></select></label><span style="display:inline-flex;align-items:center;gap:14px;margin-right:8px;padding:5px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:999px;font-size:11px;font-weight:900"><span style="display:inline-flex;align-items:center;gap:5px"><span style="display:inline-block;width:28px;height:4px;background:#fdba74;border-radius:2px"></span><span style="color:#c2410c">Hours</span></span><span style="display:inline-flex;align-items:center;gap:5px"><span style="display:inline-block;width:28px;height:3px;background:#16a34a;border-radius:2px"></span><span id="mtbfLegendLabel" style="color:#16a34a">System MTBF</span></span><span style="display:inline-flex;align-items:center;gap:5px"><span style="display:inline-block;width:28px;height:3px;background:#dc2626;border-radius:2px"></span><span style="color:#dc2626">Crashes</span></span></span><label style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;background:#fffbeb;border:1px solid #fde68a;border-radius:999px;font-size:11px;font-weight:900;color:#92400e;cursor:pointer;user-select:none" title="When checked: bars with MTBF=0 are shown with MTBF line at 0. When unchecked: those bars are hidden from chart entirely."><input type="checkbox" id="chkIncludeZeroMtbf" style="accent-color:#f59e0b;width:13px;height:13px;cursor:pointer" onchange="renderCharts()"> Include MTBF=0</label><input id="rowFilter" class="input" placeholder="Filter rows..." oninput="renderTable()"><button class="btn" onclick="copyMtbfChart()"><i class="fas fa-copy"></i> Copy Chart</button><span id="copyChartMsg" style="font-size:11px;font-weight:800;color:#64748b"></span></div></div><div class="card-body"><div class="chart-wrap mtbf-chart-wrap"><canvas id="mtbfChart" height="520"></canvas><div id="mtbfEmpty" class="empty">Select an SP to show MTBF trend.</div></div></div></div>
       <div class="card"><div class="card-head"><h2><i class="fas fa-table" style="color:#f97316"></i> Full SP Table</h2><div class="toolbar"><span id="mtbfBuildFilterInfo" class="small-muted"></span>{% if can_edit %}<button class="btn" onclick="openEditTableModal()"><i class="fas fa-pen-to-square"></i> Edit Table</button><button class="btn btn-primary" onclick="openAddBuildModal()"><i class="fas fa-plus"></i> Add Build</button>{% endif %}</div></div><div class="tbl-wrap full-sp-wrap"><table class="tbl full-sp-table"><thead id="tableHead"></thead><tbody id="tableBody"><tr><td class="empty">No rows.</td></tr></tbody></table></div></div>
     </section>
         <section id="tab-weekly" class="tab-section">
@@ -1370,7 +1370,7 @@ function closeLiveStatusViewer(){
   window.location.href='/live_status_view';
 }
 function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-function n(v){const x=Number(String(v||0).replace(/,/g,''));return Number.isFinite(x)?x:0;} function fmt(v,d=1){const x=n(v);return x?x.toLocaleString(undefined,{maximumFractionDigits:d}):'0';}
+function n(v){const x=Number(String(v||0).replace(/,/g,'').trim().replace(/^[<>]=?\s*/,''));return Number.isFinite(x)?x:0;} function fmt(v,d=1){const x=n(v);return x?x.toLocaleString(undefined,{maximumFractionDigits:d}):'0';}
 function setText(id,v){const e=document.getElementById(id); if(e)e.textContent=v==null?'':v;}
 async function getJson(url){const r=await fetch(url,{cache:'no-store'}); const d=await r.json(); if(!d.ok) throw new Error(d.message||d.error||'API failed'); return d;}
 async function postJson(url,payload){const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload||{})}); const d=await r.json(); if(!d.ok) throw new Error(d.error||d.message||'Save failed'); return d;}
@@ -2123,6 +2123,9 @@ function metaId(r){
   if(m)return `Meta-${String(Number(m[1])).padStart(4,'0')}`;
   return raw;
 }
+function mtbfTrendMetric(){const el=document.getElementById('mtbfMetricSelect');return (el&&el.value==='overall')?'overall':'system';}
+function mtbfTrendLabel(){return mtbfTrendMetric()==='overall'?'Overall MTBF':'System MTBF';}
+function mtbfTrendValue(r){return mtbfTrendMetric()==='overall'?n(rowOverallMtbfWithSsr(r)):rowSystemMtbfNumber(r);}
 function chartRows(){
   const includeZero=!!(document.getElementById('chkIncludeZeroMtbf')&&document.getElementById('chkIncludeZeroMtbf').checked);
   const sourceRows=mtbfDisplayRows();
@@ -2142,7 +2145,7 @@ function chartRows(){
     return sourceRows.reduce((acc,r,idx)=>{
       const h=n(r.hours||r.total_hours||r.Hours||r.HOURS);
       const c=rowTotalCrashes(r);
-      const mtbfValue=hasCrashBreakdown(r)?n(rowOverallMtbf(r)):rowMtbf(r,h,c);
+      const mtbfValue=hasCrashBreakdown(r)?mtbfTrendValue(r):rowMtbf(r,h,c);
       const isZeroMtbf=mtbfValue==null||!Number.isFinite(mtbfValue)||mtbfValue<=0;
       if(isZeroMtbf&&!includeZero)return acc;
       let label=String(metaId(r)||'').trim();
@@ -2174,8 +2177,9 @@ function chartRows(){
     if(!map.has(meta))map.set(meta,{label:meta,hours:0,crashes:0,firstIdx:idx,firstDate:dateVal(r)||'',rows:0,mtbfSum:0,mtbfCount:0});
     const x=map.get(meta);
     x.hours+=h;x.crashes+=c;x.rows++;
-    if(hasRawMtbf&&Number.isFinite(rawMtbfVal)){
-      x.mtbfSum+=rawMtbfVal;
+    const selectedMtbf=hasCrashBreakdown(r)?mtbfTrendValue(r):(hasRawMtbf&&Number.isFinite(rawMtbfVal)?rawMtbfVal:null);
+    if(selectedMtbf!=null&&Number.isFinite(selectedMtbf)){
+      x.mtbfSum+=selectedMtbf;
       x.mtbfCount++;
     }
     if(!x.firstDate)x.firstDate=dateVal(r)||'';
@@ -2197,14 +2201,15 @@ function chartRows(){
     return acc;
   },[]);
 }
-const mtbfValueLabels={id:'mtbfValueLabels',afterDatasetsDraw(chart,args,opts){const {ctx}=chart;ctx.save();ctx.font='10px Inter, Segoe UI, Arial';ctx.textAlign='center';chart.data.datasets.forEach((ds,di)=>{const meta=chart.getDatasetMeta(di);if(meta.hidden)return;meta.data.forEach((pt,i)=>{const v=ds.data[i];if(v==null||!Number.isFinite(Number(v)))return;const isMtbf=ds.label==='MTBF';const txt=Number(v).toLocaleString(undefined,{maximumFractionDigits:isMtbf?1:0});ctx.fillStyle=ds.label==='Hours'?'#c2410c':(isMtbf?'#16a34a':'#dc2626');const y=ds.label==='Hours'?pt.y-6:pt.y-10;ctx.fillText(txt,pt.x,y);});});ctx.restore();}};
+const mtbfValueLabels={id:'mtbfValueLabels',afterDatasetsDraw(chart,args,opts){const {ctx}=chart;ctx.save();ctx.font='10px Inter, Segoe UI, Arial';ctx.textAlign='center';chart.data.datasets.forEach((ds,di)=>{const meta=chart.getDatasetMeta(di);if(meta.hidden)return;meta.data.forEach((pt,i)=>{const v=ds.data[i];if(v==null||!Number.isFinite(Number(v)))return;const isMtbf=String(ds.label||'').includes('MTBF');const txt=Number(v).toLocaleString(undefined,{maximumFractionDigits:isMtbf?1:0});ctx.fillStyle=ds.label==='Hours'?'#c2410c':(isMtbf?'#16a34a':'#dc2626');const y=ds.label==='Hours'?pt.y-6:pt.y-10;ctx.fillText(txt,pt.x,y);});});ctx.restore();}};
 const mtbfInlineDataTable={id:'mtbfInlineDataTable',afterDraw(chart,args,opts){
   const t=(opts&&opts.table)||{};
   const labels=t.labels||[], hours=t.hours||[], mtbf=t.mtbf||[], crashes=t.crashes||[];
   if(!labels.length)return;
   const {ctx,chartArea,scales}=chart, x=scales.x;
   const _mtbfDisplay=mtbf.map(v=>v==null?'-':v);
-  const leftLabelW=74, rowH=20, rows=[{name:'',vals:labels,color:'#fff'},{name:'Hours',vals:hours,color:'#fdba74'},{name:'MTBF',vals:_mtbfDisplay,color:'#16a34a'},{name:'Crashes',vals:crashes,color:'#dc2626'}];
+  const mtbfName=(opts&&opts.mtbfLabel)||'System MTBF';
+  const leftLabelW=96, rowH=20, rows=[{name:'',vals:labels,color:'#fff'},{name:'Hours',vals:hours,color:'#fdba74'},{name:mtbfName,vals:_mtbfDisplay,color:'#16a34a'},{name:'Crashes',vals:crashes,color:'#dc2626'}];
   const tableTop=chartArea.bottom+10, tableLeft=chartArea.left-leftLabelW, tableRight=chartArea.right, tableW=tableRight-tableLeft;
   ctx.save();ctx.font='10px Inter, Segoe UI, Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.lineWidth=1;ctx.strokeStyle='#d1d5db';
   for(let r=0;r<rows.length;r++){
@@ -2256,32 +2261,37 @@ function renderCharts(){
       // inline table: show 0 or '-' for null MTBF
       const mtbfTableVals=mtbf.map(v=>v==null?'-':v);
           const includeZeroChecked=!!(document.getElementById('chkIncludeZeroMtbf')&&document.getElementById('chkIncludeZeroMtbf').checked);
-          const cfg={type:'bar',data:{labels,datasets:[{type:'bar',label:'Hours',data:hours,backgroundColor:'#fdba74',borderColor:'#fb923c',borderWidth:0,borderRadius:3,barPercentage:.45,categoryPercentage:.72,maxBarThickness:42,yAxisID:'y',order:3},{type:'line',label:'MTBF',data:mtbf,borderColor:'#16a34a',backgroundColor:'rgba(22,163,74,.12)',borderWidth:3,pointRadius:5,pointHoverRadius:7,pointBackgroundColor:'#16a34a',pointBorderColor:'#fff',pointBorderWidth:2,yAxisID:'y1',tension:.18,order:1,spanGaps:includeZeroChecked},{type:'line',label:'Crashes',data:crashes,borderColor:'#dc2626',backgroundColor:'rgba(220,38,38,.12)',borderWidth:3,pointRadius:5,pointHoverRadius:7,pointBackgroundColor:'#dc2626',pointBorderColor:'#fff',pointBorderWidth:2,yAxisID:'y1',tension:.18,order:2}]},plugins:[mtbfValueLabels,mtbfInlineDataTable],options:{responsive:false,maintainAspectRatio:false,layout:{padding:{top:24,right:20,bottom:96,left:8}},plugins:{legend:{display:false},title:{display:false},mtbfInlineDataTable:{table:{labels:labels,hours:hours,mtbf:mtbfTableVals,crashes:crashes}},tooltip:{callbacks:{title:(items)=>items&&items[0]?items[0].label:'',afterTitle:(items)=>{const x=cr[items[0].dataIndex];return `Rows combined: ${x.rows}`;},label:(ctx)=>`${ctx.dataset.label}: ${Number(ctx.parsed.y||0).toLocaleString(undefined,{maximumFractionDigits:ctx.dataset.label==='MTBF'?2:0})}`}}},scales:{x:{title:{display:false},ticks:{display:false,autoSkip:false,maxRotation:0,minRotation:0}},y:{beginAtZero:true,title:{display:true,text:'Hours',color:'#c2410c',font:{size:11,weight:'900'}},ticks:{color:'#374151'}},y1:{beginAtZero:true,position:'right',grid:{drawOnChartArea:false},title:{display:true,text:'MTBF / Crashes',color:'#374151',font:{size:11,weight:'900'}},ticks:{color:'#374151'}}}}};
+          const mtbfLabel=mtbfTrendLabel();
+          setText('mtbfLegendLabel',mtbfLabel);
+          const cfg={type:'bar',data:{labels,datasets:[{type:'bar',label:'Hours',data:hours,backgroundColor:'#fdba74',borderColor:'#fb923c',borderWidth:0,borderRadius:3,barPercentage:.45,categoryPercentage:.72,maxBarThickness:42,yAxisID:'y',order:3},{type:'line',label:mtbfLabel,data:mtbf,borderColor:'#16a34a',backgroundColor:'rgba(22,163,74,.12)',borderWidth:3,pointRadius:5,pointHoverRadius:7,pointBackgroundColor:'#16a34a',pointBorderColor:'#fff',pointBorderWidth:2,yAxisID:'y1',tension:.18,order:1,spanGaps:includeZeroChecked},{type:'line',label:'Crashes',data:crashes,borderColor:'#dc2626',backgroundColor:'rgba(220,38,38,.12)',borderWidth:3,pointRadius:5,pointHoverRadius:7,pointBackgroundColor:'#dc2626',pointBorderColor:'#fff',pointBorderWidth:2,yAxisID:'y1',tension:.18,order:2}]},plugins:[mtbfValueLabels,mtbfInlineDataTable],options:{responsive:false,maintainAspectRatio:false,layout:{padding:{top:24,right:20,bottom:96,left:8}},plugins:{legend:{display:false},title:{display:false},mtbfInlineDataTable:{table:{labels:labels,hours:hours,mtbf:mtbfTableVals,crashes:crashes},mtbfLabel:mtbfLabel},tooltip:{callbacks:{title:(items)=>items&&items[0]?items[0].label:'',afterTitle:(items)=>{const x=cr[items[0].dataIndex];return `Rows combined: ${x.rows}`;},label:(ctx)=>`${ctx.dataset.label}: ${Number(ctx.parsed.y||0).toLocaleString(undefined,{maximumFractionDigits:String(ctx.dataset.label||'').includes('MTBF')?2:0})}`}}},scales:{x:{title:{display:false},ticks:{display:false,autoSkip:false,maxRotation:0,minRotation:0}},y:{beginAtZero:true,title:{display:true,text:'Hours',color:'#c2410c',font:{size:11,weight:'900'}},ticks:{color:'#374151'}},y1:{beginAtZero:true,position:'right',grid:{drawOnChartArea:false},title:{display:true,text:mtbfLabel+' / Crashes',color:'#374151',font:{size:11,weight:'900'}},ticks:{color:'#374151'}}}}};
     mtbfChart=new Chart(canvas,cfg);
 }
 function firstVal(r,keys,fb=''){for(const k of keys){if(r&&r[k]!=null&&String(r[k]).trim()!=='')return r[k];}return fb;}
-function mtbfVal(r,keys){const v=firstVal(r,keys,'');return (v===null||v===undefined||String(v).trim()===''||String(v).trim()==='-')?'-':fmt(v,2);}
+function mtbfNum(v){const t=String(v??'').replace(/,/g,'').trim();if(!t||t==='-'||t==='—')return 0;const x=Number(t.replace(/^[<>]=?\s*/,''));return Number.isFinite(x)?x:0;}
+function mtbfVal(r,keys){const v=firstVal(r,keys,'');return (v===null||v===undefined||String(v).trim()===''||String(v).trim()==='-')?'-':fmt(mtbfNum(v),2);}
 const SYS_CRASH_KEYS=['system_crash','SYSTEM_CRASH','system_crashes','SYSTEM_CRASHES'];
 const PROC_CRASH_KEYS=['process_crash','PROCESS_CRASH','process_crashes','PROCESS_CRASHES'];
 const SSR_CRASH_KEYS=['ssr','SSR','ssr_crash','SSR_CRASH','ssr_crashes','SSR_CRASHES'];
 const CRASH_KEYS=['crashes','Crashes','CRASHES','total_crashes','TOTAL_CRASHES'];
 const HOUR_KEYS=['hours','Hours','HOURS','total_hours'];
-const OVERALL_MTBF_KEYS=['mtbf','MTBF','total_mtbf','TOTAL_MTBF','overall_mtbf','OVERALL_MTBF'];
+const OVERALL_MTBF_KEYS=['mtbf','MTBF','total_mtbf','TOTAL_MTBF','overall_mtbf','OVERALL_MTBF','overallmtbf','OVERALLMTBF'];
 function hasFieldVal(r,keys){return keys.some(k=>r&&r[k]!=null&&String(r[k]).trim()!==''&&String(r[k]).trim()!=='-');}
-function hasCrashBreakdown(r){return hasFieldVal(r,SYS_CRASH_KEYS)||hasFieldVal(r,PROC_CRASH_KEYS);}
-function rowSystemCrash(r){return n(firstVal(r,SYS_CRASH_KEYS,0));}
-function rowProcessCrash(r){return n(firstVal(r,PROC_CRASH_KEYS,0));}
-function rowSsrCrash(r){return n(firstVal(r,SSR_CRASH_KEYS,0));}
-function rowTotalCrashes(r){return hasCrashBreakdown(r)?(rowSystemCrash(r)+rowProcessCrash(r)):n(firstVal(r,CRASH_KEYS,0));}
-function rowSystemMtbf(r){const h=n(firstVal(r,HOUR_KEYS,0)), sys=rowSystemCrash(r);return hasFieldVal(r,SYS_CRASH_KEYS)?(sys>0&&h>0?fmt(h/sys,2):'-'):mtbfVal(r,['system_mtbf','SYSTEM_MTBF']);}
-function rowOverallMtbf(r){const h=n(firstVal(r,HOUR_KEYS,0)), total=rowTotalCrashes(r);return hasCrashBreakdown(r)?(total>0&&h>0?fmt(h/total,2):'-'):mtbfVal(r,OVERALL_MTBF_KEYS);}
+function hasCrashBreakdown(r){return hasFieldVal(r,SYS_CRASH_KEYS)||hasFieldVal(r,SSR_CRASH_KEYS)||hasFieldVal(r,PROC_CRASH_KEYS);}
+function rowCrashValue(r,keys){let seen=false,max=0;for(const k of keys){if(!r||r[k]==null)continue;const text=String(r[k]).trim();if(!text||text==='-'||text==='—')continue;seen=true;max=Math.max(max,n(text));}return seen?max:0;}
+function rowSystemCrash(r){return rowCrashValue(r,SYS_CRASH_KEYS);}
+function rowProcessCrash(r){return rowCrashValue(r,PROC_CRASH_KEYS);}
+function rowSsrCrash(r){return rowCrashValue(r,SSR_CRASH_KEYS);}
+function rowTotalCrashes(r){return hasCrashBreakdown(r)?(rowSystemCrash(r)+rowSsrCrash(r)+rowProcessCrash(r)):n(firstVal(r,CRASH_KEYS,0));}
+function rowSystemMtbfNumber(r){const h=n(firstVal(r,HOUR_KEYS,0)), total=rowSystemCrash(r)+rowSsrCrash(r);if(total>0&&h>0)return h/total;const stored=mtbfNum(firstVal(r,['system_mtbf','SYSTEM_MTBF'],0));return stored>0?stored:0;}
+function rowSystemMtbf(r){return fmt(rowSystemMtbfNumber(r),2);}
 function rowOverallMtbfWithSsr(r){
+  const systemMtbf=rowSystemMtbfNumber(r);
+  if(systemMtbf<=0) return 0;
+  const proc=rowProcessCrash(r);
+  if(proc<=0) return fmt(systemMtbf,2);
   const h=n(firstVal(r,HOUR_KEYS,0));
-  const sys=rowSystemCrash(r),ssr=rowSsrCrash(r),proc=rowProcessCrash(r);
-  const total=sys+ssr+proc;
-  if(total===0) return 0;
-  const val=h/total;
-  return val>100?100:fmt(val,2);
+  const total=rowSystemCrash(r)+rowSsrCrash(r)+proc;
+  return total>0&&h>0?fmt(h/total,2):0;
 }
 function fixedTableColumns(){return[
   {key:'sno',label:'S.No',val:(r,i)=>i+1},
@@ -2293,10 +2303,10 @@ function fixedTableColumns(){return[
   {key:'devices',label:'Devices',val:r=>firstVal(r,['devices','device_count','deviceCount','device','device_name'])},
   {key:'hours',label:'Hours',val:r=>fmt(firstVal(r,['hours','Hours','HOURS','total_hours']),1)},
   {key:'crashes',label:'Crashes',val:r=>fmt(rowTotalCrashes(r),0)},
-  {key:'process_crash',label:'Process Crash',val:r=>fmt(firstVal(r,['process_crash','PROCESS_CRASH','process_crashes','PROCESS_CRASHES']),0)},
-  {key:'system_crash',label:'System Crash',val:r=>fmt(firstVal(r,['system_crash','SYSTEM_CRASH','system_crashes','SYSTEM_CRASHES']),0)},
+  {key:'process_crash',label:'Process Crash',val:r=>fmt(rowProcessCrash(r),0)},
+  {key:'system_crash',label:'System Crash',val:r=>fmt(rowSystemCrash(r),0)},
+  {key:'ssr_crash',label:'SSR Crash',val:r=>fmt(rowSsrCrash(r),0)},
   {key:'system_mtbf',label:'System MTBF',val:r=>rowSystemMtbf(r)},
-  {key:'mtbf',label:'MTBF',val:r=>rowOverallMtbf(r)},
   {key:'overallmtbf',label:'overallMTBF',val:r=>rowOverallMtbfWithSsr(r)},
   {key:'comments',label:'Comments',val:r=>firstVal(r,['comments','Comments','comment','remarks','notes'])}
 ];}
@@ -2325,7 +2335,8 @@ function fixedTableColumns(){return[
 // ---------------------------------------------------------------------------
   // ── Add Build modal platform (independent of page-level _activePlat) ──────
   const _ADD_BUILD_RESERVED = new Set(['excel_row','sno','s_no']);
-  function _addBuildLabel(k){const map={mtbf:'Overall MTBF',total_mtbf:'Overall MTBF',overall_mtbf:'Overall MTBF',system_mtbf:'System MTBF',process_crash:'Process Crash',process_crashes:'Process Crash',system_crash:'System Crash',system_crashes:'System Crash'};return map[String(k||'').toLowerCase()]||k.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase());}
+  const _MTBF_LEGACY_HIDE_KEYS = new Set(['mtbf','MTBF','total_mtbf','TOTAL_MTBF','overall_mtbf','OVERALL_MTBF']);
+  function _addBuildLabel(k){const map={overallmtbf:'Overall MTBF',OVERALLMTBF:'Overall MTBF',system_mtbf:'System MTBF',process_crash:'Process Crash',process_crashes:'Process Crash',system_crash:'System Crash',system_crashes:'System Crash',ssr:'SSR Crash',ssr_crash:'SSR Crash',ssr_crashes:'SSR Crash'};return map[String(k||'')]||map[String(k||'').toLowerCase()]||k.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase());}
   var _abPlat = 'HQX'; // 'HQX' or 'HGY' — set when modal opens
   function _abRows(){
     // Returns rows for the currently selected modal platform
@@ -2335,12 +2346,12 @@ function fixedTableColumns(){return[
   function _abFieldKeys(){
     // Use the selected platform's rows for field discovery.
     // If HGY has no rows yet, fall back to HQX rows so the same columns appear.
-    const preferred=['date','target','build_s','builds','build','build_id','meta_id','meta','product_flavor','devices','hours','crashes','process_crash','system_crash','system_mtbf','mtbf','total_mtbf','comments'];
+    const preferred=['date','target','build_s','builds','build','build_id','meta_id','meta','product_flavor','devices','hours','crashes','process_crash','system_crash','ssr','system_mtbf','overallmtbf','comments'];
     let src = _abRows();
     if(!src.length && _abPlat==='HGY') src = (spPayload&&spPayload.rows)||[]; // HQX fallback for field template
     const seen=[], have=new Set();
     preferred.forEach(k=>{ if(src.some(r=>Object.prototype.hasOwnProperty.call(r||{},k))){ seen.push(k); have.add(k); } });
-    src.forEach(r=>Object.keys(r||{}).forEach(k=>{ if(!_ADD_BUILD_RESERVED.has(k)&&!have.has(k)){ have.add(k); seen.push(k); } }));
+    src.forEach(r=>Object.keys(r||{}).forEach(k=>{ if(!_ADD_BUILD_RESERVED.has(k)&&!_MTBF_LEGACY_HIDE_KEYS.has(k)&&!have.has(k)){ have.add(k); seen.push(k); } }));
     if(!seen.length) preferred.forEach(k=>{ if(!have.has(k)){ have.add(k); seen.push(k); } });
     return seen;
   }
@@ -2385,7 +2396,7 @@ function fixedTableColumns(){return[
   }
   function _abRenderFields(){
     const keys = _abFieldKeys();
-    const calcKeys = new Set([].concat(HOUR_KEYS, SYS_CRASH_KEYS, PROC_CRASH_KEYS, CRASH_KEYS, ['system_mtbf','SYSTEM_MTBF'], OVERALL_MTBF_KEYS));
+    const calcKeys = new Set([].concat(HOUR_KEYS, SYS_CRASH_KEYS, SSR_CRASH_KEYS, PROC_CRASH_KEYS, CRASH_KEYS, ['system_mtbf','SYSTEM_MTBF','overallmtbf','OVERALLMTBF'], OVERALL_MTBF_KEYS));
     document.getElementById('addBuildFields').innerHTML = keys.map(k=>{
       const isDate = /^date$/i.test(k);
       const calcAttr = calcKeys.has(k) ? ' oninput="_abAutoCalc()"' : '';
@@ -2422,15 +2433,19 @@ function fixedTableColumns(){return[
   }
   function _abNormalizeRow(row){
     row=row||{};
-    const hasBreak=hasFieldVal(row,SYS_CRASH_KEYS)||hasFieldVal(row,PROC_CRASH_KEYS);
+    const hasBreak=hasFieldVal(row,SYS_CRASH_KEYS)||hasFieldVal(row,SSR_CRASH_KEYS)||hasFieldVal(row,PROC_CRASH_KEYS);
     if(!hasBreak)return row;
     const hours=n(firstVal(row,HOUR_KEYS,0));
     const systemCrash=n(firstVal(row,SYS_CRASH_KEYS,0));
+    const ssrCrash=n(firstVal(row,SSR_CRASH_KEYS,0));
     const processCrash=n(firstVal(row,PROC_CRASH_KEYS,0));
-    const totalCrash=systemCrash+processCrash;
-    _setRowAny(row,CRASH_KEYS,'crashes',_autoNumber(totalCrash,0));
-    _setRowAny(row,['system_mtbf','SYSTEM_MTBF'],'system_mtbf',(systemCrash>0&&hours>0)?_autoNumber(hours/systemCrash,2):'-');
-    _setRowAny(row,OVERALL_MTBF_KEYS,'mtbf',(totalCrash>0&&hours>0)?_autoNumber(hours/totalCrash,2):'-');
+    const systemTotal=systemCrash+ssrCrash;
+    const overallTotal=systemTotal+processCrash;
+    const systemMtbf=(systemTotal>0&&hours>0)?hours/systemTotal:0;
+    const overallMtbf=systemMtbf>0?(processCrash>0&&overallTotal>0?hours/overallTotal:systemMtbf):0;
+    _setRowAny(row,CRASH_KEYS,'crashes',_autoNumber(overallTotal,0));
+    _setRowAny(row,['system_mtbf','SYSTEM_MTBF'],'system_mtbf',systemMtbf>0?_autoNumber(systemMtbf,2):'0');
+    _setRowAny(row,['overallmtbf','OVERALLMTBF','overall_mtbf','OVERALL_MTBF'],'overallmtbf',overallMtbf>0?_autoNumber(overallMtbf,2):'0');
     return row;
   }
   function _abAutoCalc(){
@@ -2438,7 +2453,7 @@ function fixedTableColumns(){return[
     document.querySelectorAll('#addBuildFields [data-field]').forEach(inp=>{
       row[inp.getAttribute('data-field')]=inp.value.trim();
     });
-    if(!(hasFieldVal(row,SYS_CRASH_KEYS)||hasFieldVal(row,PROC_CRASH_KEYS)))return;
+    if(!(hasFieldVal(row,SYS_CRASH_KEYS)||hasFieldVal(row,SSR_CRASH_KEYS)||hasFieldVal(row,PROC_CRASH_KEYS)))return;
     _abNormalizeRow(row);
     _abSet(CRASH_KEYS, firstVal(row,CRASH_KEYS,'0'));
     _abSet(['system_mtbf','SYSTEM_MTBF'], firstVal(row,['system_mtbf','SYSTEM_MTBF'],'-'));
@@ -2492,8 +2507,6 @@ async function addBuildSave(){
     });
     if(!row.date){document.getElementById('addBuildMsg').textContent='Date is required.';document.getElementById('addBuildMsg').style.color='#dc2626';return;}
     _abNormalizeRow(row);
-    // If MTBF was left blank, store '-' explicitly -- never auto-calculate from hours alone
-    if(!row.mtbf && row.mtbf!==0) row.mtbf='-';
     const msg=document.getElementById('addBuildMsg');
     msg.textContent='Saving to '+_abPlat+'...'; msg.style.color='#64748b';
     try{
@@ -2521,7 +2534,7 @@ async function addBuildSave(){
 let _editTableKeys=[];
 function _editTableKeysFromRows(){
   const keys=[], seen=new Set();
-  _abFieldKeys().forEach(k=>{ if(!_ADD_BUILD_RESERVED.has(k)&&!seen.has(k)){seen.add(k);keys.push(k);} });
+  _abFieldKeys().forEach(k=>{ if(!_ADD_BUILD_RESERVED.has(k)&&!_MTBF_LEGACY_HIDE_KEYS.has(k)&&!seen.has(k)){seen.add(k);keys.push(k);} });
   return keys;
 }
 function openEditTableModal(){
@@ -2536,7 +2549,7 @@ function openEditTableModal(){
 function closeEditTableModal(){document.getElementById('editTableModal').style.display='none';}
 function editTableRender(rs){
   const box=document.getElementById('editTableBox');
-  if(!_editTableKeys.length)_editTableKeys=['date','build_s','product_flavor','devices','hours','crashes','process_crash','system_crash','system_mtbf','mtbf','comments'];
+  if(!_editTableKeys.length)_editTableKeys=['date','build_s','product_flavor','devices','hours','crashes','process_crash','system_crash','ssr','system_mtbf','overallmtbf','comments'];
   const head='<tr><th>S.No</th>'+_editTableKeys.map(k=>`<th>${esc(_addBuildLabel(k))}</th>`).join('')+'<th>Delete</th></tr>';
   const body=rs.length?rs.map((r,i)=>`<tr data-edit-row="${i}"><td style="font-weight:900;color:#64748b">${i+1}</td>`+_editTableKeys.map(k=>`<td><input class="edit-cell" data-field="${esc(k)}" value="${esc(r[k]??'')}"></td>`).join('')+`<td><button class="btn edit-row-delete" onclick="editTableDeleteRow(this)"><i class="fas fa-trash"></i></button></td></tr>`).join(''):'<tr><td class="empty" colspan="99">No rows. Add a blank row.</td></tr>';
   box.innerHTML=`<table class="edit-table"><thead>${head}</thead><tbody id="editTableBody">${body}</tbody></table>`;

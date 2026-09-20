@@ -79,9 +79,27 @@ def _clean_text(value: Any) -> str:
 
 
 def _num(value: Any) -> float:
+    """Return a numeric value from plain or comparator-prefixed numbers.
+
+    Some published MTBF sheets store capped values as strings like ``">100"``.
+    Treat those as their numeric threshold so API/UI calculations do not fall
+    back to zero/dash.
+    """
+    if isinstance(value, (int, float)):
+        return float(value)
+    text = str(value or "").replace(",", "").strip()
+    if not text or text in {"-", "—"}:
+        return 0.0
+    text = re.sub(r"^[<>]=?\s*", "", text)
     try:
-        return float(str(value or "0").replace(",", "").strip())
+        return float(text)
     except Exception:
+        match = re.match(r"[-+]?\d+(?:\.\d+)?", text)
+        if match:
+            try:
+                return float(match.group(0))
+            except Exception:
+                pass
         return 0.0
 
 
@@ -702,6 +720,43 @@ def _display_number(value: float, digits: int = 2) -> Any:
     return rounded
 
 
+def _normalize_mtbf_display_value(value: Any) -> Any:
+    """Normalize MTBF display/API values.
+
+    The source JSON can contain capped MTBF text such as ``">100"``. Public API
+    consumers and UI code expect a numeric value, so publish that as 100. Empty
+    placeholders like ``"-"`` remain blank so fallback aliases can be checked.
+    """
+    if isinstance(value, (int, float)):
+        return _display_number(value, 2)
+
+    text = str(value or "").replace(",", "").strip()
+    if not text or text.upper() in {"-", "—", "NA", "N/A", "NONE", "NULL"}:
+        return ""
+
+    comparison = re.match(r"^([<>]=?)\s*([-+]?\d+(?:\.\d+)?)$", text)
+    if comparison:
+        number = float(comparison.group(2))
+        if comparison.group(1).startswith(">"):
+            number = min(number, 100)
+        return _display_number(number, 2)
+
+    if re.match(r"^[-+]?\d+(?:\.\d+)?$", text):
+        return _display_number(float(text), 2)
+
+    return value
+
+
+def _first_mtbf_value(row: Dict[str, Any], keys: List[str], default: Any = "") -> Any:
+    for key in keys:
+        if key not in (row or {}):
+            continue
+        value = _normalize_mtbf_display_value((row or {}).get(key))
+        if value not in (None, ""):
+            return value
+    return default
+
+
 def _normalize_crash_mtbf_row(row: Dict[str, Any]) -> Dict[str, Any]:
     """Apply Auto Gen4.5 crash/MTBF formulas to a row.
 
@@ -719,18 +774,19 @@ def _normalize_crash_mtbf_row(row: Dict[str, Any]) -> Dict[str, Any]:
     """
     out = dict(row or {})
     has_system = _has_numeric_value(out, _SYSTEM_CRASH_KEYS)
+    has_ssr = _has_numeric_value(out, _SSR_CRASH_KEYS)
     has_process = _has_numeric_value(out, _PROCESS_CRASH_KEYS)
-    if not (has_system or has_process):
+    if not (has_system or has_ssr or has_process):
         return out
 
     system_crash = _num(_row_first(out, _SYSTEM_CRASH_KEYS, 0))
-    process_crash = _num(_row_first(out, _PROCESS_CRASH_KEYS, 0))
     ssr_crash = _num(_row_first(out, _SSR_CRASH_KEYS, 0))
-    total_crashes = system_crash + process_crash
-    overall_total = system_crash + ssr_crash + process_crash
+    process_crash = _num(_row_first(out, _PROCESS_CRASH_KEYS, 0))
+    system_total = system_crash + ssr_crash
+    overall_total = system_total + process_crash
     hours = _num(_row_first(out, _HOUR_KEYS, 0))
 
-    total_value = _display_number(total_crashes, 0)
+    total_value = _display_number(overall_total, 0)
     out["crashes"] = total_value
     if any(k in out for k in ("total_crashes", "TOTAL_CRASHES")):
         out["total_crashes"] = total_value
@@ -738,39 +794,46 @@ def _normalize_crash_mtbf_row(row: Dict[str, Any]) -> Dict[str, Any]:
         if alias in out:
             out[alias] = total_value
 
-    if total_crashes > 0 and hours > 0:
-        overall = _display_number(hours / total_crashes, 2)
-        out["mtbf"] = overall
-        for alias in ("total_mtbf", "overall_mtbf"):
-            if alias in out:
-                out[alias] = overall
-    elif "mtbf" not in out:
-        out["mtbf"] = "-"
-
-    if system_crash > 0 and hours > 0:
-        out["system_mtbf"] = _display_number(hours / system_crash, 2)
-    elif has_system and "system_mtbf" not in out:
-        out["system_mtbf"] = "-"
-
-    # Overall MTBF = hours / (system + SSR + process), capped at 100; 0 if no crashes
-    if overall_total > 0 and hours > 0:
-        _raw_overall = hours / overall_total
-        out["overallmtbf"] = min(_display_number(_raw_overall, 2), 100)
+    stored_system_mtbf = _first_mtbf_value(out, ["system_mtbf", "SYSTEM_MTBF"], None)
+    if system_total > 0 and hours > 0:
+        system_mtbf = _display_number(hours / system_total, 2)
+    elif isinstance(stored_system_mtbf, (int, float)) and stored_system_mtbf > 0:
+        system_mtbf = _display_number(stored_system_mtbf, 2)
     else:
-        out["overallmtbf"] = 0
+        system_mtbf = 0
+
+    out["system_mtbf"] = system_mtbf
+
+    # overallMTBF = hours / (system + SSR + process).
+    # If system MTBF is 0, overallMTBF is also 0.
+    # If there are no process crashes, overallMTBF matches system MTBF, including
+    # comparator-prefixed source values such as ">100" normalized to 100.
+    if system_mtbf <= 0:
+        overall_mtbf = 0
+    elif process_crash <= 0:
+        overall_mtbf = system_mtbf
+    elif overall_total > 0 and hours > 0:
+        overall_mtbf = _display_number(hours / overall_total, 2)
+    else:
+        overall_mtbf = 0
+
+    out["overallmtbf"] = overall_mtbf
+    if _normalize_mtbf_display_value(out.get("mtbf")) == "":
+        out["mtbf"] = overall_mtbf
 
     return out
 
 
 def _public_overall_mtbf(row: Dict[str, Any]) -> Any:
     """Return the public overall MTBF value using a single response key."""
-    value = _row_first(row, _PUBLIC_OVERALL_MTBF_KEYS, None)
+    value = _first_mtbf_value(row, _PUBLIC_OVERALL_MTBF_KEYS, None)
     if value not in (None, ""):
         return value
-    # Legacy Gen4.5 rows may only carry mtbf. Publish the same value as
-    # overallMTBF so external callers can rely on a stable key.
-    fallback = _row_first(row, _OVERALL_MTBF_KEYS, "")
-    return fallback if fallback not in (None, "") else ""
+    # Legacy Gen4.5 rows may only carry mtbf/total_mtbf. Publish the same value
+    # as overallmtbf so external callers can rely on a stable key. Placeholder
+    # values like "-" are ignored so a later alias such as total_mtbf=">100" can
+    # still be used.
+    return _first_mtbf_value(row, _OVERALL_MTBF_KEYS, "")
 
 
 def _public_safe_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -790,42 +853,58 @@ def _public_safe_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         "_path",
     }
     safe_rows: List[Dict[str, Any]] = []
+    mtbf_aliases = (
+        "mtbf", "MTBF", "total_mtbf", "TOTAL_MTBF",
+        "overall_mtbf", "OVERALL_MTBF", "overallMTBF", "overallmtbf",
+        "system_mtbf", "SYSTEM_MTBF",
+    )
     for row in (rows or []):
         public_row = {k: v for k, v in _normalize_crash_mtbf_row(row).items() if k not in internal}
+        for alias in mtbf_aliases:
+            if alias in public_row:
+                normalized_value = _normalize_mtbf_display_value(public_row.get(alias))
+                if normalized_value not in (None, ""):
+                    public_row[alias] = normalized_value
         overall_mtbf = _public_overall_mtbf(public_row)
         public_row.pop("overallMTBF", None)
         public_row.pop("overall_mtbf", None)
         public_row["overallmtbf"] = overall_mtbf
+        if _normalize_mtbf_display_value(public_row.get("mtbf")) == "" and overall_mtbf not in (None, "", 0):
+            public_row["mtbf"] = overall_mtbf
         safe_rows.append(public_row)
     return safe_rows
 
 
 def _program_summary(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
     rows = [_normalize_crash_mtbf_row(r) for r in (rows or [])]
-    latest = rows[-1] if rows else {}
+    dated_rows = [r for r in rows if _date_text(r)]
+    latest = sorted(dated_rows, key=_date_text)[-1] if dated_rows else (rows[-1] if rows else {})
     total_hours = round(sum(_num(_row_first(r, _HOUR_KEYS)) for r in rows), 2)
-    total_crashes = int(sum(_num(_row_first(r, _CRASH_KEYS)) for r in rows))
+    total_crashes = int(sum(
+        _num(_row_first(r, _SYSTEM_CRASH_KEYS))
+        + _num(_row_first(r, _SSR_CRASH_KEYS))
+        + _num(_row_first(r, _PROCESS_CRASH_KEYS))
+        if (_has_numeric_value(r, _SYSTEM_CRASH_KEYS) or _has_numeric_value(r, _SSR_CRASH_KEYS) or _has_numeric_value(r, _PROCESS_CRASH_KEYS))
+        else _num(_row_first(r, _CRASH_KEYS))
+        for r in rows
+    ))
     published_mtbf = []
     published_system_mtbf = []
     for row in rows:
-        value = _row_first(row, _OVERALL_MTBF_KEYS)
+        value = _first_mtbf_value(row, _OVERALL_MTBF_KEYS, None)
         if isinstance(value, (int, float)):
             published_mtbf.append(float(value))
-        elif str(value or "").strip().replace(".", "", 1).isdigit():
-            published_mtbf.append(float(str(value).strip()))
-        system_value = _row_first(row, ["system_mtbf", "SYSTEM_MTBF"])
+        system_value = _first_mtbf_value(row, ["system_mtbf", "SYSTEM_MTBF"], None)
         if isinstance(system_value, (int, float)):
             published_system_mtbf.append(float(system_value))
-        elif str(system_value or "").strip().replace(".", "", 1).isdigit():
-            published_system_mtbf.append(float(str(system_value).strip()))
     latest_overall = _public_overall_mtbf(latest)
     return {
         "row_count": len(rows),
         "latest_date": latest.get("date") or "",
         "latest_build": latest.get("build_s") or latest.get("builds") or latest.get("build") or "",
-        "latest_mtbf": _row_first(latest, _OVERALL_MTBF_KEYS),
+        "latest_mtbf": _first_mtbf_value(latest, _OVERALL_MTBF_KEYS),
         "latest_overallmtbf": latest_overall,
-        "latest_system_mtbf": _row_first(latest, ["system_mtbf", "SYSTEM_MTBF"]),
+        "latest_system_mtbf": _first_mtbf_value(latest, ["system_mtbf", "SYSTEM_MTBF"]),
         "total_hours": total_hours,
         "total_crashes": total_crashes,
         "calculated_overall_mtbf": round(total_hours / total_crashes, 2) if total_crashes else total_hours,
@@ -875,7 +954,7 @@ def _docs_sp_groups(platform: str) -> List[Dict[str, Any]]:
             "domain":              _entry_domain(entry, platform_key, reference_domains),
             "row_count":           len(safe_rows),
             "latest_date":         _date_text(latest),
-            "latest_mtbf":        _row_first(latest, _OVERALL_MTBF_KEYS),
+            "latest_mtbf":        _first_mtbf_value(latest, _OVERALL_MTBF_KEYS),
             "latest_overallmtbf": latest_overall,
             "endpoint":           (
                 f"/public/auto-gen45/api/hgy/sp/{sp}"
