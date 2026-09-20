@@ -2276,13 +2276,14 @@ const CRASH_KEYS=['crashes','Crashes','CRASHES','total_crashes','TOTAL_CRASHES']
 const HOUR_KEYS=['hours','Hours','HOURS','total_hours'];
 const OVERALL_MTBF_KEYS=['mtbf','MTBF','total_mtbf','TOTAL_MTBF','overall_mtbf','OVERALL_MTBF','overallmtbf','OVERALLMTBF'];
 function hasFieldVal(r,keys){return keys.some(k=>r&&r[k]!=null&&String(r[k]).trim()!==''&&String(r[k]).trim()!=='-');}
-function hasCrashBreakdown(r){return hasFieldVal(r,SYS_CRASH_KEYS)||hasFieldVal(r,SSR_CRASH_KEYS)||hasFieldVal(r,PROC_CRASH_KEYS);}
+function hasCrashBreakdown(r){return [SYS_CRASH_KEYS,SSR_CRASH_KEYS,PROC_CRASH_KEYS].some(keys=>keys.some(k=>r&&r[k]!=null&&String(r[k]).trim()!==''&&String(r[k]).trim()!=='-'&&String(r[k]).trim()!=='—'&&n(r[k])>0));}
 function rowCrashValue(r,keys){let seen=false,max=0;for(const k of keys){if(!r||r[k]==null)continue;const text=String(r[k]).trim();if(!text||text==='-'||text==='—')continue;seen=true;max=Math.max(max,n(text));}return seen?max:0;}
 function rowSystemCrash(r){return rowCrashValue(r,SYS_CRASH_KEYS);}
 function rowProcessCrash(r){return rowCrashValue(r,PROC_CRASH_KEYS);}
 function rowSsrCrash(r){return rowCrashValue(r,SSR_CRASH_KEYS);}
 function rowTotalCrashes(r){return hasCrashBreakdown(r)?(rowSystemCrash(r)+rowSsrCrash(r)+rowProcessCrash(r)):n(firstVal(r,CRASH_KEYS,0));}
-function rowSystemMtbfNumber(r){const h=n(firstVal(r,HOUR_KEYS,0)), total=rowSystemCrash(r)+rowSsrCrash(r);if(total>0&&h>0)return h/total;const stored=mtbfNum(firstVal(r,['system_mtbf','SYSTEM_MTBF'],0));return stored>0?stored:0;}
+function rowPublishedMtbfNumber(r){const published=mtbfNum(firstVal(r,OVERALL_MTBF_KEYS,0));if(published>0)return published;const h=n(firstVal(r,HOUR_KEYS,0)), c=n(firstVal(r,CRASH_KEYS,0));return h>0&&c>0?h/c:0;}
+function rowSystemMtbfNumber(r){const h=n(firstVal(r,HOUR_KEYS,0)), total=rowSystemCrash(r)+rowSsrCrash(r);if(total>0&&h>0)return h/total;const stored=mtbfNum(firstVal(r,['system_mtbf','SYSTEM_MTBF'],0));if(stored>0)return stored;return rowPublishedMtbfNumber(r);}
 function rowSystemMtbf(r){return fmt(rowSystemMtbfNumber(r),2);}
 function rowOverallMtbfWithSsr(r){
   const systemMtbf=rowSystemMtbfNumber(r);
