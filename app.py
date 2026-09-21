@@ -5574,20 +5574,20 @@ def admin_usage_data():
     # yearly  = last 5 years,    grouped by year
     if period == "weekly":
         where_clause = "DATE(created_at) >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)"
-        group_by     = "DATE_FORMAT(created_at, '%%Y-%%m-%%d')"
-        label_expr   = "DATE_FORMAT(created_at, '%%Y-%%m-%%d')"
+        group_by     = "DATE(created_at)"
+        label_expr   = "DATE(created_at)"
     elif period == "monthly":
         where_clause = "DATE(created_at) >= DATE_SUB(CURDATE(), INTERVAL 11 MONTH)"
-        group_by     = "DATE_FORMAT(created_at, '%%Y-%%m')"
-        label_expr   = "DATE_FORMAT(created_at, '%%Y-%%m')"
+        group_by     = "CONCAT(YEAR(created_at), '-', LPAD(MONTH(created_at), 2, '0'))"
+        label_expr   = "CONCAT(YEAR(created_at), '-', LPAD(MONTH(created_at), 2, '0'))"
     elif period == "yearly":
         where_clause = "YEAR(created_at) >= YEAR(CURDATE()) - 4"
-        group_by     = "DATE_FORMAT(created_at, '%%Y')"
-        label_expr   = "DATE_FORMAT(created_at, '%%Y')"
+        group_by     = "CAST(YEAR(created_at) AS CHAR)"
+        label_expr   = "CAST(YEAR(created_at) AS CHAR)"
     else:  # daily
         where_clause = "DATE(created_at) = CURDATE()"
-        group_by     = "DATE_FORMAT(created_at, '%%H:00')"
-        label_expr   = "DATE_FORMAT(created_at, '%%H:00')"
+        group_by     = "CONCAT(LPAD(HOUR(created_at), 2, '0'), ':00')"
+        label_expr   = "CONCAT(LPAD(HOUR(created_at), 2, '0'), ':00')"
 
     EXCLUDE_USERS     = "('UNKNOWN', 'unknown', 'vmadasu', 'akacham')"
     user_filter_sql   = ""
@@ -5646,6 +5646,7 @@ def admin_usage_data():
                 {label_expr} AS label,
                 COUNT(*) AS total_actions,
                 COUNT(DISTINCT user_id) AS unique_users,
+                COUNT(DISTINCT CASE WHEN user_id IN ({external_only_users_sql}) THEN user_id END) AS non_pdt_unique_users,
                 SUM(CASE WHEN action_type = 'LOGIN' THEN 1 ELSE 0 END) AS total_logins,
                 SUM(CASE WHEN result_status = 'SUCCESS' THEN 1 ELSE 0 END) AS success_count,
                 SUM(CASE WHEN result_status = 'FAILURE' THEN 1 ELSE 0 END) AS failure_count
@@ -5672,7 +5673,7 @@ def admin_usage_data():
                     key = d.strftime('%Y-%m')
                     filled.append(trend_map.get(key, {
                         'label': key, 'bucket': key,
-                        'total_actions': 0, 'unique_users': 0,
+                        'total_actions': 0, 'unique_users': 0, 'non_pdt_unique_users': 0,
                         'total_logins': 0, 'success_count': 0, 'failure_count': 0
                     }))
                 trend_rows = filled
@@ -5684,6 +5685,7 @@ def admin_usage_data():
             SELECT
                 COUNT(*) AS total_actions,
                 COUNT(DISTINCT user_id) AS unique_users,
+                COUNT(DISTINCT CASE WHEN user_id IN ({external_only_users_sql}) THEN user_id END) AS non_pdt_unique_users,
                 SUM(CASE WHEN action_type = 'LOGIN' THEN 1 ELSE 0 END) AS total_logins,
                 SUM(CASE WHEN result_status = 'SUCCESS' THEN 1 ELSE 0 END) AS success_count,
                 SUM(CASE WHEN result_status = 'FAILURE' THEN 1 ELSE 0 END) AS failure_count
@@ -5756,23 +5758,6 @@ def admin_usage_data():
                 'last_seen': last.strftime('%m/%d/%Y at %I:%M %p') if last else ''
             })
 
-        # - Failure reasons -
-        cursor.execute(f"""
-            SELECT COALESCE(error_message, 'Unknown error') AS reason, COUNT(*) AS cnt
-            FROM pdt_stats_dashboard.user_data
-            WHERE {where_clause}
-              AND user_id NOT IN {EXCLUDE_USERS}
-              AND result_status = 'FAILURE'
-              {user_filter_sql}
-              {user_type_sql}
-            GROUP BY COALESCE(error_message, 'Unknown error')
-            ORDER BY cnt DESC LIMIT 10
-        """, user_filter_params)
-        failure_reasons = [
-            {'reason': (r['reason'] or 'Unknown')[:80], 'cnt': int(r['cnt'] or 0)}
-            for r in (cursor.fetchall() or [])
-        ]
-
         # - Login users (per-period) -
         cursor.execute(f"""
             SELECT user_id, COUNT(*) AS total_logins, MAX(created_at) AS last_login
@@ -5797,8 +5782,30 @@ def admin_usage_data():
         # - External user tracking by BU / target -
         # BU is inferred from dashboard_status when target_name is logged.
         # If target_name is not available, selected BU pages are inferred from the endpoint/query_text.
-        external_filter_sql = "AND user_id IN (" + external_only_users_sql + ")"
+        external_filter_sql = "AND ud.user_id IN (" + external_only_users_sql + ")"
+        external_user_filter_sql = "AND ud.user_id = %s" if filter_user else ""
+        external_where_clause = where_clause.replace("created_at", "ud.created_at")
         external_params = user_filter_params
+        external_login_bu_sql = """
+            SELECT
+                user_id,
+                CASE
+                    WHEN MAX(CASE WHEN LOWER(COALESCE(error_message, '')) LIKE '%pdtbuddy.wbc%' THEN 1 ELSE 0 END) = 1 THEN 'WBC'
+                    WHEN MAX(CASE WHEN LOWER(COALESCE(error_message, '')) LIKE '%pdtbuddy.compute%' THEN 1 ELSE 0 END) = 1 THEN 'COMPUTE'
+                    WHEN MAX(CASE WHEN LOWER(COALESCE(error_message, '')) LIKE '%pdtbuddy.xr%' THEN 1 ELSE 0 END) = 1 THEN 'XR'
+                    WHEN MAX(CASE WHEN LOWER(COALESCE(error_message, '')) LIKE '%pdtbuddy.iot%'
+                                    OR LOWER(COALESCE(error_message, '')) LIKE '%pdtbuddy.nord%'
+                                    OR LOWER(COALESCE(error_message, '')) LIKE '%pdtbuddy.gen5%'
+                                    OR LOWER(COALESCE(error_message, '')) LIKE '%pdtbuddy.ivigen4.5%'
+                                  THEN 1 ELSE 0 END) = 1 THEN 'AUTO'
+                    ELSE NULL
+                END AS login_bu
+            FROM pdt_stats_dashboard.user_data
+            WHERE action_type IN ('LOGIN', 'LOGIN_CACHED', 'LOGIN_RESTORED')
+              AND result_status = 'SUCCESS'
+              AND user_type = 'external'
+            GROUP BY user_id
+        """
 
         cursor.execute(f"""
             SELECT
@@ -5811,10 +5818,16 @@ def admin_usage_data():
                     ud.user_id,
                     ud.created_at,
                     COALESCE(
+                        eu.login_bu,
+                        CASE
+                            WHEN LOWER(COALESCE(ud.endpoint, '')) LIKE '%wbc%' THEN 'WBC'
+                            WHEN LOWER(COALESCE(ud.endpoint, '')) LIKE '%automotive%' THEN 'AUTO'
+                            ELSE NULL
+                        END,
                         ds.bu,
                         CASE
-                            WHEN ud.query_text LIKE 'bu_key=%'
-                            THEN UPPER(TRIM(SUBSTRING_INDEX(SUBSTRING_INDEX(ud.query_text, 'bu_key=', -1), '&', 1)))
+                            WHEN ud.query_text LIKE '%bu_key=%'
+                            THEN UPPER(TRIM(SUBSTRING_INDEX(SUBSTRING_INDEX(SUBSTRING_INDEX(ud.query_text, 'bu_key=', -1), '&', 1), ';', 1)))
                             ELSE NULL
                         END,
                         'UNKNOWN'
@@ -5826,13 +5839,17 @@ def admin_usage_data():
                       OR UPPER(ds.target_display) = UPPER(ud.target_name)
                       OR UPPER(ds.sp_name) = UPPER(ud.target_name)
                   )
-                WHERE {where_clause}
+                LEFT JOIN (
+                    {external_login_bu_sql}
+                ) eu ON eu.user_id = ud.user_id
+                WHERE {external_where_clause}
                   AND ud.user_id NOT IN {EXCLUDE_USERS}
-                  {user_filter_sql}
+                  {external_user_filter_sql}
                   {external_filter_sql}
                   AND (
                       (ud.target_name IS NOT NULL AND ud.target_name <> '')
-                      OR ud.query_text LIKE 'bu_key=%'
+                      OR ud.query_text LIKE '%bu_key=%'
+                      OR eu.login_bu IS NOT NULL
                   )
             ) x
             GROUP BY x.bu
@@ -5868,10 +5885,16 @@ def admin_usage_data():
                     COALESCE(
                         ds.bu,
                         CASE
-                            WHEN ud.query_text LIKE 'bu_key=%'
-                            THEN UPPER(TRIM(SUBSTRING_INDEX(SUBSTRING_INDEX(ud.query_text, 'bu_key=', -1), '&', 1)))
+                            WHEN LOWER(COALESCE(ud.endpoint, '')) LIKE '%wbc%' THEN 'WBC'
+                            WHEN LOWER(COALESCE(ud.endpoint, '')) LIKE '%automotive%' THEN 'AUTO'
                             ELSE NULL
                         END,
+                        CASE
+                            WHEN ud.query_text LIKE '%bu_key=%'
+                            THEN UPPER(TRIM(SUBSTRING_INDEX(SUBSTRING_INDEX(SUBSTRING_INDEX(ud.query_text, 'bu_key=', -1), '&', 1), ';', 1)))
+                            ELSE NULL
+                        END,
+                        eu.login_bu,
                         'UNKNOWN'
                     ) AS bu
                 FROM pdt_stats_dashboard.user_data ud
@@ -5881,9 +5904,12 @@ def admin_usage_data():
                       OR UPPER(ds.target_display) = UPPER(ud.target_name)
                       OR UPPER(ds.sp_name) = UPPER(ud.target_name)
                   )
-                WHERE {where_clause}
+                LEFT JOIN (
+                    {external_login_bu_sql}
+                ) eu ON eu.user_id = ud.user_id
+                WHERE {external_where_clause}
                   AND ud.user_id NOT IN {EXCLUDE_USERS}
-                  {user_filter_sql}
+                  {external_user_filter_sql}
                   {external_filter_sql}
                   AND (ud.target_name IS NOT NULL AND ud.target_name <> '')
             ) x
@@ -5918,6 +5944,7 @@ def admin_usage_data():
                 "categories":    [str(r["label"]) for r in trend_rows],
                 "total_actions": [int(r["total_actions"] or 0) for r in trend_rows],
                 "unique_users":  [int(r["unique_users"]  or 0) for r in trend_rows],
+                "non_pdt_unique_users": [int(r["non_pdt_unique_users"] or 0) for r in trend_rows],
                 "total_logins":  [int(r["total_logins"]  or 0) for r in trend_rows],
                 "success_count": [int(r["success_count"] or 0) for r in trend_rows],
                 "failure_count": [int(r["failure_count"] or 0) for r in trend_rows]
@@ -5925,7 +5952,6 @@ def admin_usage_data():
             "top_users":        top_users,
             "action_breakdown": action_breakdown,
             "recent_users":     recent_users,
-            "failure_reasons":  failure_reasons,
             "login_users":      login_users,
             "external_by_bu":   external_by_bu,
             "external_by_target": external_by_target,

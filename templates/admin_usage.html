@@ -133,12 +133,12 @@
 .au-card-users::before    { background:#6366f1; }
 .au-card-activity::before { background:#0ea5e9; }
 .au-card-logins::before   { background:#10b981; }
-.au-card-fail::before     { background:#ef4444; }
+.au-card-nonpdt::before   { background:#8b5cf6; }
 .au-card-icon { width:34px; height:34px; border-radius:9px; display:flex; align-items:center; justify-content:center; font-size:14px; margin-bottom:2px; }
 .au-card-users    .au-card-icon { background:#ede9fe; color:#6366f1; }
 .au-card-activity .au-card-icon { background:#e0f2fe; color:#0284c7; }
 .au-card-logins   .au-card-icon { background:#dcfce7; color:#16a34a; }
-.au-card-fail     .au-card-icon { background:#fee2e2; color:#dc2626; }
+.au-card-nonpdt   .au-card-icon { background:#ede9fe; color:#7c3aed; }
 .au-card-label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.1em; color:#9ca3af; }
 .au-card-value { font-size:34px; font-weight:950; color:#0f172a; line-height:1; letter-spacing:-.04em; }
 .au-card-sub   { font-size:11px; color:#9ca3af; font-weight:600; }
@@ -157,12 +157,6 @@
 .au-avatar      { width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:900; color:#fff; flex-shrink:0; }
 .au-recent-name { font-size:12px; font-weight:700; color:#1e293b; }
 .au-recent-time { font-size:10px; color:#9ca3af; }
-
-/*    Failure list    */
-.au-failure-list { display:flex; flex-direction:column; gap:8px; max-height:220px; overflow-y:auto; }
-.au-failure-item { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; padding:9px 12px; border-radius:10px; background:#fff5f5; border:1px solid #fecaca; }
-.au-failure-reason { font-size:11px; font-weight:700; color:#7f1d1d; line-height:1.4; }
-.au-failure-count  { flex-shrink:0; font-size:11px; font-weight:900; color:#dc2626; background:#fee2e2; border-radius:999px; padding:3px 9px; }
 
 /*    Shared summary pills    */
 .adm-summary-pills { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px; }
@@ -342,7 +336,7 @@ table.tm-table tr:hover td { background:#f0f4ff; }
         <div class="adm-section-icon" style="background:#ede9fe;color:#6366f1;"><i class="fas fa-chart-line"></i></div>
         <div>
           <div class="adm-section-label">User Usage Dashboard</div>
-          <div class="adm-section-sub">Logins   actions   top users   failures</div>
+          <div class="adm-section-sub">Logins   actions   top users   non-PDT users</div>
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:12px;">
@@ -392,10 +386,10 @@ table.tm-table tr:hover td { background:#f0f4ff; }
           <div class="au-card-value" id="au-total-logins"> </div>
           <div class="au-card-sub" id="au-period-sub3">Today</div>
         </div>
-        <div class="au-card au-card-fail">
-          <div class="au-card-icon"><i class="fas fa-times-circle"></i></div>
-          <div class="au-card-label">Failures</div>
-          <div class="au-card-value" id="au-failures"> </div>
+        <div class="au-card au-card-nonpdt">
+          <div class="au-card-icon"><i class="fas fa-user-shield"></i></div>
+          <div class="au-card-label">Non-PDT Users</div>
+          <div class="au-card-value" id="au-non-pdt-users"> </div>
           <div class="au-card-sub" id="au-period-sub4">Today</div>
         </div>
       </div>
@@ -421,12 +415,6 @@ table.tm-table tr:hover td { background:#f0f4ff; }
           <div id="au-action-chart" style="height:240px;"><div class="adm-spinner"><i class="fas fa-spinner fa-spin"></i> Loading </div></div>
         </div>
       </div>
-      <!-- Failure reasons -->
-      <div class="au-chart-inner">
-        <div class="au-chart-title"><i class="fas fa-exclamation-triangle" style="color:#ef4444;"></i> Failure Reasons</div>
-        <div class="au-failure-list" id="au-failure-list"><div class="adm-spinner"><i class="fas fa-spinner fa-spin"></i> Loading </div></div>
-      </div>
-
       <!-- External user BU / Target tracking -->
       <div class="au-bottom-row" style="margin-top:14px;">
         <div class="au-chart-inner">
@@ -928,7 +916,7 @@ function admShowTab(id) {
         document.getElementById('au-total-users').textContent   = (s.unique_users  ||0).toLocaleString();
         document.getElementById('au-total-actions').textContent = (s.total_actions ||0).toLocaleString();
         document.getElementById('au-total-logins').textContent  = (s.total_logins  ||0).toLocaleString();
-        document.getElementById('au-failures').textContent      = (s.failure_count ||0).toLocaleString();
+        document.getElementById('au-non-pdt-users').textContent = (s.non_pdt_unique_users ||0).toLocaleString();
         ['au-period-sub','au-period-sub2','au-period-sub3','au-period-sub4'].forEach(function(id){
           var el=document.getElementById(id); if(el) el.textContent=lbl;
         });
@@ -955,7 +943,6 @@ function admShowTab(id) {
         renderTopUsersChart(d);
         renderActionChart(d);
         renderRecentUsers(d);
-        renderFailureReasons(d);
         renderExternalTracking(d);
         renderLoginUsers(d);
       })
@@ -977,14 +964,27 @@ function admShowTab(id) {
       xAxis:{categories:t.categories||[],labels:{style:{fontSize:'11px'}}},
       yAxis:{title:{text:null},gridLineColor:'#f1f5f9',labels:{style:{fontSize:'11px'}}},
       tooltip:{shared:true,borderRadius:10},
-      plotOptions:{column:{borderRadius:4,pointPadding:.1,groupPadding:.1}},
+      plotOptions:{
+        column:{
+          borderRadius:4,
+          pointPadding:.1,
+          groupPadding:.1,
+          dataLabels:{
+            enabled:true,
+            crop:false,
+            overflow:'allow',
+            formatter:function(){ return this.y ? this.y.toLocaleString() : ''; },
+            style:{fontSize:'10px',fontWeight:'800',textOutline:'none',color:'#334155'}
+          }
+        }
+      },
       colors:COLORS,
       series:[
         {name:'Actions', data:t.total_actions||[]},
         {name:'Users',   data:t.unique_users||[]},
         {name:'Logins',  data:t.total_logins||[]},
         {name:'Success', data:t.success_count||[]},
-        {name:'Failures',data:t.failure_count||[]}
+        {name:'Non-PDT Users', data:t.non_pdt_unique_users||[]}
       ]
     });
   }
@@ -1030,20 +1030,6 @@ function admShowTab(id) {
         +'</div>';
     }).join('');
   }
-
-  function renderFailureReasons(d) {
-    var rows=d.failure_reasons||[];
-    var el=document.getElementById('au-failure-list');
-    if(!el) return;
-    if(!rows.length){ el.innerHTML='<p style="color:#9ca3af;font-size:12px;text-align:center;padding:16px 0;">No failures for selected period.</p>'; return; }
-    el.innerHTML=rows.map(function(r){
-      return '<div class="au-failure-item">'
-        +'<div class="au-failure-reason">'+escHtml(r.reason||'Unknown')+'</div>'
-        +'<div class="au-failure-count">'+parseInt(r.cnt||0)+'</div>'
-        +'</div>';
-    }).join('');
-  }
-
 
   function renderExternalTracking(d) {
     var lblText = labels[period] || period;
