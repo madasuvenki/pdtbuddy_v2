@@ -5611,13 +5611,24 @@ def admin_usage_data():
         "WHERE e.action_type='LOGIN' AND e.result_status='SUCCESS' AND e.user_type='external' "
         "AND e.user_id NOT IN (" + internal_users_sql + ")"
     )
+    classified_users_sql = (
+        "SELECT user_id FROM ("
+        + internal_users_sql
+        + " UNION "
+        + external_only_users_sql
+        + ") classified_users"
+    )
 
     if user_type == 'internal':
         user_type_sql = "AND user_id IN (" + internal_users_sql + ")"
     elif user_type == 'external':
         user_type_sql = "AND user_id IN (" + external_only_users_sql + ")"
     else:
-        user_type_sql = ""
+        # Keep "All" aligned with the Internal + External split. Previously All
+        # counted every distinct user with activity in the period, including
+        # unclassified rows that had no successful LOGIN/user_type classification,
+        # so All could be greater than Internal + External.
+        user_type_sql = "AND user_id IN (" + classified_users_sql + ")"
 
     conn = get_mysql_connection_db()
     if not conn:
@@ -5901,7 +5912,7 @@ def admin_usage_data():
         """)
         all_users_list = [r['user_id'] for r in (cursor.fetchall() or [])]
 
-        return jsonify({
+        response = jsonify({
             "summary": summary,
             "trend": {
                 "categories":    [str(r["label"]) for r in trend_rows],
@@ -5922,6 +5933,10 @@ def admin_usage_data():
             "filter_user":      filter_user,
             "user_type":        user_type,
         })
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+        return response
 
     except Exception as e:
         print("[admin_usage_data ERROR]", __import__("traceback").format_exc(), flush=True)

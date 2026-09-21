@@ -919,8 +919,8 @@ function admShowTab(id) {
   });
 
   function loadUsage() {
-    var url = '/admin/usage_data?period=' + period + (filterUser ? '&user_id=' + encodeURIComponent(filterUser) : '') + (userType !== 'all' ? '&user_type=' + userType : '');
-    fetch(url)
+    var url = '/admin/usage_data?period=' + period + (filterUser ? '&user_id=' + encodeURIComponent(filterUser) : '') + '&user_type=' + userType + '&_ts=' + Date.now();
+    fetch(url, { cache: 'no-store' })
       .then(function(r){ return r.json(); })
       .then(function(d) {
         if (d.error) return;

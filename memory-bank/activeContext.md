@@ -1,5 +1,47 @@
 # Active Context
 
+## 2026-09-21 - Internal Dashboard Core Slides Tab Hidden
+
+**User request addressed:** Remove the **Core Slides** tab/link only from the internal dashboard page (`/dashboard/<target>/dashboard`, e.g. `/dashboard/aldabra/dashboard`) because every internal site was showing Core Slides. Do not touch Live View related Core Slides behavior.
+
+**Changes made:**
+- `templates/target_layout.html`
+  - Removed the left-side Analysis panel **Core Slides** navigation link that pointed to `core_deck_bp.core_deck_page`.
+  - No changes were made to Live View templates/routes.
+
+**Validation:**
+- `templates/target_layout.html` no longer contains `core_deck_bp.core_deck_page` or `Core Slides`.
+- Confirmed Live View templates still contain Core Slides content:
+  - `templates/live_status_view.html`
+  - `templates/live_status_publish_edit.html`
+  - `templates/auto_gen45_live_view_stats.html`
+
+## 2026-09-21 - Weekly CR Age Mixed-Type Filter Sort Fix
+
+**User request addressed:** `/weekly-report/card/cr_age` returned HTTP 500 with `TypeError: '<' not supported between instances of 'str' and 'int'` while rendering `templates/weekly_card_detail.html`.
+
+**Root cause / decision:**
+- The CR Age detail table builds header filter options from `cr_mapped_rows`.
+- Some weekly QIPL snapshot/CSV values arrive as integers while others arrive as strings for the same filter column, especially numeric columns such as `CR Age`, `New`, `Old`, and `CR_Count`.
+- Jinja's `sort` filter delegates to Python sorting, which cannot compare mixed `str` and `int` values.
+- The safest UI-level fix is to stringify filter-option values before applying `unique | sort`, while leaving the displayed table row values and backend calculations unchanged.
+
+**Changes made:**
+- `templates/weekly_card_detail.html`
+  - Updated the target multi-select option pipeline to use `map("string")` before `unique | sort`.
+  - Updated the generic CR Age detail column filter option pipeline to use `map("string")` before `unique | sort`.
+
+**Follow-up fix:**
+- User noticed several CR Detail Table cells rendered empty even though adjacent columns had data.
+- Cause: the detail-table body was reading a few legacy/Excel-style keys (`Stability Ticket`, `CR SubSystem`, `CR Functionality`, etc.) while `cr_mapped_rows` from `_qipl_cr_mapped_rows()` primarily uses normalized lowercase keys (`stability_ticket`, `cr_subsystem`, `cr_functionality`, etc.).
+- Updated CR Age detail body cells to read normalized keys first, then fall back to legacy/raw labels where applicable.
+
+**Validation:**
+- Project virtualenv Jinja validation confirmed:
+  - Mixed `int`/`str` filter values render without TypeError.
+  - `templates/weekly_card_detail.html` parses successfully.
+  - Normalized-key sample rows render non-empty `Stability Ticket`, `CR SubSystem`, and `CR Functionality` cells.
+
 ## 2026-09-18 - Auto Gen4.5 Public API Docs Gen5-Style Summary Table
 
 **User request addressed:** `/public/auto-gen45` needed the same kind of SP-scoped summary table shown on the Auto Gen5 public API docs page, while preserving existing Memory Bank content.

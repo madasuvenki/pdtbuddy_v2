@@ -1,5 +1,29 @@
 # Progress: PDTBuddy
 
+## 2026-09-21 - Internal Dashboard Core Slides Tab Hidden
+- Removed the **Core Slides** left-panel navigation link from the internal target dashboard shell (`templates/target_layout.html`), affecting pages such as `/dashboard/aldabra/dashboard`.
+- Scope intentionally limited to the internal dashboard page/navigation.
+- Live View related Core Slides pages/templates were not changed.
+- Validation passed:
+  - `templates/target_layout.html` no longer contains `core_deck_bp.core_deck_page` or `Core Slides`.
+  - Live View templates still contain Core Slides content:
+    - `templates/live_status_view.html`
+    - `templates/live_status_publish_edit.html`
+    - `templates/auto_gen45_live_view_stats.html`
+  - Dedicated Jinja parse returned `TARGET_LAYOUT_JINJA_OK`.
+
+## 2026-09-21 - Weekly CR Age Mixed-Type Filter Sort Fix
+- Fixed `/weekly-report/card/cr_age` HTTP 500 caused by Jinja sorting mixed `str` and `int` values in CR Age detail-table filter dropdowns.
+- `templates/weekly_card_detail.html` now converts filter-option values to strings before `unique | sort` for:
+  - target multi-select options
+  - all generic CR Age detail column dropdown options
+- Backend CR Age calculations and displayed row values are unchanged; only the header filter option sort pipeline is normalized for safe rendering.
+- Follow-up: fixed empty CR Detail Table cells by changing body rendering to read normalized row keys first (`stability_ticket`, `cr_subsystem`, `cr_functionality`, etc.) and fall back to legacy/raw Excel-style labels.
+- Validation passed:
+  - mixed int/string render proof returned `MIXED_SORT_RENDER 1,10,2,3`
+  - Jinja parsing returned `WEEKLY_CARD_DETAIL_JINJA_OK`
+  - normalized-key render check confirmed `Stability Ticket`, `CR SubSystem`, and `CR Functionality` cells now populate.
+
 ## 2026-09-18 - Auto Gen4.5 Public API Docs Gen5-Style Summary Table
 - Updated `/public/auto-gen45` so the Gen4.5 public API docs page now shows Gen5-like SP-scoped summary tables for both HQX and HGY.
 - `auto_gen45_public_routes.py` now builds docs-only SP/domain groups through `_docs_sp_groups(platform)` and passes `hqx_sps` / `hgy_sps` into `templates/public_auto_gen45_api.html`.

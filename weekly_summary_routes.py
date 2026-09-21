@@ -542,9 +542,29 @@ def _qipl_compact_row(row: dict) -> dict:
     The old DB table stored a full row_data JSON copy of every CSV row.  Snapshot
     rows intentionally drop that duplicate payload to keep disk + memory usage
     low while preserving all columns used by current reports.
+
+    Some legacy snapshots/DB rows may still carry values only inside row_data
+    using source headers such as ``JIRA_Category``.  Normalize from both the
+    top-level row and row_data before dropping the payload so CR Age / CR Pie can
+    reliably apply the "CR Mapped" category filter.
     """
     if not isinstance(row, dict):
         return {}
+
+    raw_payload = {}
+    raw_payload_value = row.get('row_data')
+    if raw_payload_value:
+        try:
+            raw_payload = (
+                json.loads(raw_payload_value)
+                if isinstance(raw_payload_value, str)
+                else dict(raw_payload_value or {})
+            )
+            if not isinstance(raw_payload, dict):
+                raw_payload = {}
+        except Exception:
+            raw_payload = {}
+
     keep = (
         'week_start', 'week_end', 'jira_date', 'cr_date', 'jira_category',
         'cr_current_ticket', 'cr_si', 'cr_title', 'jira_title',
@@ -555,6 +575,15 @@ def _qipl_compact_row(row: dict) -> dict:
     out = {}
     for k in keep:
         v = row.get(k)
+        if v in (None, ''):
+            norm_key = _norm(k)
+            for source in (row, raw_payload):
+                for source_key, source_val in source.items():
+                    if source_val not in (None, '') and _norm(source_key) == norm_key:
+                        v = source_val
+                        break
+                if v not in (None, ''):
+                    break
         if isinstance(v, datetime):
             out[k] = v.date().isoformat()
         elif isinstance(v, date):
@@ -685,6 +714,42 @@ def _qipl_pick(row: dict, *names) -> str:
         if _norm(k) in wanted:
             return v
     return ''
+
+
+def _qipl_jira_category(row: dict) -> str:
+    """Return the QIPL Jira category from normalized rows or legacy row_data payloads."""
+    category = _qipl_pick(
+        row,
+        'jira_category',
+        'JIRA_Category',
+        'JIRA Category',
+        'Jira Category',
+        'JIRACategory',
+    )
+    if not category and isinstance(row, dict) and row.get('row_data'):
+        try:
+            raw = json.loads(row.get('row_data')) if isinstance(row.get('row_data'), str) else dict(row.get('row_data') or {})
+            if isinstance(raw, dict):
+                category = _qipl_pick(
+                    raw,
+                    'jira_category',
+                    'JIRA_Category',
+                    'JIRA Category',
+                    'Jira Category',
+                    'JIRACategory',
+                )
+        except Exception:
+            category = ''
+    return str(category or '').strip()
+
+
+def _qipl_is_cr_mapped(row: dict) -> bool:
+    return _norm(_qipl_jira_category(row)) == 'cr_mapped'
+
+
+def _qipl_cr_mapped_rows(rows: list) -> list:
+    """Return only weekly QIPL rows where JIRA_Category is exactly CR Mapped."""
+    return [r for r in (rows or []) if _qipl_is_cr_mapped(r)]
 
 
 def _sp_build_match_from_row(row: dict) -> str:
@@ -1562,10 +1627,7 @@ def _auto_load_qipl_week(week_start: date, week_end: date, username: str) -> dic
 # --------?-------------?----- card data --------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-------------?-----
 
 def _build_card_data(table_rows: list) -> dict:
-    cr_mapped = [
-        r for r in table_rows
-        if str(r.get('jira_category') or '').strip().lower() == 'cr mapped'
-    ]
+    cr_mapped = _qipl_cr_mapped_rows(table_rows)
 
     # deduplicate by cr_current_ticket -------------? same as detail page
     seen_cr = set()
@@ -1676,10 +1738,7 @@ def _build_cr_pie_card(table_rows: list) -> dict:
     Per-target pie: slice = CR Area, value = instance count.
     """
     from collections import defaultdict
-    cr_mapped = [
-        r for r in table_rows
-        if str(r.get('jira_category') or '').strip().lower() == 'cr mapped'
-    ]
+    cr_mapped = _qipl_cr_mapped_rows(table_rows)
 
     areas   = sorted({str(r.get('cr_area')  or 'Unknown').strip() for r in cr_mapped})
     targets = sorted({_resolve_target(str(r.get('target') or 'Unknown')) for r in cr_mapped})
@@ -1756,10 +1815,7 @@ def _build_cr_age_card(table_rows: list, sel_start: date, sel_end: date) -> dict
         return d.year * 54 + int(d.strftime('%W'))
 
     # step 1: CR Mapped only
-    cr_mapped = [
-        r for r in table_rows
-        if str(r.get('jira_category') or '').strip().lower() == 'cr mapped'
-    ]
+    cr_mapped = _qipl_cr_mapped_rows(table_rows)
 
     # step 2: CR_Count = occurrences of each CR in full cr_mapped set
     cr_count_map = Counter(

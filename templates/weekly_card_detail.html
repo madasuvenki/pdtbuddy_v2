@@ -473,7 +473,7 @@
                     <button type="button" class="det-multi-toggle" onclick="detTargetDdToggle(event)" title="Filter by Target">&#9660;</button>
                     <div class="det-multi-menu" id="detTargetMenu">
                       <label class="det-multi-item" style="font-weight:900;border-bottom:1px solid #e2e8f0;padding-bottom:4px;margin-bottom:4px;"><input type="checkbox" id="detTargetAll" onchange="detTargetAllToggle(this)"> All</label>
-                      {% set tgt_vals = cr_mapped_rows | map(attribute="target") | select | unique | sort %}
+                      {% set tgt_vals = cr_mapped_rows | map(attribute="target") | select | map("string") | unique | sort %}
                       {% for v in tgt_vals %}
                       <label class="det-multi-item"><input type="checkbox" class="detTargetChk" value="{{ v }}"> {{ v }}</label>
                       {% endfor %}
@@ -486,7 +486,7 @@
                   {% else %}
                   <select onchange="filterDetailSelect(this, {{ loop.index0 }})">
                     <option value="">All</option>
-                    {% set vals = cr_mapped_rows | map(attribute=key) | select | unique | sort %}
+                    {% set vals = cr_mapped_rows | map(attribute=key) | select | map("string") | unique | sort %}
                     {% for v in vals %}<option value="{{ v }}">{{ v }}</option>{% endfor %}
                   </select>
                   {% endif %}
@@ -499,20 +499,20 @@
             {% for r in cr_mapped_rows %}
             <tr>
               <td class="det-srno">{{ loop.index }}</td>
-              <td>{{ r.get('Stability Ticket') or '' }}</td>
-              <td>{{ r.get('jira_date') or '' }}</td>
-              <td>{{ r.get('cr_date') or '' }}</td>
-              <td>{{ r.get('cr_area') or '' }}</td>
-              <td>{{ r.get('CR SubSystem') or '' }}</td>
-              <td>{{ r.get('CR Functionality') or '' }}</td>
-              <td>{{ r.get('cr_status') or '' }}</td>
-              <td>{{ r.get('cr_si') or '' }}</td>
-              <td>{{ r.get('cr_current_ticket') or '' }}</td>
-              <td style="max-width:260px;white-space:normal;word-break:break-word;font-size:10px;">{{ r.get('cr_title') or '' }}</td>
-              <td>{{ r.get('target') or '' }}</td>
-              <td>{{ r.get('pl_id') or '' }}</td>
-              <td>{{ r.get('CR Built Date') or r.get('fetched_date') or '' }}</td>
-              <td style="text-align:center;font-weight:700;">{{ r.get('cr_age') or '' }}</td>
+              <td>{{ r.get('stability_ticket') or r.get('Stability Ticket') or '' }}</td>
+              <td>{{ r.get('jira_date') or r.get('Jira Date') or '' }}</td>
+              <td>{{ r.get('cr_date') or r.get('CR Date') or '' }}</td>
+              <td>{{ r.get('cr_area') or r.get('CR Area') or '' }}</td>
+              <td>{{ r.get('cr_subsystem') or r.get('CR SubSystem') or r.get('CR Subsystem') or '' }}</td>
+              <td>{{ r.get('cr_functionality') or r.get('CR Functionality') or '' }}</td>
+              <td>{{ r.get('cr_status') or r.get('CR Status') or '' }}</td>
+              <td>{{ r.get('cr_si') or r.get('CR SI') or '' }}</td>
+              <td>{{ r.get('cr_current_ticket') or r.get('CR') or '' }}</td>
+              <td style="max-width:260px;white-space:normal;word-break:break-word;font-size:10px;">{{ r.get('cr_title') or r.get('CR Title') or '' }}</td>
+              <td>{{ r.get('target') or r.get('Target') or '' }}</td>
+              <td>{{ r.get('pl_id') or r.get('PL-ID') or '' }}</td>
+              <td>{{ r.get('cr_built_date') or r.get('CR Built Date') or r.get('fetched_date') or '' }}</td>
+              <td style="text-align:center;font-weight:700;">{{ r.get('cr_age') or r.get('CR Age') or '' }}</td>
               <td style="text-align:center;color:#16a34a;font-weight:700;">{{ r.get('is_new',0) }}</td>
               <td style="text-align:center;color:#dc2626;font-weight:700;">{{ r.get('is_old',0) }}</td>
               <td style="text-align:center;font-weight:700;">{{ r.get('cr_count',0) }}</td>
