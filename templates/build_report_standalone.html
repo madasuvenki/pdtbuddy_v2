@@ -3100,6 +3100,19 @@ function brByBuildSetStatus(msg,bad){
   el.className='muted '+(bad?'status-bad':'status-ok');
   el.innerHTML=msg||'';
 }
+function brByBuildSupplementText(data){
+  const sup=(data&&data.jql_supplement)||(data&&data.meta&&data.meta.jql_supplement)||{};
+  if(!sup||!Object.keys(sup).length)return '';
+  if(sup.error)return ' Latest Build Info JQL check failed: '+esc(sup.error)+'.';
+  if(!sup.enabled){
+    if(sup.skipped_reason==='date_to_not_latest')return ' Latest Build Info JQL check skipped because Jira Date Stop is not latest/current.';
+    return ' Latest Build Info JQL check skipped.';
+  }
+  const added=Number(sup.added_count||0);
+  const fetched=Number(sup.total_fetched||0);
+  const dup=Number(sup.duplicate_count||0);
+  return ' Latest Build Info JQL supplement checked '+fetched+' JIRA(s) and added '+added+' missing JIRA(s)'+(dup?(' ('+dup+' already in DB).'):'.');
+}
 function brByBuildSelectedDevices(){
   const out=[], seen=new Set();
   const sel=g('brByBuildDevices');
@@ -3221,7 +3234,7 @@ async function brRunByBuild(btn){
   brExplicitSoftwareImages=buildItems;
   const spin=g('brByBuildSpinner'); if(spin)spin.style.display='inline';
   if(btn){btn.disabled=true;btn.innerHTML='<i class="fas fa-circle-notch spin"></i> Generating...';}
-  brByBuildSetStatus('<i class="fas fa-circle-notch spin"></i> Generating consolidated report from internal DB build match...');
+  brByBuildSetStatus('<i class="fas fa-circle-notch spin"></i> Generating consolidated report from internal DB build match and latest Build Info JQL supplement...');
   if(g('brCrRows'))g('brCrRows').innerHTML='<tr><td colspan="18" class="empty"><i class="fas fa-circle-notch spin"></i> Running build report...</td></tr>';
   try{
     if(!brByBuildLookupData||String(brByBuildLookupData.build||'').toUpperCase()!==build.toUpperCase()){
@@ -3237,7 +3250,7 @@ async function brRunByBuild(btn){
     brAutoIsAutomotive=String((lookup.bu||'')).toUpperCase()==='AUTO';
     if(g('brJql')&&data.meta&&data.meta.jql)g('brJql').value=data.meta.jql;
     renderReport(data);
-    brByBuildSetStatus('<i class="fas fa-check-circle"></i> Done. Report rendered below with the same 3-tab output and Excel download.');
+    brByBuildSetStatus('<i class="fas fa-check-circle"></i> Done. Report rendered below with the same 3-tab output and Excel download.'+brByBuildSupplementText(data));
   }catch(e){
     brByBuildSetStatus('<i class="fas fa-triangle-exclamation"></i> '+esc(e.message||String(e)),true);
     if(g('brCrRows'))g('brCrRows').innerHTML='<tr><td colspan="18" class="empty" style="color:#dc2626">'+esc(e.message||String(e))+'</td></tr>';

@@ -1,5 +1,37 @@
 # Active Context
 
+## 2026-09-22 - Build Report By-Build Latest Build Info JQL Supplement
+
+**User request addressed:** For `/build_report` **Build Report** tab only, cover the internal DB refresh gap (DB updates every ~3 hours) by also checking latest live JIRA data for at least the last 1 day. Do **not** touch the existing JQL/Filter Report code or flow. The live supplement must use Build Info JQL shaped like:
+`filter = 76997 AND project = QSTABILITY AND "Build Info" ~ <build>`
+and must respect Jira date/device filters; if the selected end date is not latest/current, skip the live JQL method.
+
+**Changes made:**
+- `build_report_by_build_routes.py`
+  - Added by-build-only Build Info JQL supplement configuration:
+    - `BUILD_REPORT_BY_BUILD_JQL_FILTER_ID` env override, default `76997`
+    - `BUILD_REPORT_BY_BUILD_JQL_PROJECT` env override, default `QSTABILITY`
+    - `BUILD_REPORT_BY_BUILD_JQL_LOOKBACK_DAYS` env override, default `1`
+  - Added helper flow that runs only inside `/api/build_report/by_build`:
+    - `_should_run_build_info_jql(date_to)` returns true only for open-ended/current latest end-date requests.
+    - `_build_info_jql_for_build(...)` generates per-build JQL such as `filter = 76997 AND project = QSTABILITY AND "Build Info" ~ "<build>" AND created >= "<latest-1-day>" AND created < "<end+1-day>" ORDER BY created ASC`.
+    - `_fetch_build_info_jql_supplement(...)` connects to JIRA through the existing `scripts/fetch_consolidated_report.py` helpers, runs the per-build query, converts issues with `issue_to_dict()`, filters by selected Jira date/device values, and de-duplicates against DB-selected Jira keys.
+    - Device matching checks normalized `serial_no`, `serial_alt`, and `mcn_no` values so only serial/device-matched live JIRAs are appended when a device filter is supplied.
+  - Merged supplement rows into the existing DB-backed by-build report rows before building the fast report or live `key in (...)` JQL.
+  - Response metadata now includes `jql_supplement`, `db_jira_count`, and `jira_count_after_supplement` so callers can see whether the latest JQL supplement ran, was skipped, failed, or added rows.
+  - Existing JQL/Filter Report flow remains untouched; the supplement is isolated to `/api/build_report/by_build`.
+- `templates/build_report_standalone.html`
+  - Added `brByBuildSupplementText(data)` and updated the **Build Report** tab status text to show whether the latest Build Info JQL supplement checked JIRA, added missing rows, failed, or skipped because Jira Date Stop is not latest/current.
+  - Existing report output rendering, 3-tab CR/Mapped/Open flow, and Excel download remain unchanged.
+
+**Validation:**
+- `py -3 -m py_compile build_report_by_build_routes.py` passed.
+- `git diff --check` passed.
+- JQL generation validation returned:
+  - `filter = 76997 AND project = QSTABILITY AND "Build Info" ~ "SecaAU_IVI.LE.1.0.r1-00027.01-NON_SAFE_STD_PVM.LAGVM-3" AND created >= "2026-09-21" AND created < "2026-09-23" ORDER BY created ASC`
+  - `skip_old_end= True` for `date_to=2026-09-21`.
+- Jinja parse for `templates/build_report_standalone.html` returned `BUILD_REPORT_JINJA_OK`.
+
 ## 2026-09-22 - Build Report Standalone By-Build Mode
 
 **User request addressed:** Add a standalone `/build_report` flow with two top-level tabs:

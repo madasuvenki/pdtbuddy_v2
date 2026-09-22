@@ -19,7 +19,7 @@ from __future__ import annotations
 import os
 import re
 import sys
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from functools import wraps
 from hmac import compare_digest
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
@@ -114,6 +114,16 @@ _RESOLUTION_COL_CANDIDATES = (
     "final_resolution",
     "Resolution",
 )
+
+_BUILD_INFO_JQL_FILTER_ID = str(os.getenv("BUILD_REPORT_BY_BUILD_JQL_FILTER_ID") or "76997").strip()
+_BUILD_INFO_JQL_PROJECT = str(os.getenv("BUILD_REPORT_BY_BUILD_JQL_PROJECT") or "QSTABILITY").strip() or "QSTABILITY"
+try:
+    _BUILD_INFO_JQL_LOOKBACK_DAYS = max(
+        1,
+        int(os.getenv("BUILD_REPORT_BY_BUILD_JQL_LOOKBACK_DAYS", "1") or "1"),
+    )
+except Exception:
+    _BUILD_INFO_JQL_LOOKBACK_DAYS = 1
 
 
 def _configured_api_tokens() -> List[str]:
@@ -727,6 +737,250 @@ def _jql_for_keys(keys: Sequence[str]) -> str:
     return "key in (" + ",".join(clean) + ") ORDER BY created ASC" if clean else ""
 
 
+def _parse_iso_date(value: Any) -> Optional[date]:
+    raw = _safe_date(value)
+    if not raw:
+        return None
+    try:
+        return datetime.strptime(raw, "%Y-%m-%d").date()
+    except Exception:
+        return None
+
+
+def _jql_quote(value: Any) -> str:
+    raw = str(value or "").strip()
+    return '"' + raw.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def _today_local() -> date:
+    return datetime.now().date()
+
+
+def _should_run_build_info_jql(date_to: str) -> bool:
+    """Run live Build Info JQL only for latest/open-ended end-date requests."""
+
+    end = _parse_iso_date(date_to)
+    if end is None:
+        return True
+    return end >= _today_local()
+
+
+def _build_info_jql_bounds(date_from: str, date_to: str) -> Tuple[str, str]:
+    """Return JQL created date bounds for the latest-day supplement.
+
+    The internal DB is refreshed every few hours, so by-build mode checks at
+    least the latest one day in JIRA when the requested end date is current.
+    User start/end filters are still respected: date_from can narrow the lower
+    bound, and date_to remains the inclusive UI end date.
+    """
+
+    today = _today_local()
+    end = _parse_iso_date(date_to) or today
+    base_end = min(end, today)
+    start = base_end - timedelta(days=_BUILD_INFO_JQL_LOOKBACK_DAYS)
+    user_start = _parse_iso_date(date_from)
+    if user_start and user_start > start:
+        start = user_start
+    end_exclusive = end + timedelta(days=1)
+    return start.isoformat(), end_exclusive.isoformat()
+
+
+def _build_info_jql_for_build(build_id: str, date_from: str, date_to: str) -> str:
+    build = _norm_build(build_id)
+    if not build:
+        return ""
+    start, end_exclusive = _build_info_jql_bounds(date_from, date_to)
+    project = _BUILD_INFO_JQL_PROJECT.replace('"', '\\"')
+    parts = [
+        f"filter = {_BUILD_INFO_JQL_FILTER_ID}",
+        f"project = {project}",
+        f'"Build Info" ~ {_jql_quote(build)}',
+    ]
+    if start:
+        parts.append(f'created >= "{start}"')
+    if end_exclusive:
+        parts.append(f'created < "{end_exclusive}"')
+    return " AND ".join(parts) + " ORDER BY created ASC"
+
+
+def _norm_match_token(value: Any) -> str:
+    return re.sub(r"[^A-Z0-9]+", "", str(value or "").upper())
+
+
+def _issue_matches_devices(issue_dict: Dict[str, Any], devices: Sequence[str]) -> bool:
+    wanted = {_norm_match_token(d) for d in devices or [] if _norm_match_token(d)}
+    if not wanted:
+        return True
+
+    candidates: List[str] = []
+    for field in ("serial_no", "serial_alt", "mcn_no"):
+        raw = str(issue_dict.get(field) or "").strip()
+        if raw:
+            candidates.append(raw)
+            candidates.extend(_parse_csv_values(raw))
+
+    for cand in candidates:
+        norm = _norm_match_token(cand)
+        if norm and norm in wanted:
+            return True
+    return False
+
+
+def _issue_matches_date_filters(issue_dict: Dict[str, Any], date_from: str, date_to: str) -> bool:
+    raw_date = str(issue_dict.get("created") or issue_dict.get("jira_date") or "").strip()[:10]
+    if not raw_date:
+        return True
+    if date_from and raw_date < date_from:
+        return False
+    if date_to and raw_date > date_to:
+        return False
+    return True
+
+
+def _cr_from_issue_dict(issue_dict: Dict[str, Any]) -> str:
+    candidates = [
+        issue_dict.get("cr_mapped"),
+        issue_dict.get("cr_number_field"),
+        (issue_dict.get("traversal") or {}).get("final_cr"),
+    ]
+    for raw in candidates:
+        crs = _split_cr_values(raw)
+        if crs:
+            return crs[0]
+    return ""
+
+
+def _supplement_row_from_issue_dict(issue_dict: Dict[str, Any], build_id: str) -> Dict[str, Any]:
+    build = _norm_build(build_id)
+    serial = (
+        issue_dict.get("serial_no")
+        or issue_dict.get("serial_alt")
+        or issue_dict.get("mcn_no")
+        or ""
+    )
+    final_cr = _cr_from_issue_dict(issue_dict)
+    return {
+        "jira_key": str(issue_dict.get("key") or "").strip().upper(),
+        "metabuild": issue_dict.get("meta_build") or build,
+        "source_table": "live_jira_build_info",
+        "jira_date": issue_dict.get("created") or "",
+        "serial_no": serial,
+        "jira_title": issue_dict.get("summary") or "",
+        "cr": final_cr,
+        "reporter": issue_dict.get("reporter") or "",
+        "reporters_dept": issue_dict.get("reporters_dept") or "",
+        "status": issue_dict.get("status") or "",
+        "resolution": issue_dict.get("resolution") or "",
+        "scenario": issue_dict.get("scenario") or "",
+        "_query_build": build,
+    }
+
+
+def _fetch_build_info_jql_supplement(
+    build_ids: Sequence[str],
+    date_from: str,
+    date_to: str,
+    devices: Sequence[str],
+    existing_keys: Optional[Iterable[str]] = None,
+) -> Dict[str, Any]:
+    """Fetch latest Build Info JQL rows for by-build mode only.
+
+    This supplements PDT DB rows for the DB refresh gap.  It is intentionally
+    isolated from the existing JQL/filter report flow.
+    """
+
+    meta: Dict[str, Any] = {
+        "enabled": False,
+        "filter_id": _BUILD_INFO_JQL_FILTER_ID,
+        "project": _BUILD_INFO_JQL_PROJECT,
+        "lookback_days": _BUILD_INFO_JQL_LOOKBACK_DAYS,
+        "latest_end_required": True,
+        "skipped_reason": "",
+        "jqls": [],
+        "queried_builds": [],
+        "total_fetched": 0,
+        "added_count": 0,
+        "duplicate_count": 0,
+        "filtered_device_count": 0,
+        "filtered_date_count": 0,
+        "error": "",
+        "rows": [],
+        "jira_keys": [],
+    }
+
+    if not build_ids:
+        meta["skipped_reason"] = "no_builds"
+        return meta
+    if not _should_run_build_info_jql(date_to):
+        meta["skipped_reason"] = "date_to_not_latest"
+        return meta
+
+    existing = {str(k or "").strip().upper() for k in (existing_keys or []) if str(k or "").strip()}
+    seen = set(existing)
+    meta["enabled"] = True
+
+    try:
+        scripts_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scripts")
+        if scripts_dir not in sys.path:
+            sys.path.insert(0, scripts_dir)
+        from fetch_consolidated_report import (
+            JIRA_PASSWORD,
+            JIRA_SERVER_ENDPOINT,
+            JIRA_USER,
+            connect_jira,
+            issue_to_dict,
+            run_query,
+        )
+
+        jira_obj = connect_jira(JIRA_USER, JIRA_PASSWORD, JIRA_SERVER_ENDPOINT)
+        for build in build_ids:
+            clean_build = _norm_build(build)
+            if not clean_build:
+                continue
+            jql = _build_info_jql_for_build(clean_build, date_from, date_to)
+            if not jql:
+                continue
+            meta["queried_builds"].append(clean_build)
+            meta["jqls"].append({"build": clean_build, "jql": jql})
+            issues = run_query(jira_obj, jql, max_results=1000)
+            meta["total_fetched"] += len(issues or [])
+            for issue in issues or []:
+                try:
+                    issue_dict = issue_to_dict(issue, queried_builds=[clean_build])
+                except Exception:
+                    continue
+                key = str(issue_dict.get("key") or "").strip().upper()
+                if not key:
+                    continue
+                if key in seen:
+                    meta["duplicate_count"] += 1
+                    continue
+                if not _issue_matches_date_filters(issue_dict, date_from, date_to):
+                    meta["filtered_date_count"] += 1
+                    continue
+                if not _issue_matches_devices(issue_dict, devices):
+                    meta["filtered_device_count"] += 1
+                    continue
+
+                row = _supplement_row_from_issue_dict(issue_dict, clean_build)
+                if not row.get("jira_key"):
+                    continue
+                seen.add(row["jira_key"])
+                meta["jira_keys"].append(row["jira_key"])
+                meta["rows"].append(row)
+                meta["added_count"] += 1
+    except Exception as exc:
+        meta["error"] = str(exc)
+
+    return meta
+
+
+def _public_supplement_meta(meta: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    if not isinstance(meta, dict):
+        return {"enabled": False}
+    return {k: v for k, v in meta.items() if k != "rows"}
+
+
 def _project_from_jira_key(key: str) -> str:
     return str(key or "").split("-", 1)[0].upper() if "-" in str(key or "") else ""
 
@@ -1218,6 +1472,22 @@ def api_build_report_by_build():
             lookup["target_display"] = selected[0].get("target_display") or lookup.get("target") or ""
             lookup["bu"] = selected[0].get("bu") or ""
 
+        db_jira_count = len(seen_jira_keys)
+        supplement = _fetch_build_info_jql_supplement(
+            build_ids=build_ids,
+            date_from=date_from,
+            date_to=date_to,
+            devices=devices,
+            existing_keys=seen_jira_keys,
+        )
+        for row in supplement.get("rows") or []:
+            key = str(row.get("jira_key") or "").strip().upper()
+            if not key or key in seen_jira_keys:
+                continue
+            seen_jira_keys.add(key)
+            row["jira_key"] = key
+            db_rows.append(row)
+
         jira_keys = [r["jira_key"] for r in db_rows if r.get("jira_key")]
         custom_jql = _jql_for_keys(jira_keys) if live_jira else ""
     finally:
@@ -1247,7 +1517,10 @@ def api_build_report_by_build():
                 "date_from": date_from,
                 "date_to": date_to,
                 "devices": devices,
+                "db_jira_count": db_jira_count,
+                "jql_supplement": _public_supplement_meta(supplement),
             },
+            "jql_supplement": _public_supplement_meta(supplement),
             "summary": {"total_jiras": 0, "total_all_jiras": 0, "with_cr": 0},
             "cr_index": {},
             "hierarchical_report": [],
@@ -1255,7 +1528,7 @@ def api_build_report_by_build():
         }))
 
     if not live_jira:
-        return jsonify(_sanitize_report_payload_for_response(_db_fast_report_from_rows(
+        report = _db_fast_report_from_rows(
             db_rows=db_rows,
             jira_keys=jira_keys,
             build_id=build_id,
@@ -1264,7 +1537,17 @@ def api_build_report_by_build():
             date_to=date_to,
             devices=devices,
             matches=selected or all_matches,
-        )))
+        )
+        public_supplement = _public_supplement_meta(supplement)
+        report["jql_supplement"] = public_supplement
+        meta = dict(report.get("meta") or {})
+        meta.update({
+            "db_jira_count": db_jira_count,
+            "jira_count_after_supplement": len(jira_keys),
+            "jql_supplement": public_supplement,
+        })
+        report["meta"] = meta
+        return jsonify(_sanitize_report_payload_for_response(report))
 
     try:
         scripts_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scripts")
@@ -1288,9 +1571,11 @@ def api_build_report_by_build():
             "lookup": lookup,
             "date_from": date_from,
             "date_to": date_to,
-            "devices": devices,
-            "db_jira_count": len(jira_keys),
-            "jql": custom_jql,
+             "devices": devices,
+             "db_jira_count": db_jira_count,
+             "jira_count_after_supplement": len(jira_keys),
+             "jql_supplement": _public_supplement_meta(supplement),
+             "jql": custom_jql,
         })
         report["meta"] = meta
         return jsonify(_sanitize_report_payload_for_response({
@@ -1303,6 +1588,7 @@ def api_build_report_by_build():
             "lookup": lookup,
             "db_rows": db_rows,
             "jira_keys": jira_keys,
+            "jql_supplement": _public_supplement_meta(supplement),
             "meta": report.get("meta") or {},
             "summary": report.get("summary") or {},
             "cr_index": report.get("cr_index") or {},
@@ -1316,5 +1602,6 @@ def api_build_report_by_build():
             "error": str(exc),
             "lookup": _sanitize_lookup_for_response(lookup),
             "jira_keys": jira_keys,
+            "jql_supplement": _public_supplement_meta(supplement),
             "jql": custom_jql,
         }), 500

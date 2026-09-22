@@ -1,5 +1,26 @@
 # Progress: PDTBuddy
 
+## 2026-09-22 - Build Report By-Build Latest Build Info JQL Supplement
+- Enhanced only the `/build_report` **Build Report** tab/API path to cover the internal DB refresh gap with a latest live Jira Build Info check.
+- Existing **JQL/Filter Report** code and flow were not changed.
+- `/api/build_report/by_build` now, after reading DB rows, optionally runs a per-build live JQL supplement when Jira Date Stop is latest/current or omitted:
+  - `filter = 76997 AND project = QSTABILITY AND "Build Info" ~ "<build>" ...`
+  - default latest window is at least 1 day and can be adjusted with `BUILD_REPORT_BY_BUILD_JQL_LOOKBACK_DAYS`.
+  - if `date_to` is older than today/current latest date, the JQL supplement is skipped.
+- Added env-configurable by-build supplement defaults:
+  - `BUILD_REPORT_BY_BUILD_JQL_FILTER_ID` default `76997`
+  - `BUILD_REPORT_BY_BUILD_JQL_PROJECT` default `QSTABILITY`
+  - `BUILD_REPORT_BY_BUILD_JQL_LOOKBACK_DAYS` default `1`
+- Live supplement results are converted through the existing consolidated-report Jira helpers, filtered by Jira date/device selection, de-duplicated against DB-selected Jira keys, and merged into the same DB-backed by-build report rows.
+- Response metadata now exposes `jql_supplement`, including enabled/skipped/error state, fetched count, added count, duplicates, queried builds, and generated JQLs.
+- Build Report UI now shows final status text indicating whether the latest Build Info JQL supplement ran, added missing JIRAs, failed, or was skipped because the selected end date is not latest/current.
+- Validation passed:
+  - `py -3 -m py_compile build_report_by_build_routes.py`
+  - `git diff --check`
+  - JQL generation check returned `filter = 76997 AND project = QSTABILITY AND "Build Info" ~ "SecaAU_IVI.LE.1.0.r1-00027.01-NON_SAFE_STD_PVM.LAGVM-3" AND created >= "2026-09-21" AND created < "2026-09-23" ORDER BY created ASC`
+  - skip check returned `skip_old_end= True` for old `date_to=2026-09-21`
+  - Jinja parse returned `BUILD_REPORT_JINJA_OK`
+
 ## 2026-09-22 - Build Report Standalone By-Build Mode
 - Added standalone Build Report by-build mode on `/build_report` while preserving the existing JQL/Filter report flow.
 - `templates/build_report_standalone.html` now has top-level tabs:
