@@ -1,5 +1,59 @@
 # Progress: PDTBuddy
 
+## 2026-09-22 - Build Report Standalone By-Build Mode
+- Added standalone Build Report by-build mode on `/build_report` while preserving the existing JQL/Filter report flow.
+- `templates/build_report_standalone.html` now has top-level tabs:
+  - **JQL/Filter Report**
+  - **Build Report**
+- The Build Report tab requires only Build ID / MetaBuild as mandatory input and supports optional filters:
+  - matched target/table selection after lookup
+  - Jira Date start/stop
+  - Serial No / Device IDs from DB multi-select
+  - comma-separated device IDs for API/tool calls
+- Added generated links in the UI:
+  - direct API method: `/api/build_report/by_build?build=<BUILD>&target=<TARGET>&date_from=YYYY-MM-DD&date_to=YYYY-MM-DD&devices=SN1,SN2`
+  - shareable page link: `/build_report?build=<BUILD>&target=<TARGET>&date_from=YYYY-MM-DD&date_to=YYYY-MM-DD&devices=SN1,SN2&run=1`
+  - MTBF-style hyperlink: `/mtbf_meta_jiras/<target>/<build>`
+  - optional full/live enrichment: `/api/build_report/by_build?build=<BUILD>&target=<TARGET>&live_jira=1`
+- Added `build_report_by_build_routes.py` with:
+  - `GET/POST /api/build_report/build_lookup`
+  - `GET/POST /api/build_report/by_build`
+- The lookup scans configured target `jiras` and `openjiras` DB tables for MetaBuild/build columns, reports table matches, row counts, Jira Date range, and device IDs.
+- The by-build API default is now a fast DB-backed path:
+  - reads all matching DB rows without `max_jiras=1200`
+  - removed internal SQL `LIMIT 5000`
+  - returns the existing 3-tab report JSON shape directly from DB rows
+  - enriches mapped CR fields from the target `unique_crs` table where available
+  - avoids live Jira/Orbit traversal by default for large builds
+- Full live Jira traversal remains available only when requested with `live_jira=1`, `live=1`, or `full=1`.
+- `scripts/fetch_consolidated_report.py` now supports `explicit_issue_keys` and batched key fetches so live by-build mode can bypass the broad-JQL `JIRA_FETCH_LIMIT=6000` guard for DB-selected keys; normal JQL/filter reports still keep that guard.
+- Added `tools/diagnose_build_lookup.py` for read-only build/table lookup diagnostics against the live DB.
+- Registered `build_report_by_build_bp` in `src/application/blueprints.py`.
+- Validation passed:
+  - `py -3 -m py_compile build_report_by_build_routes.py src/application/blueprints.py`
+  - `py -3 -m py_compile build_report_by_build_routes.py scripts\fetch_consolidated_report.py`
+  - Jinja parse for `templates/build_report_standalone.html`
+  - isolated Flask route registration confirmed `/api/build_report/build_lookup` and `/api/build_report/by_build`
+  - live DB fast endpoint validation for `SecaAU_IVI.LE.1.0.r1-00027-NON_SAFE_STD_PVM.LAGVM-1` returned `total_jiras=6956`, `with_cr=3162`, `hier_groups=8`, `cr_index=11`, `source=build_report_by_build_db_fast`, and completed in ~0.5 seconds for target-scoped Flask test-client request.
+
+## 2026-09-22 - Build Report Admin Visibility, Device Sync, and API Sharing Follow-up
+- Internal DB table/schema/column details in Build Report lookup/report metadata are now admin-only:
+  - authenticated admin browser sessions can see table details for diagnostics
+  - normal users and API-token-only callers receive sanitized match rows with target/source/count/date/device metadata only
+- `/build_report` now passes `build_report_show_table_details` into `templates/build_report_standalone.html`, and the lookup summary hides the **Table** column for non-admin users.
+- Selecting Serial No / Device IDs from the left multi-select now immediately copies those values into the right comma-separated Device IDs textarea for API/tool sharing.
+- Generated Build Report API links now use `builds=` and support a single build or comma-separated builds.
+- `/api/build_report/by_build` now accepts:
+  - mandatory `builds` (single or comma-separated), with `build` still supported as an alias
+  - optional `date_from`/`date_to`
+  - optional Jira-worded date aliases: `jira_start`, `jira_stop`, `jira_date_start`, `jira_date_stop`, plus `start_date`/`end_date`
+  - optional comma-separated or JSON-array `devices`, plus aliases `device_ids`, `serials`, and `serial_no`
+- `/public/build-report/api` (`templates/public_build_report_api.html`) now documents the by-build endpoint as the primary API to share with other teams, including examples and sanitized-response behavior.
+- Validation passed:
+  - `py -3 -m py_compile build_report_by_build_routes.py live_status_publish_routes.py`
+  - Jinja parse for `templates/build_report_standalone.html` and `templates/public_build_report_api.html`
+  - focused string checks confirmed `BR_SHOW_TABLE_DETAILS`, `brByBuildSyncDevicesCsv`, Jira date aliases, and `/api/build_report/by_build` docs/routes.
+
 ## 2026-09-21 - Internal Dashboard Core Slides Tab Hidden
 - Removed the **Core Slides** left-panel navigation link from the internal target dashboard shell (`templates/target_layout.html`), affecting pages such as `/dashboard/aldabra/dashboard`.
 - Scope intentionally limited to the internal dashboard page/navigation.

@@ -701,16 +701,67 @@ def run_query(jira_obj, jql, max_results=MAX_RESULTS_DEFAULT, progress=None):
     return issues
 
 
-def fetch_by_keys(jira_obj, keys):
+def fetch_by_keys(jira_obj, keys, progress=None, batch_size=100):
+    """Fetch explicit Jira keys in bounded batches.
+
+    This path is used when PDT Buddy already selected the exact issue keys from
+    its internal DB tables (for example Build Report by-build mode).  It avoids
+    the broad-JQL safety cap in run_query(), because the result set is not an
+    unconstrained JIRA search; it is a finite key list produced by PDT Buddy DB
+    filtering.
+    """
     if not keys:
         return []
-    jql = f'key in ({", ".join(keys)})'
-    try:
-        return jira_obj.search_issues(
-            jql, startAt=0, maxResults=len(keys), fields=SEARCH_FIELDS
-        )
-    except Exception as e:
+
+    clean = []
+    seen = set()
+    for key in keys:
+        k = str(key or '').strip().upper()
+        if not k or k in seen:
+            continue
+        seen.add(k)
+        clean.append(k)
+
+    total = len(clean)
+    if not total:
         return []
+
+    if progress:
+        progress.update(
+            stage='fetch',
+            total=total,
+            done=0,
+            message=f'Fetching {total:,} DB-selected JIRAs by key...'
+        )
+
+    issues = []
+    batch_size = max(1, int(batch_size or 100))
+    for idx in range(0, total, batch_size):
+        batch = clean[idx:idx + batch_size]
+        jql = f'key in ({", ".join(batch)})'
+        try:
+            page = jira_obj.search_issues(
+                jql, startAt=0, maxResults=len(batch), fields=SEARCH_FIELDS
+            )
+            if page:
+                issues.extend(list(page))
+        except Exception as e:
+            logger.warning('[fetch_by_keys] batch %d-%d failed: %s', idx + 1, idx + len(batch), e)
+
+        if progress:
+            progress.update(
+                stage='fetch',
+                done=min(idx + len(batch), total),
+                message=f'Fetching DB-selected JIRAs... {min(idx + len(batch), total):,}/{total:,}'
+            )
+
+    by_key = {}
+    for issue in issues:
+        try:
+            by_key[str(issue.key).upper()] = issue
+        except Exception:
+            pass
+    return [by_key[k] for k in clean if k in by_key]
 
 
 # =============================================================================
@@ -2092,7 +2143,8 @@ def lookup_cr_info_from_db(cr_numbers, target_name, issues_dicts=None, explicit_
 
 def run_consolidated_report(build_ids, filter_id, traverse=True, enrich_orbit=True,
                             target_name=None, progress=None, custom_jql=None,
-                            explicit_software_images=None, orbit_server=None):
+                            explicit_software_images=None, orbit_server=None,
+                            explicit_issue_keys=None):
     """
     Full pipeline. Returns the complete report dict.
     progress: optional ProgressTracker for live SSE updates.
@@ -2102,6 +2154,9 @@ def run_consolidated_report(build_ids, filter_id, traverse=True, enrich_orbit=Tr
         only for CR Software Image Release status matching.
     orbit_server: optional Orbit endpoint/region override passed through to
         orbit_client for API/background calls (for example: qipl, sd, ch).
+    explicit_issue_keys: optional exact JIRA key list selected by PDT Buddy DB.
+        When present, JIRAs are fetched by key batches and the broad-JQL
+        JIRA_FETCH_LIMIT guard is intentionally not applied.
     """
     t0 = time.time()
 
@@ -2121,8 +2176,20 @@ def run_consolidated_report(build_ids, filter_id, traverse=True, enrich_orbit=Tr
     if progress:
         progress.update(stage='fetch', message=f'Fetching JIRAs for {len(build_ids)} build(s)...')
 
+    explicit_issue_keys_clean = []
+    if explicit_issue_keys:
+        seen_issue_keys = set()
+        for issue_key in explicit_issue_keys:
+            k = str(issue_key or '').strip().upper()
+            if k and k not in seen_issue_keys:
+                seen_issue_keys.add(k)
+                explicit_issue_keys_clean.append(k)
+
     try:
-        issues = run_query(jira_obj, jql, progress=progress)
+        if explicit_issue_keys_clean:
+            issues = fetch_by_keys(jira_obj, explicit_issue_keys_clean, progress=progress)
+        else:
+            issues = run_query(jira_obj, jql, progress=progress)
     except LimitExhausted as le:
         if progress:
             progress.update(

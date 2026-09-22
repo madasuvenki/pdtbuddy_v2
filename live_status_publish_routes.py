@@ -1411,10 +1411,19 @@ def pdt_target_ext_status(target_name):
 @login_required
 def build_report_standalone():
     """Standalone Build Report page for generated-build JQL or direct JQL runs."""
+    uid = str(
+        getattr(current_user, 'id', '')
+        or getattr(current_user, 'username', '')
+        or (current_user.get_id() if current_user.is_authenticated else '')
+        or ''
+    ).strip().lower()
+    role = str(getattr(current_user, 'role', '') or '').strip().lower()
+    admin_users = {str(u or '').strip().lower() for u in (ADMIN_USERS or [])}
     return render_template(
         'build_report_standalone.html',
         target_options=_all_targets_for_ui(),
         jira_pdt_filter_id=JIRA_PDT_FILTER_ID,
+        build_report_show_table_details=bool(role == 'admin' or (uid and uid in admin_users)),
     )
 
 

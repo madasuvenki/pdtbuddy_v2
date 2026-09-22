@@ -213,13 +213,15 @@
   <p>
     The Build Report API exposes the same consolidated report engine used by the
     <strong>Build Report standalone page</strong> as a machine-callable REST API.
-    Pass a JIRA filter ID or JQL — get the full report JSON back immediately.
-    No job_id, no polling.
+    External teams can pass one build or comma-separated builds, plus optional
+    Jira start/stop dates and optional device IDs, and get the full report JSON
+    back immediately. Filter ID and direct-JQL modes are also available.
   </p>
 
   <div class="alert green">
-    ✅ <strong>One call, one response.</strong> Pass your filter ID → get the report.
-    Works with a browser session (internal users) or an API token (external tools).
+    ✅ <strong>One call, one response.</strong> Pass <code>builds=BUILD1,BUILD2</code>
+    → get the consolidated CR / mapped JIRA / open JIRA report. Works with a
+    browser session (internal users) or an API token (external tools).
   </div>
 
   <div class="alert info">
@@ -249,8 +251,73 @@
   </div>
 
   <!-- PRIMARY ENDPOINT -->
-  <h2>⭐ Primary Endpoint — Synchronous (Recommended)</h2>
-  <p>Pass a filter ID or JQL, get the full report back in one call. Same output as the Build Report page.</p>
+  <h2>⭐ Primary Endpoint for Other Teams — By Build</h2>
+  <p>
+    Share this endpoint when the caller has only build IDs. The caller must pass
+    <code>builds</code> as a single build or comma-separated builds. Jira date
+    range and device list are optional filters.
+  </p>
+
+  <!-- GET/POST /api/build_report/by_build -->
+  <div class="endpoint">
+    <div class="endpoint-header" onclick="toggle(this)">
+      <span class="method get">GET</span>
+      <span class="method post" style="margin-left:0">POST</span>
+      <span class="endpoint-path">/api/build_report/by_build</span>
+      <span class="endpoint-desc">Run consolidated report from build IDs</span>
+      <span style="margin-left:auto;color:var(--muted);">▼</span>
+    </div>
+    <div class="endpoint-body open">
+      <div class="alert info">
+        Recommended share format:
+        <code>/api/build_report/by_build?builds=&lt;BUILD1&gt;,&lt;BUILD2&gt;&amp;date_from=YYYY-MM-DD&amp;date_to=YYYY-MM-DD&amp;devices=SN1,SN2</code>
+      </div>
+      <table>
+        <tr><th>Param</th><th>Required</th><th>Description</th></tr>
+        <tr><td><code>builds</code></td><td><span class="req">required</span></td><td>Single build or comma-separated builds. Alias <code>build</code> is also accepted.</td></tr>
+        <tr><td><code>target</code></td><td><span class="opt">optional</span></td><td>Target to use when the same build exists in multiple targets.</td></tr>
+        <tr><td><code>date_from</code></td><td><span class="opt">optional</span></td><td>Jira Date start in <code>YYYY-MM-DD</code>. Aliases <code>start_date</code>, <code>jira_start</code>, and <code>jira_date_start</code> are accepted.</td></tr>
+        <tr><td><code>date_to</code></td><td><span class="opt">optional</span></td><td>Jira Date stop in <code>YYYY-MM-DD</code>. Aliases <code>end_date</code>, <code>jira_stop</code>, and <code>jira_date_stop</code> are accepted.</td></tr>
+        <tr><td><code>devices</code></td><td><span class="opt">optional</span></td><td>Comma-separated Serial No / device IDs. Aliases <code>device_ids</code>, <code>serials</code>, and <code>serial_no</code> are accepted.</td></tr>
+        <tr><td><code>live_jira</code></td><td><span class="opt">optional</span></td><td>Set <code>1</code> only when full live Jira traversal is required. Default is fast DB-backed report.</td></tr>
+      </table>
+      <div class="alert warn">
+        Non-admin/token callers do not receive internal DB table/schema/column details.
+        Admin browser sessions may see table details in the UI for diagnostics.
+      </div>
+      <h3>GET example</h3>
+      <div class="copy-wrap">
+        <pre><code>curl -H "X-PDTBuddy-API-Token: YOUR_TOKEN" \
+  "http://&lt;host&gt;/api/build_report/by_build?builds=SecaAU_IVI.LE.1.0.r1-00027-NON_SAFE_STD_PVM.LAGVM-1&amp;date_from=2026-09-18&amp;date_to=2026-09-22&amp;devices=TDC000035CTG,TDC000035CTW"</code></pre>
+        <button class="copy-btn" onclick="copyPre(this)">copy</button>
+      </div>
+      <h3>POST JSON example</h3>
+      <div class="copy-wrap">
+        <pre><code>curl -X POST -H "Content-Type: application/json" \
+  -H "X-PDTBuddy-API-Token: YOUR_TOKEN" \
+  -d '{"builds":"BUILD_A,BUILD_B","date_from":"2026-09-18","date_to":"2026-09-22","devices":"SN001,SN002"}' \
+  "http://&lt;host&gt;/api/build_report/by_build"</code></pre>
+        <button class="copy-btn" onclick="copyPre(this)">copy</button>
+      </div>
+      <h3>Response shape</h3>
+      <pre><code>{
+  <span class="hl-key">"ok"</span>: <span class="hl-kw">true</span>,
+  <span class="hl-key">"builds"</span>: [<span class="hl-str">"BUILD_A"</span>, <span class="hl-str">"BUILD_B"</span>],
+  <span class="hl-key">"target_name"</span>: <span class="hl-str">"target_name"</span>,
+  <span class="hl-key">"lookup"</span>: {
+    <span class="hl-key">"table_details_visible"</span>: <span class="hl-kw">false</span>,
+    <span class="hl-key">"matches"</span>: [{ <span class="hl-key">"target"</span>: <span class="hl-str">"target_name"</span>, <span class="hl-key">"source"</span>: <span class="hl-str">"jira"</span>, <span class="hl-key">"row_count"</span>: <span class="hl-num">3162</span> }]
+  },
+  <span class="hl-key">"summary"</span>: { <span class="hl-cmt">/* counts */</span> },
+  <span class="hl-key">"cr_index"</span>: { <span class="hl-cmt">/* CR details */</span> },
+  <span class="hl-key">"hierarchical_report"</span>: [ <span class="hl-cmt">/* CR groups */</span> ],
+  <span class="hl-key">"jiras"</span>: [ <span class="hl-cmt">/* flat JIRA rows */</span> ]
+}</code></pre>
+    </div>
+  </div>
+
+  <h2>JQL / Filter Endpoint — Synchronous</h2>
+  <p>Pass a filter ID or JQL, get the full report back in one call. Same output as the JQL/Filter tab on the Build Report page.</p>
 
   <!-- POST /api/build_report/run -->
   <div class="endpoint">
@@ -682,6 +749,8 @@ data: {"stage":"done","done":50,"total":50,"pct":100,"message":"Report complete.
   <h2>Quick Reference</h2>
   <table>
     <tr><th>Endpoint</th><th>Method</th><th>Auth</th><th>Description</th></tr>
+    <tr><td><code>/api/build_report/by_build</code></td><td>GET/POST</td><td>Token or Session</td><td>Recommended for other teams: mandatory single/comma-separated <code>builds</code>, optional <code>date_from</code>/<code>date_to</code>/<code>devices</code></td></tr>
+    <tr><td><code>/api/build_report/build_lookup</code></td><td>GET/POST</td><td>Token or Session</td><td>Lookup available target/date/device filters for one or more builds; internal table details hidden for non-admins</td></tr>
     <tr><td><code>/api/build_report/run</code></td><td>GET/POST</td><td>Token or Session</td><td>Run synchronous Build Report; accepts <code>software_images_txt</code>/<code>build_info_file</code> for CR/SIR status matching</td></tr>
     <tr><td><code>/api/consolidated_report</code></td><td>POST</td><td>Token or Session</td><td>Start async report job</td></tr>
     <tr><td><code>/api/consolidated_report/result/&lt;job_id&gt;</code></td><td>GET</td><td>Token or Session</td><td>Fetch completed result</td></tr>
@@ -711,7 +780,7 @@ python -c "import secrets; print(secrets.token_urlsafe(40))"</code></pre>
 </div>
 
 <footer>
-  PDTBuddy Build Report API &mdash; v2.7 &mdash;
+  PDTBuddy Build Report API &mdash; v2.8 &mdash;
   <a href="/build_report">Open Build Report UI</a> &middot;
   <a href="/api/token/verify">Verify Token</a>
 </footer>
@@ -751,7 +820,7 @@ function copyPre(btn) {
 // Auto-open first endpoint
 document.addEventListener('DOMContentLoaded', () => {
   const first = document.querySelector('.endpoint-header');
-  if (first) toggle(first);
+  if (first && !first.nextElementSibling.classList.contains('open')) toggle(first);
 });
 </script>
 </body>
