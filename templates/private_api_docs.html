@@ -103,7 +103,7 @@
       <i class="fas fa-search"></i>
       <input class="search-input" id="apiSearch" placeholder="Search endpoints..." oninput="filterApis(this.value)">
     </div>
-    <span class="search-count" id="apiCount">6 endpoints</span>
+    <span class="search-count" id="apiCount">8 endpoints</span>
   </div>
 
   <!-- Body -->
@@ -159,6 +159,119 @@
             </div>
             <button class="run-btn" onclick="runBuildReport()"><i class="fas fa-play"></i> Run</button>
             <div class="try-result" id="ti-br-result"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- /api/build_report/build_lookup -->
+      <div class="api-card" data-search="build report lookup build_lookup metabuild target devices private token">
+        <div class="api-card__head" onclick="toggleCard(this)">
+          <span class="method method--get">GET</span>
+          <span class="method method--post" style="margin-left:-6px">POST</span>
+          <span class="api-card__endpoint">/api/build_report/build_lookup</span>
+          <span class="api-card__desc">Lookup build target/date/devices</span>
+          <i class="fas fa-chevron-down api-card__chevron"></i>
+        </div>
+        <div class="api-card__body">
+          <p style="font-size:13px;color:#475569;margin-bottom:12px;">
+            Private token-enabled API for tools. Pass a build/metabuild and PDT Buddy checks internal DB tables to find the matched target,
+            Jira date range, row counts, device IDs, and the ready-to-call by-build report API URL. Token-only callers receive sanitized
+            metadata; internal DB table/schema names remain admin-browser only.
+          </p>
+          <div class="sec-label">Authentication</div>
+          <div class="code-block" id="auth-build-lookup">X-PDTBuddy-API-Token: YOUR_TOKEN
+Authorization: Bearer YOUR_TOKEN
+X-Build-Report-API-Token: YOUR_TOKEN
+?api_token=YOUR_TOKEN<button class="copy-btn" onclick="copyCode('auth-build-lookup')"><i class="fas fa-copy"></i> Copy</button></div>
+          <div class="sec-label">Query Parameters</div>
+          <table class="params">
+            <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td><code>builds</code></td><td>string</td><td><span class="req-badge">required</span> Single build or comma-separated builds. Aliases: <code>build</code>, <code>build_id</code>, <code>metabuild</code>, <code>meta_build</code>.</td></tr>
+              <tr><td><code>target</code></td><td>string</td><td>Optional target hint when the same build may exist in multiple targets.</td></tr>
+            </tbody>
+          </table>
+          <div class="sec-label">cURL Example</div>
+          <div class="code-block" id="curl-build-lookup">curl -H "X-PDTBuddy-API-Token: YOUR_TOKEN" \
+  "http://10.142.210.127:50/api/build_report/build_lookup?builds=SecaAU_IVI.LE.1.0.r1-00027.01-NON_SAFE_STD_PVM.LAGVM-3"<button class="copy-btn" onclick="copyCode('curl-build-lookup')"><i class="fas fa-copy"></i> Copy</button></div>
+          <div class="sec-label">Example Response</div>
+          <div class="code-block" id="resp-build-lookup">{"ok": true, "success": true, "build": "SecaAU_IVI.LE.1.0.r1-00027.01-NON_SAFE_STD_PVM.LAGVM-3", "match_count": 1, "target": "seca_qe_ivi_1_0", "min_jira_date": "2026-09-18", "max_jira_date": "2026-09-22", "devices": ["TDC00003561L"], "api_url": "/api/build_report/by_build?builds=..."}<button class="copy-btn" onclick="copyCode('resp-build-lookup')"><i class="fas fa-copy"></i> Copy</button></div>
+          <div class="try-box">
+            <div class="try-title"><i class="fas fa-flask"></i> Try It with Token <span style="font-size:10px;color:#94a3b8;font-weight:700">(no browser session needed by API)</span></div>
+            <div class="sec-label" style="margin-top:0">API Token</div>
+            <div class="try-row">
+              <input class="try-input" id="ti-lookup-token" placeholder="Paste X-PDTBuddy-API-Token">
+            </div>
+            <div class="sec-label">Build / Target</div>
+            <div class="try-row">
+              <input class="try-input" id="ti-lookup-build" placeholder="SecaAU_IVI.LE.1.0.r1-00027.01-NON_SAFE_STD_PVM.LAGVM-3">
+              <input class="try-input" id="ti-lookup-target" placeholder="target optional e.g. seca_qe_ivi_1_0" style="max-width:260px">
+              <button class="run-btn" onclick="runBuildLookupToken()"><i class="fas fa-play"></i> Run</button>
+            </div>
+            <div class="try-result" id="ti-lookup-result"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- /api/build_report/by_build -->
+      <div class="api-card" data-search="build report by_build private token consolidated latest build info jql supplement serial devices">
+        <div class="api-card__head" onclick="toggleCard(this)">
+          <span class="method method--get">GET</span>
+          <span class="method method--post" style="margin-left:-6px">POST</span>
+          <span class="api-card__endpoint">/api/build_report/by_build</span>
+          <span class="api-card__desc">Consolidated report by build</span>
+          <i class="fas fa-chevron-down api-card__chevron"></i>
+        </div>
+        <div class="api-card__body">
+          <p style="font-size:13px;color:#475569;margin-bottom:12px;">
+            Primary private API for other tools. It returns the same consolidated CR / mapped JIRA / open JIRA JSON used by the Build Report UI.
+            It works with token-only access and no browser login. When <code>date_to</code> is omitted or latest/current, PDT Buddy also runs
+            the latest Build Info JQL supplement to cover the DB refresh gap.
+          </p>
+          <div class="sec-label">Authentication</div>
+          <div class="code-block" id="auth-by-build">X-PDTBuddy-API-Token: YOUR_TOKEN
+Authorization: Bearer YOUR_TOKEN
+X-Build-Report-API-Token: YOUR_TOKEN
+?api_token=YOUR_TOKEN<button class="copy-btn" onclick="copyCode('auth-by-build')"><i class="fas fa-copy"></i> Copy</button></div>
+          <div class="sec-label">Query Parameters</div>
+          <table class="params">
+            <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td><code>builds</code></td><td>string</td><td><span class="req-badge">required</span> Single build or comma-separated builds. Alias <code>build</code> is accepted.</td></tr>
+              <tr><td><code>target</code></td><td>string</td><td>Optional matched target. Use lookup first when uncertain.</td></tr>
+              <tr><td><code>date_from</code></td><td>date</td><td>Optional Jira Date start. Aliases include <code>start_date</code>, <code>jira_start</code>, <code>jira_date_start</code>.</td></tr>
+              <tr><td><code>date_to</code></td><td>date</td><td>Optional Jira Date stop. If old/non-current, latest Build Info JQL supplement is skipped.</td></tr>
+              <tr><td><code>devices</code></td><td>string</td><td>Optional comma-separated Serial No / device IDs. Aliases: <code>device_ids</code>, <code>serials</code>, <code>serial_no</code>.</td></tr>
+              <tr><td><code>live_jira</code></td><td>bool</td><td>Optional. Default is fast DB-backed report plus latest supplement. Use <code>1</code> only for full live Jira traversal.</td></tr>
+            </tbody>
+          </table>
+          <div class="sec-label">Latest Build Info JQL Supplement</div>
+          <div class="code-block" id="note-by-build-jql">Runs automatically only when date_to is omitted or latest/current:
+filter = 76997 AND project = QSTABILITY AND "Build Info" ~ "&lt;build&gt;"
+If date_to is old, response meta.jql_supplement.skipped_reason = "date_to_not_latest".<button class="copy-btn" onclick="copyCode('note-by-build-jql')"><i class="fas fa-copy"></i> Copy</button></div>
+          <div class="sec-label">cURL Example</div>
+          <div class="code-block" id="curl-by-build">curl -H "X-PDTBuddy-API-Token: YOUR_TOKEN" \
+  "http://10.142.210.127:50/api/build_report/by_build?builds=SecaAU_IVI.LE.1.0.r1-00027.01-NON_SAFE_STD_PVM.LAGVM-3&amp;target=seca_qe_ivi_1_0&amp;date_from=2026-09-18&amp;date_to=2026-09-22&amp;devices=TDC00003561L,TDC000035CT7"<button class="copy-btn" onclick="copyCode('curl-by-build')"><i class="fas fa-copy"></i> Copy</button></div>
+          <div class="sec-label">Example Response</div>
+          <div class="code-block" id="resp-by-build">{"ok": true, "source": "build_report_by_build_db_fast", "db_jira_count": 24, "jira_count_after_supplement": 27, "jql_supplement": {"enabled": true, "added_count": 3, "total_fetched": 5, "duplicate_count": 2}, "summary": {"total_jiras": 27}, "hierarchical_report": [...], "cr_index": {...}}<button class="copy-btn" onclick="copyCode('resp-by-build')"><i class="fas fa-copy"></i> Copy</button></div>
+          <div class="try-box">
+            <div class="try-title"><i class="fas fa-flask"></i> Try It with Token <span style="font-size:10px;color:#94a3b8;font-weight:700">(no browser session needed by API)</span></div>
+            <div class="sec-label" style="margin-top:0">API Token</div>
+            <div class="try-row">
+              <input class="try-input" id="ti-bybuild-token" placeholder="Paste X-PDTBuddy-API-Token">
+            </div>
+            <div class="sec-label">Build Report Inputs</div>
+            <div class="try-row">
+              <input class="try-input" id="ti-bybuild-build" placeholder="Build ID / MetaBuild">
+              <input class="try-input" id="ti-bybuild-target" placeholder="target optional" style="max-width:220px">
+            </div>
+            <div class="try-row">
+              <input class="try-input" id="ti-bybuild-from" placeholder="date_from YYYY-MM-DD" style="max-width:180px">
+              <input class="try-input" id="ti-bybuild-to" placeholder="date_to YYYY-MM-DD" style="max-width:180px">
+              <input class="try-input" id="ti-bybuild-devices" placeholder="devices optional SN1,SN2">
+              <button class="run-btn" onclick="runByBuildToken()"><i class="fas fa-play"></i> Run</button>
+            </div>
+            <div class="try-result" id="ti-bybuild-result"></div>
           </div>
         </div>
       </div>
@@ -361,6 +474,54 @@
       el.textContent = 'Error: ' + e.message;
       el.classList.add('error');
     }
+  }
+
+  function tokenHeaders(tokenId){
+    var tokenEl = document.getElementById(tokenId);
+    var token = tokenEl ? tokenEl.value.trim() : '';
+    var headers = {};
+    if(token) headers['X-PDTBuddy-API-Token'] = token;
+    return headers;
+  }
+
+  async function runGetToken(url, resultId, tokenId){
+    var el = document.getElementById(resultId);
+    if(!el) return;
+    el.classList.add('show');
+    el.classList.remove('error');
+    el.textContent = 'Loading...';
+    try{
+      var r = await fetch(url, {headers:tokenHeaders(tokenId), cache:'no-store'});
+      var data = await r.json();
+      el.textContent = JSON.stringify(data, null, 2);
+      if(!r.ok) el.classList.add('error');
+    } catch(e){
+      el.textContent = 'Error: ' + e.message;
+      el.classList.add('error');
+    }
+  }
+
+  function addParam(params, name, id){
+    var el = document.getElementById(id);
+    var val = el ? el.value.trim() : '';
+    if(val) params.set(name, val);
+  }
+
+  function runBuildLookupToken(){
+    var p = new URLSearchParams();
+    addParam(p, 'builds', 'ti-lookup-build');
+    addParam(p, 'target', 'ti-lookup-target');
+    runGetToken('/api/build_report/build_lookup?' + p.toString(), 'ti-lookup-result', 'ti-lookup-token');
+  }
+
+  function runByBuildToken(){
+    var p = new URLSearchParams();
+    addParam(p, 'builds', 'ti-bybuild-build');
+    addParam(p, 'target', 'ti-bybuild-target');
+    addParam(p, 'date_from', 'ti-bybuild-from');
+    addParam(p, 'date_to', 'ti-bybuild-to');
+    addParam(p, 'devices', 'ti-bybuild-devices');
+    runGetToken('/api/build_report/by_build?' + p.toString(), 'ti-bybuild-result', 'ti-bybuild-token');
   }
 
   async function runPost(url, body, resultId){

@@ -353,12 +353,14 @@ def _configured_api_tokens():
     Configure one of these in .env/environment:
       PDTBUDDY_API_TOKEN=<long random token>
       JIRAQUERY_API_TOKEN=<long random token>
+      BUILD_REPORT_API_TOKEN=<long random token>
 
     Multiple tokens can be separated by comma/semicolon/newline.
     """
     raw = "\n".join([
         os.getenv("PDTBUDDY_API_TOKEN", ""),
         os.getenv("JIRAQUERY_API_TOKEN", ""),
+        os.getenv("BUILD_REPORT_API_TOKEN", ""),
     ])
     return [t.strip() for t in raw.replace(";", ",").replace("\n", ",").split(",") if t.strip()]
 
@@ -370,6 +372,7 @@ def _request_api_token():
     return str(
         request.headers.get("X-PDTBuddy-API-Token")
         or request.headers.get("X-JiraQuery-API-Token")
+        or request.headers.get("X-Build-Report-API-Token")
         or request.args.get("api_token")
         or ""
     ).strip()
@@ -446,11 +449,24 @@ def api_token_verify():
     if any(compare_digest(provided, expected) for expected in configured):
         return jsonify({
             'ok': True,
+            'success': True,
             'authenticated': True,
+            'token_valid': True,
+            'token_configured': True,
             'message': 'Token is valid.',
+            'accepted_methods': [
+                'X-PDTBuddy-API-Token',
+                'X-JiraQuery-API-Token',
+                'X-Build-Report-API-Token',
+                'Authorization: Bearer <token>',
+                'api_token query parameter',
+            ],
         }), 200
     return jsonify({
         'ok': False,
+        'success': False,
+        'authenticated': False,
+        'token_valid': False,
         'error': 'Token is invalid or does not match any configured token.',
         'token_configured': True,
     }), 401

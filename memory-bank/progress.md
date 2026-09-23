@@ -1,5 +1,30 @@
 # Progress: PDTBuddy
 
+## 2026-09-23 - Private API Docs Build Report Token Try-It Follow-up
+- Added Build Report by-build API documentation to the private API reference page:
+  - `/api/build_report/build_lookup`
+  - `/api/build_report/by_build`
+- The new private docs cards include token auth instructions, cURL examples, query parameter tables, example responses, latest Build Info JQL supplement notes, and token-aware **Try It** controls.
+- `templates/private_api_docs.html` endpoint count is now 8 and includes JavaScript helpers for token-header requests.
+- The active `/api/token/verify` route in `jiraquery_api_routes.py` now accepts the same static token family used by Build Report private APIs:
+  - `PDTBUDDY_API_TOKEN`
+  - `JIRAQUERY_API_TOKEN`
+  - `BUILD_REPORT_API_TOKEN`
+  - `X-PDTBuddy-API-Token`
+  - `X-JiraQuery-API-Token`
+  - `X-Build-Report-API-Token`
+  - `Authorization: Bearer <token>`
+  - `api_token` query parameter
+- Valid token responses now include `success`, `token_valid`, `token_configured`, and `accepted_methods` fields so external tools can diagnose token setup without running a report.
+- Removed the duplicate/inactive app-level `/api/token/verify` route attempt; the feature-blueprint route remains the active route.
+- `build_log1.txt` currently contains refreshed PyInstaller build-log timing/output from the local build process.
+- Validation passed:
+  - test-client token checks: missing token `401`, PDTBuddy token `200`, Build Report token `200`
+  - token-authenticated `/api/build_report/by_build` reached route logic and returned expected missing-build `400`
+  - `py -3 -m py_compile app.py jiraquery_api_routes.py build_report_by_build_routes.py`
+  - Jinja parse for `templates/private_api_docs.html`
+  - `git diff --check -- app.py jiraquery_api_routes.py templates/private_api_docs.html build_report_by_build_routes.py` with only expected Git CRLF warning for `jiraquery_api_routes.py`
+
 ## 2026-09-22 - Build Report By-Build Latest Build Info JQL Supplement
 - Enhanced only the `/build_report` **Build Report** tab/API path to cover the internal DB refresh gap with a latest live Jira Build Info check.
 - Existing **JQL/Filter Report** code and flow were not changed.

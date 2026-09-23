@@ -1,5 +1,40 @@
 # Active Context
 
+## 2026-09-23 - Private API Docs Build Report Token Try-It Follow-up
+
+**User request addressed:** Make the private API docs useful for other/internal tools that call the Build Report by-build APIs with static tokens, and provide a lightweight token verification endpoint.
+
+**Changes made:**
+- `templates/private_api_docs.html`
+  - Added dedicated private docs cards for:
+    - `GET/POST /api/build_report/build_lookup`
+    - `GET/POST /api/build_report/by_build`
+  - Documented accepted static token methods:
+    - `X-PDTBuddy-API-Token`
+    - `X-JiraQuery-API-Token`
+    - `X-Build-Report-API-Token`
+    - `Authorization: Bearer <token>`
+    - `?api_token=<token>`
+  - Added cURL examples, parameter tables, latest Build Info JQL supplement behavior notes, example responses, and token-aware **Try It** controls.
+  - Updated endpoint count from 6 to 8 and added token-aware JavaScript helpers for docs-page calls.
+- `jiraquery_api_routes.py`
+  - Updated the active `/api/token/verify` blueprint route to recognize `BUILD_REPORT_API_TOKEN` and `X-Build-Report-API-Token`, aligning the verifier with Build Report private API auth.
+  - Token verifier valid responses now include `success`, `token_valid`, `token_configured`, and `accepted_methods` metadata for tool diagnostics.
+  - Removed the duplicate/inactive app-level token verifier attempt from `app.py`; the active route remains the existing `jiraquery_api_bp` route registered through feature blueprints.
+- `build_log1.txt`
+  - Contains refreshed PyInstaller build-log timestamps/output from the local build process; no functional code changes are represented there.
+
+**Validation:**
+- Token route test-client validation with project `.venv` confirmed:
+  - missing token returns `401`
+  - `X-PDTBuddy-API-Token` returns `200` / `token_valid=True`
+  - `X-Build-Report-API-Token` returns `200` / `token_valid=True`
+  - `/api/build_report/by_build` with a valid token reaches the route and returns the expected missing-build `400`, proving auth passed.
+- Syntax/template validation passed:
+  - `py -3 -m py_compile app.py jiraquery_api_routes.py build_report_by_build_routes.py`
+  - Jinja parse for `templates/private_api_docs.html`
+  - `git diff --check -- app.py jiraquery_api_routes.py templates/private_api_docs.html build_report_by_build_routes.py` returned no whitespace errors except expected Git line-ending warning for `jiraquery_api_routes.py`.
+
 ## 2026-09-22 - Build Report By-Build Latest Build Info JQL Supplement
 
 **User request addressed:** For `/build_report` **Build Report** tab only, cover the internal DB refresh gap (DB updates every ~3 hours) by also checking latest live JIRA data for at least the last 1 day. Do **not** touch the existing JQL/Filter Report code or flow. The live supplement must use Build Info JQL shaped like:
