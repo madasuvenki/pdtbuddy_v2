@@ -231,6 +231,18 @@ REMEMBERED_SESSION_IDLE_TIMEOUT = 30 * 24 * 60 * 60  # 30 days when "Keep me sig
 
 
 @app.before_request
+def _start_api_tracking():
+    """Record request start time for API usage duration tracking."""
+    from flask import g
+    try:
+        from src.api_usage import should_track
+        if should_track(request.path, request.endpoint or ""):
+            g._api_track_start = __import__('time').monotonic()
+    except Exception:
+        pass
+
+
+@app.before_request
 def _check_session_idle():
     """Auto-logout users idle for more than SESSION_IDLE_TIMEOUT seconds.
     Exemptions: login/logout/static endpoints, and while a report task is running.
@@ -513,6 +525,62 @@ def _track_page_view_after_request(response):
         logger.info(f"[USAGE] PAGE_VIEW tracking skipped: {_page_track_err}")
 
 
+def _track_api_usage_after_request(response):
+    """Log public and private API calls to api_usage_log for caller tracking."""
+    try:
+        from flask import g
+        from src.api_usage import should_track, log_api_usage
+        path = request.path or ""
+        endpoint = request.endpoint or ""
+        if not should_track(path, endpoint):
+            return
+        import time as _time
+        start = getattr(g, "_api_track_start", None)
+        duration_ms = int((_time.monotonic() - start) * 1000) if start is not None else 0
+
+        # Determine auth type and token
+        auth_type = "none"
+        provided_token = ""
+        try:
+            from jiraquery_api_routes import _request_api_token, _jiraquery_authenticated
+            tok = _request_api_token()
+            if tok:
+                provided_token = tok
+                auth_type = "token"
+        except Exception:
+            pass
+        if auth_type == "none":
+            try:
+                if current_user.is_authenticated:
+                    auth_type = "session"
+            except Exception:
+                pass
+
+        # Source IP — respect X-Forwarded-For for reverse-proxy setups
+        forwarded_for = request.headers.get("X-Forwarded-For", "")
+        source_ip = (forwarded_for.split(",")[0].strip() if forwarded_for
+                     else request.remote_addr or "")
+
+        log_api_usage(
+            path=path,
+            method=request.method,
+            status_code=response.status_code,
+            duration_ms=duration_ms,
+            request_id=request.headers.get("X-Request-Id", ""),
+            query_string=request.query_string.decode("utf-8", errors="ignore") if request.query_string else "",
+            source_ip=source_ip,
+            forwarded_for=forwarded_for,
+            user_agent=request.headers.get("User-Agent", ""),
+            origin=request.headers.get("Origin", ""),
+            referer=request.headers.get("Referer", ""),
+            auth_type=auth_type,
+            provided_token=provided_token,
+            response_size=response.content_length or 0,
+        )
+    except Exception as _api_track_err:
+        logger.debug("[api_usage] after_request tracking skipped: %s", _api_track_err)
+
+
 @app.after_request
 def _set_no_cache_html(response):
     """Prevent browsers from caching HTML pages so template changes are always picked up.
@@ -520,6 +588,7 @@ def _set_no_cache_html(response):
     can still auto-fill saved credentials.
     """
     _track_page_view_after_request(response)
+    _track_api_usage_after_request(response)
 
     ct = response.content_type or ''
     if 'text/html' in ct:
@@ -4393,6 +4462,91 @@ def admin_usage():
     if not is_admin():
         abort(403)
     return render_template('admin_usage.html')
+
+
+@app.route('/admin/api_usage/data')
+@login_required
+def admin_api_usage_data():
+    """Return API usage statistics for the Admin API Stats tab."""
+    if not is_admin():
+        return jsonify({"error": "Unauthorized"}), 403
+    try:
+        days = int(request.args.get("days") or 7)
+        days = max(1, min(days, 90))
+    except Exception:
+        days = 7
+    try:
+        from src.api_usage import get_api_usage_stats
+        result = get_api_usage_stats(days=days)
+        return jsonify(result)
+    except Exception as exc:
+        logger.error("[admin_api_usage_data] failed: %s", exc)
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+
+@app.route('/admin/api_usage/save_alias', methods=['POST'])
+@login_required
+def admin_api_usage_save_alias():
+    """Save or update a caller alias mapping for the API usage tracker.
+
+    Aliases apply dynamically to ALL past and future api_usage_log rows
+    that match the same fingerprint/IP/hostname/origin/referer.
+    No external tool code change is required.
+    """
+    if not is_admin():
+        return jsonify({"error": "Unauthorized"}), 403
+    data = request.get_json(silent=True) or {}
+    match_type        = str(data.get("match_type")        or "").strip()
+    match_value       = str(data.get("match_value")       or "").strip()
+    display_name      = str(data.get("display_name")      or "").strip()
+    owner_team        = str(data.get("owner_team")        or "").strip()
+    notes             = str(data.get("notes")             or "").strip()
+    friendly_hostname = str(data.get("friendly_hostname") or "").strip()
+    friendly_ip_label = str(data.get("friendly_ip_label") or "").strip()
+    if not match_type or not match_value or not display_name:
+        return jsonify({"ok": False, "error": "match_type, match_value, and display_name are required"}), 400
+    try:
+        from src.api_usage import save_caller_alias
+        ok = save_caller_alias(
+            match_type, match_value, display_name,
+            owner_team=owner_team, notes=notes,
+            friendly_hostname=friendly_hostname,
+            friendly_ip_label=friendly_ip_label,
+        )
+        return jsonify({"ok": ok, "message": "Alias saved. Applies to all past and future stats." if ok else "Save failed."})
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+
+@app.route('/admin/api_usage/aliases', methods=['GET'])
+@login_required
+def admin_api_usage_aliases():
+    """Return all configured caller aliases for the admin management table."""
+    if not is_admin():
+        return jsonify({"error": "Unauthorized"}), 403
+    try:
+        from src.api_usage import get_all_aliases
+        return jsonify({"ok": True, "aliases": get_all_aliases()})
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+
+@app.route('/admin/api_usage/delete_alias', methods=['POST'])
+@login_required
+def admin_api_usage_delete_alias():
+    """Delete a caller alias by ID."""
+    if not is_admin():
+        return jsonify({"error": "Unauthorized"}), 403
+    data = request.get_json(silent=True) or {}
+    alias_id = data.get("id")
+    if not alias_id:
+        return jsonify({"ok": False, "error": "id is required"}), 400
+    try:
+        from src.api_usage import delete_caller_alias
+        ok = delete_caller_alias(int(alias_id))
+        return jsonify({"ok": ok, "message": "Alias deleted." if ok else "Delete failed."})
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
 
 
 @app.route('/admin/db_health')
@@ -10739,7 +10893,7 @@ def main():
     _start_mcp_server_thread()
 
     HOST = os.environ.get('BUDDY_HOST', '0.0.0.0')
-    PORT = int(os.environ.get('BUDDY_PORT', '50'))
+    PORT = int(os.environ.get('BUDDY_PORT', '80'))
 
     # Use Waitress (production WSGI) when running as .exe or in production.
     # Falls back to Flask dev server only if waitress is not installed.

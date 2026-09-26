@@ -1,5 +1,64 @@
 # Active Context
 
+## 2026-09-26 - Passive API Usage Tracking System
+
+**User request addressed:** Track which tool/caller is calling PDTBuddy public and private APIs without requiring callers to change their code. No login required for public APIs. Identification uses passive HTTP signals only.
+
+**Changes made:**
+
+- `src/api_usage.py` — new module
+  - `ensure_api_usage_table()` — creates `api_usage_log` and `api_caller_alias` tables in `pdt_stats_dashboard`
+  - `log_api_usage()` — non-blocking per-request logger; captures IP, User-Agent, Origin, Referer, endpoint, method, status, duration, auth type, token name (hashed), caller fingerprint, and alias
+  - `get_api_usage_stats(days)` — aggregated stats for admin: summary totals, today totals, daily trend, top endpoints, top callers, unmapped callers, auth type breakdown, recent calls
+  - `save_caller_alias()` — admin can label a caller fingerprint/IP/origin/hostname with a friendly name
+  - `_caller_fingerprint()` — stable hash from IP + User-Agent + Origin + Referer host
+  - `_normalize_endpoint()` — groups variable path segments into patterns (e.g. `/public/auto-gen5/api/sp/{sp}/domain/{domain}`)
+  - `_detect_token_name()` — identifies which configured token was used (PDTBUDDY_API_TOKEN, JIRAQUERY_API_TOKEN, BUILD_REPORT_API_TOKEN) without storing raw token
+  - `_reverse_dns()` — optional hostname lookup for IP identification
+  - `_load_alias_map()` — 120-second TTL cache for alias lookups
+
+- `app.py`
+  - Added `@app.before_request` hook `_start_api_tracking()` — records monotonic start time in Flask `g` for duration measurement
+  - Added `_track_api_usage_after_request(response)` — called from `_set_no_cache_html()` after_request; logs all tracked API calls
+  - Tracked prefixes: `/public/`, `/api/public/`, `/api/build_report/`, `/api/jiraquery/`, `/api/token/verify`, `/api/consolidated_report`, `/api/sp2/`, `/api/live_status/`, `/api/core_deck/`, `/api/device_summary/`, `/api/orbit/`
+  - Added `GET /admin/api_usage/data` — returns aggregated stats JSON for admin
+  - Added `POST /admin/api_usage/save_alias` — saves caller alias mapping
+
+- `templates/admin_usage.html`
+  - Added **API Stats** tab button in the top tab bar
+  - Added `sec-apistats` section with:
+    - 8 summary cards: Total Calls, Public Calls, Private Calls, Failed Calls, Unique Callers, Today Total, Today Public, Today Failed
+    - Daily trend table (7d/14d/30d/90d period selector)
+    - Top Endpoints table with type badge, calls, callers, avg ms, failures
+    - Auth Type Breakdown table
+    - Top Callers table with alias/fingerprint, IP, hostname, User-Agent, Origin, Referer, calls, public/private split, failures, last seen, Label button
+    - Unmapped Callers table — callers with no alias yet, with Label button
+    - Recent API Calls table (last 50)
+    - Label Caller modal — admin can assign display name, owner team, notes to any caller fingerprint/IP/origin/hostname
+  - JavaScript: `apiStatsLoad()`, `apiStatsSetDays()`, `apiAliasOpen()`, `apiAliasSave()`, tab integration with existing `admShowTab()`
+
+**DB tables created automatically on first tracked API call:**
+
+```sql
+pdt_stats_dashboard.api_usage_log
+pdt_stats_dashboard.api_caller_alias
+```
+
+**Caller identification priority (no caller code change required):**
+
+```text
+1. API token → token name (PDTBUDDY_API_TOKEN / JIRAQUERY_API_TOKEN / BUILD_REPORT_API_TOKEN)
+2. Logged-in browser session → auth_type = session
+3. Origin header → referer_host alias
+4. Reverse DNS hostname → hostname alias
+5. Source IP → ip alias
+6. IP + User-Agent + Origin + Referer fingerprint → fingerprint alias
+```
+
+**Validation:**
+- `py -3 -m py_compile src/api_usage.py app.py` returned `PY_COMPILE_OK`
+- Jinja parse for `templates/admin_usage.html` returned `ADMIN_USAGE_JINJA_OK`
+
 ## 2026-09-23 - Private API Docs Build Report Token Try-It Follow-up
 
 **User request addressed:** Make the private API docs useful for other/internal tools that call the Build Report by-build APIs with static tokens, and provide a lightweight token verification endpoint.

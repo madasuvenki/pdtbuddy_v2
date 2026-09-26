@@ -315,6 +315,9 @@ table.tm-table tr:hover td { background:#f0f4ff; }
     <button class="adm-tab-btn" id="adm-tab-usage" type="button" onclick="admShowTab('usage')">
       <i class="fas fa-chart-line"></i> User Usage
     </button>
+    <button class="adm-tab-btn" id="adm-tab-apistats" type="button" onclick="admShowTab('apistats')">
+      <i class="fas fa-plug"></i> API Stats
+    </button>
     <button class="adm-tab-btn" id="adm-tab-ingest" type="button" onclick="admShowTab('ingest')">
       <i class="fas fa-database"></i> Ingest Status
     </button>
@@ -327,9 +330,232 @@ table.tm-table tr:hover td { background:#f0f4ff; }
     <span class="adm-tabs-spacer"></span>
   </div>
 
+  <!-- ============================================================
+       SECTION: API Stats
+       ============================================================ -->
+  <div class="adm-section adm-tab-hidden" id="sec-apistats">
+    <div class="adm-section-head" onclick="admToggle('apistats')">
+      <div class="adm-section-head-left">
+        <div class="adm-section-icon" style="background:#dbeafe;color:#2563eb;"><i class="fas fa-plug"></i></div>
+        <div>
+          <div class="adm-section-label">API Usage Statistics</div>
+          <div class="adm-section-sub">Public & private API calls &mdash; callers &mdash; endpoints &mdash; daily trend</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div style="display:flex;gap:4px;background:#f1f5f9;border-radius:10px;padding:4px;">
+          <button class="au-period-tab active" data-apidays="7"  onclick="event.stopPropagation();apiStatsSetDays(7)">7d</button>
+          <button class="au-period-tab"        data-apidays="14" onclick="event.stopPropagation();apiStatsSetDays(14)">14d</button>
+          <button class="au-period-tab"        data-apidays="30" onclick="event.stopPropagation();apiStatsSetDays(30)">30d</button>
+          <button class="au-period-tab"        data-apidays="90" onclick="event.stopPropagation();apiStatsSetDays(90)">90d</button>
+        </div>
+        <button class="adm-refresh-btn" style="background:linear-gradient(135deg,#2563eb,#06b6d4);" onclick="event.stopPropagation();apiStatsLoad()">
+          <i class="fas fa-sync-alt"></i> Refresh
+        </button>
+        <i class="fas fa-chevron-down adm-section-chevron"></i>
+      </div>
+    </div>
+    <div class="adm-section-body" id="body-apistats">
+
+      <!-- Summary cards -->
+      <div class="dbh-cards" id="api-summary-cards">
+        <div class="dbh-card"><div class="dbh-card-label">Total API Calls</div><div class="dbh-card-value" id="api-total-calls">—</div><div class="dbh-card-sub" id="api-period-label">Last 7 days</div></div>
+        <div class="dbh-card"><div class="dbh-card-label">Public API Calls</div><div class="dbh-card-value" id="api-public-calls" style="color:#16a34a;">—</div><div class="dbh-card-sub">No login required</div></div>
+        <div class="dbh-card"><div class="dbh-card-label">Private API Calls</div><div class="dbh-card-value" id="api-private-calls" style="color:#2563eb;">—</div><div class="dbh-card-sub">Token authenticated</div></div>
+        <div class="dbh-card"><div class="dbh-card-label">Failed Calls</div><div class="dbh-card-value" id="api-failed-calls" style="color:#dc2626;">—</div><div class="dbh-card-sub">HTTP 4xx / 5xx</div></div>
+        <div class="dbh-card"><div class="dbh-card-label">Unique Callers</div><div class="dbh-card-value" id="api-unique-callers">—</div><div class="dbh-card-sub">Fingerprints</div></div>
+        <div class="dbh-card"><div class="dbh-card-label">Today Total</div><div class="dbh-card-value" id="api-today-total">—</div><div class="dbh-card-sub">Today only</div></div>
+        <div class="dbh-card"><div class="dbh-card-label">Today Public</div><div class="dbh-card-value" id="api-today-public" style="color:#16a34a;">—</div><div class="dbh-card-sub">Today only</div></div>
+        <div class="dbh-card"><div class="dbh-card-label">Today Failed</div><div class="dbh-card-value" id="api-today-failed" style="color:#dc2626;">—</div><div class="dbh-card-sub">Today only</div></div>
+      </div>
+
+      <!-- Daily trend table -->
+      <div class="dbh-panel" style="margin-bottom:14px;">
+        <div class="dbh-title"><i class="fas fa-chart-bar" style="color:#2563eb;"></i> Daily API Call Trend</div>
+        <div class="dbh-table-wrap">
+          <table class="dbh-table" id="api-daily-table">
+            <thead><tr>
+              <th>Date</th><th>Total</th><th>Public</th><th>Private</th><th>Failed</th><th>Unique Callers</th><th>Avg ms</th>
+            </tr></thead>
+            <tbody id="api-daily-tbody"><tr><td colspan="7" style="text-align:center;padding:24px;color:#9ca3af;"><i class="fas fa-spinner fa-spin"></i> Loading...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Top endpoints + Auth type -->
+      <div class="dbh-grid" style="margin-bottom:14px;">
+        <div class="dbh-panel">
+          <div class="dbh-title"><i class="fas fa-list" style="color:#7c3aed;"></i> Top Endpoints</div>
+          <div class="dbh-table-wrap">
+            <table class="dbh-table">
+              <thead><tr><th>Endpoint</th><th>Type</th><th>Calls</th><th>Callers</th><th>Avg ms</th><th>Failures</th></tr></thead>
+              <tbody id="api-endpoints-tbody"><tr><td colspan="6" style="text-align:center;padding:20px;color:#9ca3af;"><i class="fas fa-spinner fa-spin"></i></td></tr></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="dbh-panel">
+          <div class="dbh-title"><i class="fas fa-key" style="color:#f59e0b;"></i> Auth Type Breakdown</div>
+          <div class="dbh-table-wrap">
+            <table class="dbh-table">
+              <thead><tr><th>Auth Type</th><th>Token Name</th><th>Calls</th><th>Last Seen</th></tr></thead>
+              <tbody id="api-auth-tbody"><tr><td colspan="4" style="text-align:center;padding:20px;color:#9ca3af;"><i class="fas fa-spinner fa-spin"></i></td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Detected Tools / Applications (grouped by origin/referer/hostname/ip) -->
+      <div class="dbh-panel" style="margin-bottom:14px;">
+        <div class="dbh-title">
+          <i class="fas fa-tools" style="color:#0891b2;"></i> Detected Tools / Applications
+          <span style="font-size:11px;font-weight:700;color:#9ca3af;margin-left:8px;">
+            Grouped by Origin → Referer Host → Hostname → IP &nbsp;|&nbsp;
+            Same-app calls from different IPs are merged into one row
+          </span>
+        </div>
+        <div class="dbh-table-wrap">
+          <table class="dbh-table">
+            <thead><tr>
+              <th>Tool / App Identity</th><th>Identity Type</th><th>Alias / Label</th>
+              <th>Source IPs</th><th>Hostnames</th><th>User-Agent</th>
+              <th>Calls</th><th>Public</th><th>Private</th><th>Failures</th>
+              <th>First Seen</th><th>Last Seen</th><th>Action</th>
+            </tr></thead>
+            <tbody id="api-tools-tbody"><tr><td colspan="13" style="text-align:center;padding:24px;color:#9ca3af;"><i class="fas fa-spinner fa-spin"></i> Loading...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Top callers (fingerprint level) -->
+      <div class="dbh-panel" style="margin-bottom:14px;">
+        <div class="dbh-title">
+          <i class="fas fa-fingerprint" style="color:#64748b;"></i> Caller Fingerprint Details
+          <span style="font-size:11px;font-weight:700;color:#9ca3af;margin-left:8px;">
+            Each row = unique IP + User-Agent + Origin + Referer combination &nbsp;|&nbsp;
+            Same tool from different IPs appears as separate rows here
+          </span>
+        </div>
+        <div class="dbh-table-wrap">
+          <table class="dbh-table">
+            <thead><tr>
+              <th>Caller / Alias</th><th>IP</th><th>Hostname</th><th>User-Agent</th><th>Origin</th><th>Referer Host</th>
+              <th>Calls</th><th>Public</th><th>Private</th><th>Failures</th><th>Last Seen</th><th>Action</th>
+            </tr></thead>
+            <tbody id="api-callers-tbody"><tr><td colspan="12" style="text-align:center;padding:24px;color:#9ca3af;"><i class="fas fa-spinner fa-spin"></i> Loading...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Unmapped callers -->
+      <div class="dbh-panel" style="margin-bottom:14px;">
+        <div class="dbh-title"><i class="fas fa-question-circle" style="color:#dc2626;"></i> Unmapped Callers <span style="font-size:11px;font-weight:700;color:#9ca3af;margin-left:8px;">No alias assigned yet — click Label to identify</span></div>
+        <div class="dbh-table-wrap">
+          <table class="dbh-table">
+            <thead><tr>
+              <th>Fingerprint</th><th>IP</th><th>Hostname</th><th>User-Agent</th><th>Origin</th><th>Referer Host</th>
+              <th>Calls</th><th>Last Seen</th><th>Top Endpoints</th><th>Action</th>
+            </tr></thead>
+            <tbody id="api-unmapped-tbody"><tr><td colspan="10" style="text-align:center;padding:24px;color:#9ca3af;"><i class="fas fa-spinner fa-spin"></i> Loading...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Recent calls -->
+      <div class="dbh-panel" style="margin-bottom:14px;">
+        <div class="dbh-title"><i class="fas fa-history" style="color:#64748b;"></i> Recent API Calls (last 50)</div>
+        <div class="dbh-table-wrap" style="max-height:320px;">
+          <table class="dbh-table">
+            <thead><tr><th>Time</th><th>Type</th><th>Method</th><th>Endpoint</th><th>Status</th><th>ms</th><th>Caller</th><th>Auth</th></tr></thead>
+            <tbody id="api-recent-tbody"><tr><td colspan="8" style="text-align:center;padding:24px;color:#9ca3af;"><i class="fas fa-spinner fa-spin"></i> Loading...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Alias save modal -->
+      <div id="apiAliasModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center;">
+        <div style="background:#fff;border-radius:18px;padding:28px 32px;max-width:520px;width:95%;box-shadow:0 24px 60px rgba(0,0,0,.22);max-height:90vh;overflow-y:auto;">
+          <h3 style="font-size:17px;font-weight:950;color:#0f172a;margin:0 0 6px;">Label This Caller</h3>
+          <p style="font-size:11px;color:#64748b;font-weight:700;margin:0 0 18px;background:#f0f9ff;border-radius:8px;padding:7px 10px;border:1px solid #bae6fd;">
+            <i class="fas fa-info-circle" style="color:#0284c7;"></i>
+            This label will apply to <strong>all past and future</strong> API calls from this caller — no code change needed from the calling tool.
+          </p>
+          <input type="hidden" id="aliasMatchType">
+          <input type="hidden" id="aliasMatchValue">
+          <input type="hidden" id="aliasEditId">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+            <div>
+              <label style="font-size:11px;font-weight:700;color:#374151;">Match Type</label>
+              <select id="aliasMatchTypeSelect" style="width:100%;padding:7px 10px;border-radius:8px;border:1px solid #e2e8f0;font-size:12px;font-weight:700;color:#374151;background:#f8faff;margin-top:4px;">
+                <option value="fingerprint">Fingerprint (exact)</option>
+                <option value="ip">IP Address</option>
+                <option value="hostname">Hostname</option>
+                <option value="origin">Origin URL</option>
+                <option value="referer_host">Referer Host</option>
+                <option value="user_agent">User-Agent</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-size:11px;font-weight:700;color:#374151;">Match Value</label>
+              <div id="aliasMatchValueDisplay" style="font-size:11px;color:#475569;word-break:break-all;margin-top:4px;background:#f8faff;border-radius:8px;padding:7px 10px;border:1px solid #e2e8f0;min-height:32px;"></div>
+            </div>
+          </div>
+          <div style="margin-bottom:10px;">
+            <label style="font-size:11px;font-weight:700;color:#374151;">Tool / Display Name *</label>
+            <input id="aliasDisplayName" type="text" placeholder="e.g. Auto Gen5 Dashboard Tool" style="width:100%;padding:8px 12px;border-radius:8px;border:1px solid #e2e8f0;font-size:13px;margin-top:4px;box-sizing:border-box;">
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+            <div>
+              <label style="font-size:11px;font-weight:700;color:#374151;">Owner Team (optional)</label>
+              <input id="aliasOwnerTeam" type="text" placeholder="e.g. Automotive PDT" style="width:100%;padding:7px 10px;border-radius:8px;border:1px solid #e2e8f0;font-size:12px;margin-top:4px;box-sizing:border-box;">
+            </div>
+            <div>
+              <label style="font-size:11px;font-weight:700;color:#374151;">Friendly Hostname (optional)</label>
+              <input id="aliasFriendlyHostname" type="text" placeholder="e.g. Target Dashboard Host" style="width:100%;padding:7px 10px;border-radius:8px;border:1px solid #e2e8f0;font-size:12px;margin-top:4px;box-sizing:border-box;">
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+            <div>
+              <label style="font-size:11px;font-weight:700;color:#374151;">Friendly IP Label (optional)</label>
+              <input id="aliasFriendlyIpLabel" type="text" placeholder="e.g. Target Dashboard IP" style="width:100%;padding:7px 10px;border-radius:8px;border:1px solid #e2e8f0;font-size:12px;margin-top:4px;box-sizing:border-box;">
+            </div>
+            <div>
+              <label style="font-size:11px;font-weight:700;color:#374151;">Notes (optional)</label>
+              <input id="aliasNotes" type="text" placeholder="e.g. Calls /public/auto-gen5 every 10 min" style="width:100%;padding:7px 10px;border-radius:8px;border:1px solid #e2e8f0;font-size:12px;margin-top:4px;box-sizing:border-box;">
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
+            <button onclick="document.getElementById('apiAliasModal').style.display='none'" style="padding:8px 18px;border-radius:8px;border:1px solid #e2e8f0;background:#f8faff;font-size:13px;font-weight:700;cursor:pointer;">Cancel</button>
+            <button onclick="apiAliasSave()" style="padding:8px 18px;border-radius:8px;border:none;background:linear-gradient(135deg,#2563eb,#06b6d4);color:#fff;font-size:13px;font-weight:900;cursor:pointer;"><i class="fas fa-save"></i> Save Label — Applies to All Past & Future Stats</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Alias Management Table -->
+      <div class="dbh-panel" style="margin-bottom:14px;">
+        <div class="dbh-title" style="justify-content:space-between;">
+          <span><i class="fas fa-tags" style="color:#7c3aed;"></i> Caller Alias Mappings <span style="font-size:11px;font-weight:700;color:#9ca3af;margin-left:8px;">Labels apply to all past and future stats — no caller code change needed</span></span>
+          <button onclick="apiAliasOpenNew()" style="border:1px solid #c4b5fd;background:#faf5ff;color:#7c3aed;border-radius:8px;padding:5px 14px;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap;">
+            <i class="fas fa-plus"></i> Add New Alias
+          </button>
+        </div>
+        <div class="dbh-table-wrap">
+          <table class="dbh-table">
+            <thead><tr>
+              <th>Tool / Display Name</th><th>Match Type</th><th>Match Value</th>
+              <th>Friendly Hostname</th><th>Friendly IP Label</th>
+              <th>Owner Team</th><th>Notes</th><th>Updated</th><th>Action</th>
+            </tr></thead>
+            <tbody id="api-aliases-tbody"><tr><td colspan="9" style="text-align:center;padding:20px;color:#9ca3af;"><i class="fas fa-spinner fa-spin"></i> Loading...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div><!-- /body-apistats -->
+  </div><!-- /sec-apistats -->
+
   <!--                                           
        SECTION 1   User Usage Dashboard
-                                             -->
+                                              -->
   <div class="adm-section adm-tab-hidden" id="sec-usage">
     <div class="adm-section-head" onclick="admToggle('usage')">
       <div class="adm-section-head-left">
@@ -1103,6 +1329,476 @@ function admShowTab(id) {
   }
 
   loadUsage();
+})();
+
+/*                                           
+   API STATS TAB
+                                           */
+(function() {
+  var _apiDays = 7;
+  var _apiLoaded = false;
+
+  window.apiStatsSetDays = function(d) {
+    _apiDays = d;
+    document.querySelectorAll('[data-apidays]').forEach(function(b) {
+      b.classList.toggle('active', parseInt(b.dataset.apidays) === d);
+    });
+    apiStatsLoad();
+  };
+
+  window.apiStatsLoad = function() {
+    var periodLabel = document.getElementById('api-period-label');
+    if (periodLabel) periodLabel.textContent = 'Last ' + _apiDays + ' days';
+    fetch('/admin/api_usage/data?days=' + _apiDays + '&_ts=' + Date.now(), { cache: 'no-store' })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (!d.ok && d.error) {
+          if (d.error.indexOf('no such table') >= 0 || d.error.indexOf("doesn't exist") >= 0) {
+            _renderApiEmpty('No API calls logged yet. The api_usage_log table will be created automatically on the first tracked API call.');
+          } else {
+            _renderApiEmpty('Error loading API stats: ' + d.error);
+          }
+          return;
+        }
+        _renderApiSummary(d);
+        _renderApiDaily(d.daily_trend || []);
+        _renderApiEndpoints(d.top_endpoints || []);
+        _renderApiAuth(d.by_auth_type || []);
+        _renderApiTools(d.tool_summary || []);
+        _renderApiCallers(d.top_callers || []);
+        _renderApiUnmapped(d.unmapped_callers || []);
+        _renderApiRecent(d.recent_calls || []);
+      })
+      .catch(function(e) {
+        _renderApiEmpty('Failed to load API stats: ' + e);
+      });
+  };
+
+  function _renderApiEmpty(msg) {
+    var ids = ['api-daily-tbody','api-endpoints-tbody','api-auth-tbody','api-callers-tbody','api-unmapped-tbody','api-recent-tbody'];
+    ids.forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el) el.innerHTML = '<tr><td colspan="12" style="text-align:center;padding:24px;color:#9ca3af;font-size:13px;">' + escHtml(msg) + '</td></tr>';
+    });
+    ['api-total-calls','api-public-calls','api-private-calls','api-failed-calls','api-unique-callers','api-today-total','api-today-public','api-today-failed'].forEach(function(id) {
+      var el = document.getElementById(id); if (el) el.textContent = '0';
+    });
+  }
+
+  function _renderApiSummary(d) {
+    var s = d.summary || {};
+    var t = d.today || {};
+    var set = function(id, v) { var el = document.getElementById(id); if (el) el.textContent = (parseInt(v || 0)).toLocaleString(); };
+    set('api-total-calls',    s.total_calls);
+    set('api-public-calls',   s.public_calls);
+    set('api-private-calls',  s.private_calls);
+    set('api-failed-calls',   s.failed_calls);
+    set('api-unique-callers', s.unique_callers);
+    set('api-today-total',    t.today_total);
+    set('api-today-public',   t.today_public);
+    set('api-today-failed',   t.today_failed);
+  }
+
+  function _renderApiDaily(rows) {
+    var tbody = document.getElementById('api-daily-tbody');
+    if (!tbody) return;
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:20px;color:#9ca3af;">No data for this period.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows.map(function(r) {
+      var failPct = r.total ? Math.round((r.failed / r.total) * 100) : 0;
+      var failStyle = failPct > 10 ? 'color:#dc2626;font-weight:900;' : 'color:#64748b;';
+      return '<tr>'
+        + '<td style="font-weight:800;color:#1e293b;">' + escHtml(r.day) + '</td>'
+        + '<td style="font-weight:900;color:#2563eb;">' + (r.total || 0).toLocaleString() + '</td>'
+        + '<td style="color:#16a34a;font-weight:800;">' + (r.public_calls || 0).toLocaleString() + '</td>'
+        + '<td style="color:#7c3aed;font-weight:800;">' + (r.private_calls || 0).toLocaleString() + '</td>'
+        + '<td style="' + failStyle + '">' + (r.failed || 0).toLocaleString() + '</td>'
+        + '<td>' + (r.unique_callers || 0).toLocaleString() + '</td>'
+        + '<td style="color:#64748b;">' + (r.avg_ms || 0) + ' ms</td>'
+        + '</tr>';
+    }).join('');
+  }
+
+  function _apiTypeBadge(type) {
+    if (type === 'public')  return '<span style="background:#dcfce7;color:#15803d;font-size:10px;font-weight:800;padding:2px 8px;border-radius:999px;">public</span>';
+    if (type === 'private') return '<span style="background:#dbeafe;color:#1d4ed8;font-size:10px;font-weight:800;padding:2px 8px;border-radius:999px;">private</span>';
+    return '<span style="background:#f1f5f9;color:#64748b;font-size:10px;font-weight:800;padding:2px 8px;border-radius:999px;">' + escHtml(type || '-') + '</span>';
+  }
+
+  function _renderApiEndpoints(rows) {
+    var tbody = document.getElementById('api-endpoints-tbody');
+    if (!tbody) return;
+    if (!rows.length) { tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:#9ca3af;">No endpoint data.</td></tr>'; return; }
+    tbody.innerHTML = rows.map(function(r) {
+      return '<tr>'
+        + '<td style="font-size:11px;font-weight:700;color:#1e293b;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + escHtml(r.endpoint) + '">' + escHtml(r.endpoint || '-') + '</td>'
+        + '<td>' + _apiTypeBadge(r.api_type) + '</td>'
+        + '<td style="font-weight:900;color:#2563eb;">' + (r.calls || 0).toLocaleString() + '</td>'
+        + '<td>' + (r.unique_callers || 0) + '</td>'
+        + '<td style="color:#64748b;">' + (r.avg_ms || 0) + ' ms</td>'
+        + '<td style="color:' + (r.failures > 0 ? '#dc2626' : '#9ca3af') + ';font-weight:' + (r.failures > 0 ? '900' : '600') + ';">' + (r.failures || 0) + '</td>'
+        + '</tr>';
+    }).join('');
+  }
+
+  function _renderApiAuth(rows) {
+    var tbody = document.getElementById('api-auth-tbody');
+    if (!tbody) return;
+    if (!rows.length) { tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:20px;color:#9ca3af;">No auth data.</td></tr>'; return; }
+    tbody.innerHTML = rows.map(function(r) {
+      var authColor = r.auth_type === 'token' ? '#2563eb' : r.auth_type === 'session' ? '#7c3aed' : '#64748b';
+      return '<tr>'
+        + '<td><span style="background:#f1f5f9;color:' + authColor + ';font-size:11px;font-weight:800;padding:3px 10px;border-radius:999px;">' + escHtml(r.auth_type || 'none') + '</span></td>'
+        + '<td style="font-size:11px;color:#475569;">' + escHtml(r.token_name || '—') + '</td>'
+        + '<td style="font-weight:900;color:#2563eb;">' + (r.calls || 0).toLocaleString() + '</td>'
+        + '<td style="font-size:11px;color:#64748b;">' + escHtml(r.last_seen || '-') + '</td>'
+        + '</tr>';
+    }).join('');
+  }
+
+  function _identityTypeBadge(type) {
+    var cfg = {
+      origin:       { bg:'#dbeafe', color:'#1d4ed8', label:'Origin URL' },
+      referer_host: { bg:'#dcfce7', color:'#15803d', label:'Referer Host' },
+      hostname:     { bg:'#ede9fe', color:'#6d28d9', label:'Hostname' },
+      ip:           { bg:'#fef9c3', color:'#92400e', label:'IP Address' },
+      unknown:      { bg:'#f1f5f9', color:'#64748b', label:'Unknown' },
+    };
+    var c = cfg[type] || cfg.unknown;
+    return '<span style="background:' + c.bg + ';color:' + c.color + ';font-size:10px;font-weight:800;padding:2px 8px;border-radius:999px;white-space:nowrap;">' + escHtml(c.label) + '</span>';
+  }
+
+  function _renderApiTools(rows) {
+    var tbody = document.getElementById('api-tools-tbody');
+    if (!tbody) return;
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="13" style="text-align:center;padding:24px;color:#9ca3af;">No tool/application data yet.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows.map(function(r) {
+      var identity = r.app_identity || '';
+      var alias    = r.caller_alias || '';
+      var idType   = r.identity_type || 'unknown';
+      var identityDisplay = alias
+        ? '<span style="font-weight:900;color:#2563eb;">' + escHtml(alias) + '</span><br><span style="font-size:10px;color:#94a3b8;font-family:monospace;">' + escHtml(identity.slice(0, 50)) + '</span>'
+        : '<span style="font-weight:800;color:#1e293b;">' + escHtml(identity.slice(0, 60)) + '</span>';
+      var ips = (r.source_ips || '').split(',').map(function(s){ return s.trim(); }).filter(Boolean);
+      var ipDisplay = ips.length > 1
+        ? '<span title="' + escHtml(ips.join(', ')) + '">' + escHtml(ips[0]) + ' <span style="background:#f1f5f9;color:#64748b;font-size:9px;font-weight:800;padding:1px 6px;border-radius:999px;">+' + (ips.length - 1) + ' more</span></span>'
+        : escHtml(ips[0] || '—');
+      var hosts = (r.hostnames || '').split(',').map(function(s){ return s.trim(); }).filter(Boolean);
+      var hostDisplay = hosts.length > 1
+        ? '<span title="' + escHtml(hosts.join(', ')) + '">' + escHtml(hosts[0].slice(0, 30)) + ' <span style="background:#f1f5f9;color:#64748b;font-size:9px;font-weight:800;padding:1px 6px;border-radius:999px;">+' + (hosts.length - 1) + '</span></span>'
+        : escHtml(hosts[0] || '—');
+      var labelMatchType = idType === 'origin' ? 'origin' : idType === 'referer_host' ? 'referer_host' : idType === 'hostname' ? 'hostname' : 'ip';
+      return '<tr>'
+        + '<td style="max-width:200px;">' + identityDisplay + '</td>'
+        + '<td>' + _identityTypeBadge(idType) + '</td>'
+        + '<td style="font-size:11px;color:' + (alias ? '#2563eb' : '#9ca3af') + ';font-weight:' + (alias ? '800' : '600') + ';">' + escHtml(alias || '—') + '</td>'
+        + '<td style="font-size:11px;color:#475569;">' + ipDisplay + '</td>'
+        + '<td style="font-size:11px;color:#475569;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + escHtml(hosts.join(', ')) + '">' + hostDisplay + '</td>'
+        + '<td style="font-size:10px;color:#64748b;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + escHtml(r.user_agent_sample || '') + '">' + escHtml((r.user_agent_sample || '').slice(0, 40)) + '</td>'
+        + '<td style="font-weight:900;color:#2563eb;">' + (r.calls || 0).toLocaleString() + '</td>'
+        + '<td style="color:#16a34a;font-weight:800;">' + (r.public_calls || 0).toLocaleString() + '</td>'
+        + '<td style="color:#7c3aed;font-weight:800;">' + (r.private_calls || 0).toLocaleString() + '</td>'
+        + '<td style="color:' + (r.failures > 0 ? '#dc2626' : '#9ca3af') + ';font-weight:' + (r.failures > 0 ? '900' : '600') + ';">' + (r.failures || 0) + '</td>'
+        + '<td style="font-size:10px;color:#64748b;">' + escHtml((r.first_seen || '').slice(0, 16)) + '</td>'
+        + '<td style="font-size:10px;color:#64748b;">' + escHtml((r.last_seen || '').slice(0, 16)) + '</td>'
+        + '<td>' + _labelBtn(labelMatchType, identity, ips[0] || '') + '</td>'
+        + '</tr>';
+    }).join('');
+  }
+
+  function _labelBtn(matchType, matchValue, displayHint) {
+    return '<button '
+      + 'data-mt="' + escHtml(matchType || '') + '" '
+      + 'data-mv="' + escHtml(matchValue || '') + '" '
+      + 'data-hint="' + escHtml(displayHint || '') + '" '
+      + 'onclick="apiAliasOpenFromBtn(this)" '
+      + 'style="border:1px solid #c4b5fd;background:#faf5ff;color:#7c3aed;border-radius:7px;padding:3px 10px;font-size:10px;font-weight:800;cursor:pointer;white-space:nowrap;">'
+      + '<i class="fas fa-tag"></i> Label</button>';
+  }
+
+  window.apiAliasOpenFromBtn = function(btn) {
+    apiAliasOpen(
+      btn.getAttribute('data-mt') || '',
+      btn.getAttribute('data-mv') || '',
+      btn.getAttribute('data-hint') || ''
+    );
+  };
+
+  function _renderApiCallers(rows) {
+    var tbody = document.getElementById('api-callers-tbody');
+    if (!tbody) return;
+    if (!rows.length) { tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;padding:24px;color:#9ca3af;">No caller data.</td></tr>'; return; }
+    tbody.innerHTML = rows.map(function(r) {
+      var alias = r.caller_alias || '';
+      var callerDisplay = alias
+        ? '<span style="font-weight:900;color:#2563eb;">' + escHtml(alias) + '</span>'
+        : '<span style="font-size:10px;font-family:monospace;color:#64748b;">' + escHtml((r.caller_fp || '').slice(0, 12)) + '…</span>';
+      var matchType = r.origin ? 'origin' : r.referer_host ? 'referer_host' : r.reverse_dns ? 'hostname' : 'ip';
+      var matchValue = r.origin || r.referer_host || r.reverse_dns || r.source_ip || '';
+      var hint = r.source_ip || '';
+      return '<tr>'
+        + '<td>' + callerDisplay + '</td>'
+        + '<td style="font-size:11px;font-family:monospace;color:#475569;">' + escHtml(r.source_ip || '-') + '</td>'
+        + '<td style="font-size:11px;color:#475569;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + escHtml(r.reverse_dns || '') + '">' + escHtml(r.reverse_dns || '—') + '</td>'
+        + '<td style="font-size:10px;color:#64748b;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + escHtml(r.user_agent_short || '') + '">' + escHtml((r.user_agent_short || '').slice(0, 40)) + '</td>'
+        + '<td style="font-size:11px;color:#475569;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + escHtml(r.origin || '') + '">' + escHtml(r.origin || '—') + '</td>'
+        + '<td style="font-size:11px;color:#475569;">' + escHtml(r.referer_host || '—') + '</td>'
+        + '<td style="font-weight:900;color:#2563eb;">' + (r.calls || 0).toLocaleString() + '</td>'
+        + '<td style="color:#16a34a;font-weight:800;">' + (r.public_calls || 0).toLocaleString() + '</td>'
+        + '<td style="color:#7c3aed;font-weight:800;">' + (r.private_calls || 0).toLocaleString() + '</td>'
+        + '<td style="color:' + (r.failures > 0 ? '#dc2626' : '#9ca3af') + ';font-weight:' + (r.failures > 0 ? '900' : '600') + ';">' + (r.failures || 0) + '</td>'
+        + '<td style="font-size:11px;color:#64748b;">' + escHtml(r.last_seen || '-') + '</td>'
+        + '<td>' + _labelBtn(matchType, matchValue, hint) + '</td>'
+        + '</tr>';
+    }).join('');
+  }
+
+  function _renderApiUnmapped(rows) {
+    var tbody = document.getElementById('api-unmapped-tbody');
+    if (!tbody) return;
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:24px;color:#16a34a;font-weight:800;"><i class="fas fa-check-circle"></i> All callers are mapped!</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows.map(function(r) {
+      var matchType = r.origin ? 'origin' : r.referer_host ? 'referer_host' : r.reverse_dns ? 'hostname' : 'ip';
+      var matchValue = r.origin || r.referer_host || r.reverse_dns || r.source_ip || '';
+      var hint = r.source_ip || '';
+      return '<tr>'
+        + '<td style="font-size:10px;font-family:monospace;color:#64748b;">' + escHtml((r.caller_fp || '').slice(0, 16)) + '</td>'
+        + '<td style="font-size:11px;font-family:monospace;color:#475569;">' + escHtml(r.source_ip || '-') + '</td>'
+        + '<td style="font-size:11px;color:#475569;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + escHtml(r.reverse_dns || '') + '">' + escHtml(r.reverse_dns || '—') + '</td>'
+        + '<td style="font-size:10px;color:#64748b;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + escHtml(r.user_agent_short || '') + '">' + escHtml((r.user_agent_short || '').slice(0, 40)) + '</td>'
+        + '<td style="font-size:11px;color:#475569;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + escHtml(r.origin || '') + '">' + escHtml(r.origin || '—') + '</td>'
+        + '<td style="font-size:11px;color:#475569;">' + escHtml(r.referer_host || '—') + '</td>'
+        + '<td style="font-weight:900;color:#dc2626;">' + (r.calls || 0).toLocaleString() + '</td>'
+        + '<td style="font-size:11px;color:#64748b;">' + escHtml(r.last_seen || '-') + '</td>'
+        + '<td style="font-size:10px;color:#64748b;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + escHtml(r.top_endpoints || '') + '">' + escHtml((r.top_endpoints || '').slice(0, 80)) + '</td>'
+        + '<td>' + _labelBtn(matchType, matchValue, hint) + '</td>'
+        + '</tr>';
+    }).join('');
+  }
+
+  function _renderApiRecent(rows) {
+    var tbody = document.getElementById('api-recent-tbody');
+    if (!tbody) return;
+    if (!rows.length) { tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:20px;color:#9ca3af;">No recent calls.</td></tr>'; return; }
+    tbody.innerHTML = rows.map(function(r) {
+      var sc = parseInt(r.status_code || 0);
+      var scColor = sc >= 500 ? '#dc2626' : sc >= 400 ? '#f59e0b' : '#16a34a';
+      return '<tr>'
+        + '<td style="font-size:10px;color:#64748b;white-space:nowrap;">' + escHtml((r.created_at || '').slice(0, 19)) + '</td>'
+        + '<td>' + _apiTypeBadge(r.api_type) + '</td>'
+        + '<td style="font-size:10px;font-weight:800;color:#475569;">' + escHtml(r.method || '-') + '</td>'
+        + '<td style="font-size:10px;color:#1e293b;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + escHtml(r.endpoint || '') + '">' + escHtml(r.endpoint || '-') + '</td>'
+        + '<td><span style="font-size:11px;font-weight:900;color:' + scColor + ';">' + escHtml(r.status_code || '-') + '</span></td>'
+        + '<td style="font-size:11px;color:#64748b;">' + escHtml(r.duration_ms || '-') + '</td>'
+        + '<td style="font-size:11px;color:#475569;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + escHtml(r.caller || '') + '">' + escHtml(r.caller || '-') + '</td>'
+        + '<td><span style="font-size:10px;background:#f1f5f9;color:#64748b;padding:2px 7px;border-radius:999px;font-weight:700;">' + escHtml(r.auth_type || 'none') + (r.token_name ? ' / ' + r.token_name : '') + '</span></td>'
+        + '</tr>';
+    }).join('');
+  }
+
+  /* Alias modal — open from caller row */
+  window.apiAliasOpen = function(matchType, matchValue, hint) {
+    document.getElementById('aliasEditId').value = '';
+    document.getElementById('aliasMatchType').value = matchValue;
+    document.getElementById('aliasMatchValue').value = matchValue;
+    document.getElementById('aliasMatchValueDisplay').textContent = matchValue || hint || '(unknown)';
+    document.getElementById('aliasDisplayName').value = '';
+    document.getElementById('aliasOwnerTeam').value = '';
+    document.getElementById('aliasFriendlyHostname').value = '';
+    document.getElementById('aliasFriendlyIpLabel').value = '';
+    document.getElementById('aliasNotes').value = '';
+    // Pre-select the best match type
+    var sel = document.getElementById('aliasMatchTypeSelect');
+    if (sel) sel.value = matchType || 'fingerprint';
+    var modal = document.getElementById('apiAliasModal');
+    modal.style.display = 'flex';
+    setTimeout(function() { document.getElementById('aliasDisplayName').focus(); }, 80);
+  };
+
+  /* Open modal for a new alias (no pre-filled values) */
+  window.apiAliasOpenNew = function() {
+    document.getElementById('aliasEditId').value = '';
+    document.getElementById('aliasMatchType').value = '';
+    document.getElementById('aliasMatchValue').value = '';
+    document.getElementById('aliasMatchValueDisplay').textContent = '(enter match value below)';
+    document.getElementById('aliasDisplayName').value = '';
+    document.getElementById('aliasOwnerTeam').value = '';
+    document.getElementById('aliasFriendlyHostname').value = '';
+    document.getElementById('aliasFriendlyIpLabel').value = '';
+    document.getElementById('aliasNotes').value = '';
+    var sel = document.getElementById('aliasMatchTypeSelect');
+    if (sel) sel.value = 'ip';
+    // For new alias, show an editable match value input
+    var dispEl = document.getElementById('aliasMatchValueDisplay');
+    dispEl.innerHTML = '<input id="aliasMatchValueInput" type="text" placeholder="e.g. 10.79.88.74 or hw-kartdeva-blr.ap.qualcomm.com" style="width:100%;border:none;background:transparent;font-size:11px;color:#1e293b;outline:none;">';
+    var modal = document.getElementById('apiAliasModal');
+    modal.style.display = 'flex';
+    setTimeout(function() {
+      var inp = document.getElementById('aliasMatchValueInput');
+      if (inp) inp.focus();
+    }, 80);
+  };
+
+  window.apiAliasSave = function() {
+    var sel         = document.getElementById('aliasMatchTypeSelect');
+    var matchType   = sel ? sel.value.trim() : document.getElementById('aliasMatchType').value.trim();
+    // Support both pre-filled hidden value and new-alias editable input
+    var matchValueInp = document.getElementById('aliasMatchValueInput');
+    var matchValue  = matchValueInp
+      ? matchValueInp.value.trim()
+      : document.getElementById('aliasMatchValue').value.trim();
+    var displayName      = document.getElementById('aliasDisplayName').value.trim();
+    var ownerTeam        = document.getElementById('aliasOwnerTeam').value.trim();
+    var friendlyHostname = document.getElementById('aliasFriendlyHostname').value.trim();
+    var friendlyIpLabel  = document.getElementById('aliasFriendlyIpLabel').value.trim();
+    var notes            = document.getElementById('aliasNotes').value.trim();
+    if (!matchType)   { admShowToast('Match type is required.', false); return; }
+    if (!matchValue)  { admShowToast('Match value is required.', false); return; }
+    if (!displayName) { admShowToast('Tool / Display name is required.', false); return; }
+    fetch('/admin/api_usage/save_alias', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        match_type: matchType,
+        match_value: matchValue,
+        display_name: displayName,
+        owner_team: ownerTeam,
+        friendly_hostname: friendlyHostname,
+        friendly_ip_label: friendlyIpLabel,
+        notes: notes
+      })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d.ok) {
+        admShowToast('Alias saved — applies to all past and future stats.', true);
+        document.getElementById('apiAliasModal').style.display = 'none';
+        apiStatsLoad();
+        _loadAliasTable();
+      } else {
+        admShowToast('Save failed: ' + (d.error || 'unknown error'), false);
+      }
+    })
+    .catch(function(e) { admShowToast('Network error: ' + e, false); });
+  };
+
+  /* Alias management table */
+  function _loadAliasTable() {
+    var tbody = document.getElementById('api-aliases-tbody');
+    if (!tbody) return;
+    fetch('/admin/api_usage/aliases')
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        var aliases = d.aliases || [];
+        if (!aliases.length) {
+          tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:24px;color:#9ca3af;font-size:13px;">No aliases configured yet. Click Label on any caller row or Add New Alias to create one.</td></tr>';
+          return;
+        }
+        tbody.innerHTML = aliases.map(function(a) {
+          var mtBadge = '<span style="background:#f1f5f9;color:#475569;font-size:10px;font-weight:800;padding:2px 8px;border-radius:999px;">' + escHtml(a.match_type || '-') + '</span>';
+          return '<tr>'
+            + '<td style="font-weight:900;color:#2563eb;font-size:12px;">' + escHtml(a.display_name || '-') + '</td>'
+            + '<td>' + mtBadge + '</td>'
+            + '<td style="font-size:11px;color:#475569;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + escHtml(a.match_value || '') + '">' + escHtml(a.match_value || '-') + '</td>'
+            + '<td style="font-size:11px;color:#475569;">' + escHtml(a.friendly_hostname || '—') + '</td>'
+            + '<td style="font-size:11px;color:#475569;">' + escHtml(a.friendly_ip_label || '—') + '</td>'
+            + '<td style="font-size:11px;color:#64748b;">' + escHtml(a.owner_team || '—') + '</td>'
+            + '<td style="font-size:11px;color:#64748b;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + escHtml(a.notes || '') + '">' + escHtml(a.notes || '—') + '</td>'
+            + '<td style="font-size:10px;color:#9ca3af;">' + escHtml((a.updated_at || '').slice(0, 16)) + '</td>'
+            + '<td style="white-space:nowrap;">'
+            + '<button data-alias="' + escHtml(JSON.stringify(a)) + '" onclick="apiAliasEdit(JSON.parse(this.getAttribute(\'data-alias\')))" style="border:1px solid #bfdbfe;background:#eff6ff;color:#1d4ed8;border-radius:6px;padding:3px 9px;font-size:10px;font-weight:800;cursor:pointer;margin-right:4px;"><i class="fas fa-edit"></i> Edit</button>'
+            + '<button data-id="' + escHtml(String(a.id || '')) + '" data-name="' + escHtml(a.display_name || '') + '" onclick="apiAliasDelete(this.getAttribute(\'data-id\'),this.getAttribute(\'data-name\'))" style="border:1px solid #fecaca;background:#fff1f2;color:#b91c1c;border-radius:6px;padding:3px 9px;font-size:10px;font-weight:800;cursor:pointer;"><i class="fas fa-trash"></i></button>'
+            + '</td>'
+            + '</tr>';
+        }).join('');
+      })
+      .catch(function(e) {
+        if (tbody) tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:20px;color:#dc2626;font-size:12px;">Failed to load aliases: ' + escHtml(String(e)) + '</td></tr>';
+      });
+  }
+
+  window.apiAliasEdit = function(a) {
+    document.getElementById('aliasEditId').value = a.id || '';
+    document.getElementById('aliasMatchType').value = a.match_value || '';
+    document.getElementById('aliasMatchValue').value = a.match_value || '';
+    document.getElementById('aliasMatchValueDisplay').textContent = a.match_value || '(unknown)';
+    document.getElementById('aliasDisplayName').value = a.display_name || '';
+    document.getElementById('aliasOwnerTeam').value = a.owner_team || '';
+    document.getElementById('aliasFriendlyHostname').value = a.friendly_hostname || '';
+    document.getElementById('aliasFriendlyIpLabel').value = a.friendly_ip_label || '';
+    document.getElementById('aliasNotes').value = a.notes || '';
+    var sel = document.getElementById('aliasMatchTypeSelect');
+    if (sel) sel.value = a.match_type || 'ip';
+    var modal = document.getElementById('apiAliasModal');
+    modal.style.display = 'flex';
+    setTimeout(function() { document.getElementById('aliasDisplayName').focus(); }, 80);
+  };
+
+  window.apiAliasDelete = function(aliasId, displayName) {
+    if (!confirm('Delete alias "' + displayName + '"?\nThis will remove the label from all past and future stats.')) return;
+    fetch('/admin/api_usage/delete_alias', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: aliasId })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d.ok) {
+        admShowToast('Alias deleted.', true);
+        apiStatsLoad();
+        _loadAliasTable();
+      } else {
+        admShowToast('Delete failed: ' + (d.error || 'unknown'), false);
+      }
+    })
+    .catch(function(e) { admShowToast('Network error: ' + e, false); });
+  };
+
+  // Load alias table when API stats tab opens
+  var _origApiStatsLoad = window.apiStatsLoad;
+  window.apiStatsLoad = function() {
+    _origApiStatsLoad();
+    _loadAliasTable();
+  };
+
+  /* Auto-load when tab is clicked */
+  var origShowTab = window.admShowTab;
+  window.admShowTab = function(id) {
+    // Handle apistats tab visibility separately since it's not in the original ids list
+    var apiSec = document.getElementById('sec-apistats');
+    var apiTab = document.getElementById('adm-tab-apistats');
+    if (apiSec) apiSec.classList.toggle('adm-tab-hidden', id !== 'apistats');
+    if (apiTab) apiTab.classList.toggle('active', id === 'apistats');
+    if (id === 'apistats') {
+      var head = document.querySelector('#sec-apistats .adm-section-head');
+      var body = document.getElementById('body-apistats');
+      if (head) head.classList.add('open');
+      if (body) body.classList.add('open');
+      if (!_apiLoaded) { _apiLoaded = true; apiStatsLoad(); }
+      try { localStorage.setItem('adm_active_tab', 'apistats'); } catch(e) {}
+      return;
+    }
+    origShowTab(id);
+  };
+
+  // Restore tab if apistats was last active
+  (function() {
+    try {
+      var saved = localStorage.getItem('adm_active_tab');
+      if (saved === 'apistats') {
+        setTimeout(function() { window.admShowTab('apistats'); }, 50);
+      }
+    } catch(e) {}
+  })();
+
 })();
 
 /*                                           
