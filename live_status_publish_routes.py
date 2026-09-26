@@ -5103,9 +5103,11 @@ def api_build_wise_report(target_name):
         return ''
 
     def _domain_from_build_id(build_id):
-        """Primary domain signal: read directly from the build/metabuild name.
+        """Primary domain signal: read directly from build/product text.
         SA8797P_ADAS.HGX... -> ADAS, CI_SA8797P_FLEX.HGX... -> FLEX,
-        STD_SAFEIVI -> SAFE-IVI, all remaining IVI rows -> NONSAFE-IVI.
+        STD_SAFEIVI -> SAFE-IVI, IVI/NonSafe IVI signals -> NONSAFE-IVI.
+        Returns blank when no domain signal is present so DB/CR metadata can
+        be used as the fallback.
         """
         b = str(build_id or '').upper()
         compact = _re.sub(r'[^A-Z0-9]+', '', b)
@@ -5115,7 +5117,9 @@ def api_build_wise_report(target_name):
             return 'FLEX'
         if 'SAFEIVI' in compact and 'NONSAFEIVI' not in compact:
             return 'SAFE-IVI'
-        return 'NONSAFE-IVI'
+        if 'NONSAFEIVI' in compact or 'IVI' in compact:
+            return 'NONSAFE-IVI'
+        return ''
 
     def _domain_from_cr(area, sub, func, title):
         """Fallback only: derive domain from CR metadata when build name has no signal."""
@@ -5131,7 +5135,11 @@ def api_build_wise_report(target_name):
 
     try:
         # - 1. Read ALL rows from jiras + openjiras (no date filter) -
-        base_cols = ['stability_ticket', 'jira_date', 'jira_title', 'serial_no', 'metabuild']
+        base_cols = [
+            'stability_ticket', 'jira_date', 'jira_title', 'serial_no',
+            'metabuild', 'MetaBuild', 'meta_build',
+            'software_product', 'product_flavor', 'build', 'build_id',
+        ]
         extra_cr_cols = [
             'mapped_cr', 'cr', 'cr_number',
             'cr_area', 'area', 'ChangeRequestParticipant.Area',
@@ -5151,16 +5159,24 @@ def api_build_wise_report(target_name):
                 sel    = [c for c in base_cols + extra_cr_cols if c in cols]
                 if not sel:
                     continue
-                mb_col = next((c for c in ('metabuild','MetaBuild','meta_build') if c in cols), None)
-                if not mb_col:
+                build_cols = [
+                    c for c in (
+                        'metabuild', 'MetaBuild', 'meta_build',
+                        'software_product', 'product_flavor', 'build', 'build_id',
+                    )
+                    if c in cols
+                ]
+                if not build_cols:
                     continue
+                mb_col = build_cols[0]
                 try:
                     if selected_build:
                         tail = _norm_build(selected_build)
+                        where_build = ' OR '.join(f'`{c}` LIKE %s' for c in build_cols)
                         cur.execute(
                             f'SELECT {", ".join("`"+c+"`" for c in sel)} FROM {tbl} '
-                            f'WHERE `{mb_col}` LIKE %s ORDER BY jira_date DESC LIMIT 5000',
-                            (f'%{tail}%',)
+                            f'WHERE ({where_build}) ORDER BY jira_date DESC LIMIT 5000',
+                            tuple(f'%{tail}%' for _ in build_cols)
                         )
                     else:
                         cur.execute(
@@ -5169,7 +5185,8 @@ def api_build_wise_report(target_name):
                         )
                     for row in _ser_rows(cur.fetchall() or []):
                         row['_source']     = source
-                        row['_build']      = _norm_build(row.get(mb_col) or '')
+                        build_source = next((row.get(c) for c in build_cols if row.get(c)), '')
+                        row['_build']      = _norm_build(build_source)
                         row['_crash_type'] = 'open_jira' if source == 'openjira' else _crash_type_from_title(row.get('jira_title') or '')
                         row['_domain_raw'] = str(row.get('application_domain') or '').strip().upper()
                         if source == 'jira':
@@ -5287,10 +5304,17 @@ def api_build_wise_report(target_name):
                 if detail:
                     break
             if is_auto:
-                # Build name is the ground truth - SA8797P_ADAS/FLEX/other.
+                # Build/product text is the ground truth - SA8797P_ADAS/FLEX/other.
                 # CR metadata is only a fallback for rows with no build signal.
+                build_signal = ' '.join(
+                    str(row.get(k) or '')
+                    for k in (
+                        '_build', 'metabuild', 'MetaBuild', 'meta_build',
+                        'software_product', 'product_flavor', 'build', 'build_id',
+                    )
+                )
                 row['_domain'] = (
-                    _domain_from_build_id(row.get('_build') or '') or
+                    _domain_from_build_id(build_signal) or
                     row['_domain_raw'] or
                     detail.get('domain') or
                     _domain_from_cr(

@@ -230,6 +230,8 @@
       <div id="brSummary" class="summary"></div>
       <div id="brMetricCards" class="metric-grid" style="display:none"></div>
       <div id="brAxiomFetchStatus" style="font-size:12px;font-weight:700;color:#6366f1;margin-top:6px;min-height:20px"></div>
+      <!-- PDT Reported banner: shown when Other Team is enabled and other-team rows exist -->
+      <div id="brPdtReportedBanner" style="display:none;background:linear-gradient(90deg,#eff6ff,#f0fdf4);border:1.5px solid #86efac;border-radius:10px;padding:8px 14px;margin-bottom:10px;font-size:12px;font-weight:900;color:#166534"><i class="fas fa-shield-halved" style="color:#16a34a;margin-right:6px"></i> PDT Reported — Showing only PDT-department reported CRs/JIRAs below. Other team rows are shown in the <b>Other Team</b> section.</div>
       <!-- Report Tabs (PDT-style: CRs / Mapped JIRAs / Open JIRAs) -->
       <div id="brReportTabs" style="display:none;margin-bottom:0">
         <div style="display:flex;gap:0;border-bottom:2px solid #e2e8f0;margin-bottom:14px">
@@ -661,7 +663,13 @@ function brToggleOtherTeamBuild(){
   const hint=g('brOtherTeamHint'), btn=g('brPdtDeptBtn'), report=g('brOtherTeamReport');
   if(hint)hint.style.display=enabled?'inline':'none';
   if(btn)btn.style.display=enabled?'inline-flex':'none';
-  if(!enabled){if(report)report.style.display='none';return;}
+  if(!enabled){
+    if(report)report.style.display='none';
+    _brUpdatePdtReportedBanner(false);
+    _brUpdateTabBadgesForOtherTeam(false);
+    brSwitchTab(window._brActiveTab||'crs');
+    return;
+  }
   brRenderOtherTeamReport();
 }
 async function brEnsurePdtDeptConfig(){
@@ -710,12 +718,15 @@ function brJiraDeptInfo(j){
   const lookup=brBuildPdtDeptLookup(brPdtDeptConfig||{});
   const teams=Array.from(new Set(ids.map(id=>lookup[id]).filter(Boolean)));
   const matched=teams.length>0;
+  // is_other: true ONLY when there are explicit non-PDT department IDs.
+  // JIRAs with no department info at all are treated as PDT (not other team).
+  const is_other=ids.length>0&&!matched;
   return {
     raw: raw || (ids.join(', ')||'Unknown'),
     ids: ids,
     teams: teams,
-    reported_team: matched?teams.join(', '):'Other Team',
-    is_other: !matched
+    reported_team: matched?teams.join(', '):(is_other?'Other Team':'PDT'),
+    is_other: is_other
   };
 }
 function brOtherTeamBadge(info){
@@ -768,6 +779,47 @@ function brBuildOtherTeamRows(){
   });
   return rows;
 }
+/* -- Other-team row key sets (used to filter main tabs to PDT-only) ---------- */
+function brGetOtherTeamRowKeys(){
+  const crIds=new Set(),mappedIds=new Set(),openIds=new Set();
+  if(!brOtherTeamEnabled()||brPdtDeptConfig===null)return{crIds,mappedIds,openIds};
+  // Only exclude from PDT table if ALL JIRAs are from other teams (no PDT JIRAs).
+  // CRs/tickets with BOTH PDT and other-team JIRAs appear in BOTH tables.
+  function allOther(jiras){const src=brSourceJirasWithDept(jiras||[]);return src.length>0&&src.every(x=>x.is_other);}
+  (window._brCrRows||[]).forEach(r=>{if(allOther(r.jiras||[]))crIds.add(String(r.cr||'').toUpperCase());});
+  (window._brMappedRows||[]).forEach(r=>{if(allOther(r.sourceJiras||[]))mappedIds.add(String(r.ticket||'').toUpperCase());});
+  (window._brOpenRows||[]).forEach(r=>{if(brJiraDeptInfo(r).is_other)openIds.add(String(r.key||'').toUpperCase());});
+  return{crIds,mappedIds,openIds};
+}
+function _brUpdatePdtReportedBanner(show, metrics){
+  const b=g('brPdtReportedBanner');if(!b)return;
+  if(!show){b.style.display='none';return;}
+  b.style.display='block';
+  let html='<i class="fas fa-shield-halved" style="color:#16a34a;margin-right:6px"></i>'
+    +'<b>PDT Reported</b> — Showing only PDT-department reported CRs/JIRAs below. Other team rows are shown in the <b>Other Team</b> section.';
+  if(metrics){
+    html+='<span style="margin-left:14px;display:inline-flex;gap:8px;flex-wrap:wrap;align-items:center">'
+      +'<span style="background:#ecfdf5;border:1px solid #bbf7d0;border-radius:999px;padding:2px 9px;font-size:11px;color:#166534"><b>PDT Only:</b> '+esc(metrics.pdtOnly)+'</span>'
+      +'<span style="background:#fff7ed;border:1px solid #fed7aa;border-radius:999px;padding:2px 9px;font-size:11px;color:#92400e"><b>Other Team Only:</b> '+esc(metrics.otherOnly)+'</span>'
+      +'<span style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:999px;padding:2px 9px;font-size:11px;color:#1e3a8a"><b>Common (Both):</b> '+esc(metrics.common)+'</span>'
+      +'</span>';
+  }
+  b.innerHTML=html;
+}
+function _brUpdateTabBadgesForOtherTeam(enabled){
+  const activeTab=window._brActiveTab||'crs';
+  const setBadge=(id,n)=>{const b=g('brTabBadge_'+id);if(!b)return;b.textContent=n;b.style.background=(id===activeTab)?'#6366f1':'#e2e8f0';b.style.color=(id===activeTab)?'#fff':'#475569';};
+  if(!enabled){
+    setBadge('crs',(window._brCrRows||[]).length);
+    setBadge('mapped',(window._brMappedRows||[]).length);
+    setBadge('open',(window._brOpenRows||[]).length);
+    return;
+  }
+  const{crIds,mappedIds,openIds}=brGetOtherTeamRowKeys();
+  setBadge('crs',(window._brCrRows||[]).filter(r=>!crIds.has(String(r.cr||'').toUpperCase())).length);
+  setBadge('mapped',(window._brMappedRows||[]).filter(r=>!mappedIds.has(String(r.ticket||'').toUpperCase())).length);
+  setBadge('open',(window._brOpenRows||[]).filter(r=>!openIds.has(String(r.key||'').toUpperCase())).length);
+}
 function brRenderOtherTeamReport(){
   const wrap=g('brOtherTeamReport'), body=g('brOtherTeamRows'), meta=g('brOtherTeamMeta');
   if(!wrap||!body)return;
@@ -782,6 +834,19 @@ function brRenderOtherTeamReport(){
   brLastOtherTeamRows=rows;
   window._brOtherTeamRows=rows;
   if(meta)meta.textContent=rows.length+' CR/ticket row(s) from non-PDT or unknown departments';
+  // Compute PDT-only / Other-Team-only / Common CR metrics for banner
+  const _otherTeamCrSet=new Set();
+  function _hasOtherJira(jiras){return brSourceJirasWithDept(jiras||[]).some(x=>x.is_other);}
+  (window._brCrRows||[]).forEach(r=>{if(_hasOtherJira(r.jiras||[]))_otherTeamCrSet.add(String(r.cr||'').toUpperCase());});
+  const{crIds:_excCrIds}=brGetOtherTeamRowKeys();
+  const _pdtOnlyCrs=(window._brCrRows||[]).filter(r=>!_otherTeamCrSet.has(String(r.cr||'').toUpperCase())).length;
+  const _otherOnlyCrs=_excCrIds.size;
+  const _commonCrs=_otherTeamCrSet.size-_otherOnlyCrs;
+  const _brCrMetrics=rows.length>0?{pdtOnly:_pdtOnlyCrs,otherOnly:_otherOnlyCrs,common:Math.max(0,_commonCrs)}:null;
+  // Update PDT banner and re-render main tabs to show PDT-only rows when other-team rows exist
+  _brUpdatePdtReportedBanner(rows.length>0, _brCrMetrics);
+  _brUpdateTabBadgesForOtherTeam(rows.length>0);
+  if(rows.length>0)brSwitchTab(window._brActiveTab||'crs');
   if(!rows.length){
     body.innerHTML='<tr><td colspan="10" class="empty">No Other Team reporter departments found after cross-checking PDT Department config.</td></tr>';
     return;
@@ -793,7 +858,7 @@ function brRenderOtherTeamReport(){
     return '<tr>'+
       '<td style="text-align:center;color:#94a3b8;font-size:11px">'+(i+1)+'</td>'+
       '<td style="white-space:nowrap">'+crLink+'<div class="muted" style="font-size:10px">'+esc(r.kind||'')+'</div></td>'+
-      '<td style="text-align:center;font-weight:950;color:#4f46e5">'+esc(r.cr_count||0)+'</td>'+
+      '<td style="text-align:center">'+(keys.length?'<a class="br-count-link" href="'+jiraKeysUrl(keys)+'" target="_blank" rel="noopener" title="Open '+keys.length+' other-team JIRAs in JIRA">'+esc(r.cr_count||0)+'</a>':'<span style="font-weight:950;color:#4f46e5">'+esc(r.cr_count||0)+'</span>')+'</td>'+
       '<td>'+brOtherTeamBadge({reported_team:r.reported_team,is_other:true,ids:[r.reported_dept]})+'</td>'+
       '<td style="font-size:11px;font-weight:900;color:#92400e">'+esc(r.reported_dept||'Unknown')+'</td>'+
       '<td>'+keyHtml+'</td>'+
@@ -944,7 +1009,7 @@ function brWatchProgress(jobId){
 async function brRunConsolidatedWithProgress(opts){
   const payload={
     builds:opts.builds||[], traverse:true, orbit:true, target:opts.target||'', force:true,
-    custom_jql:opts.jql||'', include_axiom_metrics:true, axiom_taxonomy_path:'/PDT',
+    custom_jql:opts.jql||'', include_axiom_metrics:false, axiom_taxonomy_path:'/PDT',
     software_images:opts.software_images||brCurrentSoftwareImages()
   };
   brShowProgress('Running Report','Submitting report job...');
@@ -1566,16 +1631,12 @@ function renderAxiomMetricsHtml(rep, validJirasOverride){
   // No axiom data at all -- show hint
   if(!keys.length){
     const detectedBuilds=((rep||{}).meta||{}).build_ids_detected_for_axiom||((rep||{}).meta||{}).build_ids||[];
-    const hint=detectedBuilds.length
-      ? '<div style="margin-top:10px;padding:10px 14px;background:#fffbeb;border:1.5px solid #fcd34d;border-radius:10px;font-size:12px;color:#92400e">'
-        +'<i class="fas fa-info-circle" style="margin-right:6px;color:#f59e0b"><\/i>'
-        +'<b>Axiom builds detected:<\/b> '+esc(detectedBuilds.slice(0,3).join(', '))+(detectedBuilds.length>3?' +'+( detectedBuilds.length-3)+' more':'')
-        +' &mdash; <button onclick="brFetchAxiomNow()" style="margin-left:8px;padding:3px 12px;border-radius:6px;border:1px solid #f59e0b;background:#fef3c7;color:#92400e;font-weight:900;cursor:pointer;font-size:11px"><i class="fas fa-bolt"><\/i> Fetch Axiom Metrics<\/button>'
-        +'<\/div>'
-      : '<div style="margin-top:10px;padding:10px 14px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;font-size:12px;color:#64748b">'
-        +'<i class="fas fa-chart-line" style="margin-right:6px"><\/i>'
-        +'Paste build IDs in the <b>Builds<\/b> box above and re-run to see <b>Axiom stability metrics (MTBF)<\/b>.'
-        +'<\/div>';
+    // Always show the Fetch Axiom Metrics button after report is generated.
+    const hint='<div style="margin-top:10px;padding:10px 14px;background:#fffbeb;border:1.5px solid #fcd34d;border-radius:10px;font-size:12px;color:#92400e">'
+      +'<i class="fas fa-info-circle" style="margin-right:6px;color:#f59e0b"><\/i>'
+      +(detectedBuilds.length?'<b>Axiom builds detected:<\/b> '+esc(detectedBuilds.slice(0,3).join(', '))+(detectedBuilds.length>3?' +'+( detectedBuilds.length-3)+' more':''):'<b>Axiom stability metrics (MTBF)<\/b> not yet fetched.')
+      +' &mdash; <button onclick="brFetchAxiomNow()" style="margin-left:8px;padding:3px 12px;border-radius:6px;border:1px solid #f59e0b;background:#fef3c7;color:#92400e;font-weight:900;cursor:pointer;font-size:11px"><i class="fas fa-bolt"><\/i> Fetch Axiom Metrics<\/button>'
+      +'<\/div>';
     return hint;
   }
   const matched=keys.filter(k=>metrics[k]&&metrics[k].matched);
@@ -2324,12 +2385,6 @@ function renderReport(rep){
       + '</div>';
   }
 
-  // If axiom metrics missing but builds now known -- auto-fetch silently
-  const _axiomMissing = !rep.axiom_metrics || !Object.keys(rep.axiom_metrics||{}).length;
-  const _axiomWasUnreachable = _axiomStatus === 'unreachable' || _axiomStatus === 'timeout';
-  if(_axiomMissing && !_axiomWasUnreachable && _axiomBuildIds.length && _buildsWereEmpty){
-    brFetchAxiomNow(_axiomBuildIds, rep);
-  }
   g('brSummary').innerHTML='<span class="pill"><i class="fas fa-clock"></i> Generated: '+esc(formatStandardTime((rep.meta||{}).generated_at))+'</span>'+(rep.meta&&rep.meta.jql?'<span class="pill"><i class="fas fa-code"></i> JQL Used</span>':'');
 
     // Show tabs
@@ -2380,7 +2435,13 @@ window.brRenderCrTab=function(){
   const crRows=window._brCrRows||[];
   const q=String((g('brCrSearch')||{}).value||'').toLowerCase();
   const sort=(g('brCrSort')||{}).value||'occ_desc';
-  let rows=crRows.filter(r=>!q||[r.cr,r.title,r.area,r.sub,r.func,r.priority,r.status].join(' ').toLowerCase().indexOf(q)>=0);
+  // When "Other Team" is enabled and config is loaded, filter to PDT-only rows
+  let baseCrRows=crRows;
+  if(brOtherTeamEnabled()&&brPdtDeptConfig!==null){
+    const{crIds}=brGetOtherTeamRowKeys();
+    if(crIds.size)baseCrRows=crRows.filter(r=>!crIds.has(String(r.cr||'').toUpperCase()));
+  }
+  let rows=baseCrRows.filter(r=>!q||[r.cr,r.title,r.area,r.sub,r.func,r.priority,r.status].join(' ').toLowerCase().indexOf(q)>=0);
   rows.sort((a,b)=>{
     if(sort==='occ_asc')return (a.count||0)-(b.count||0);
     if(sort==='cr_asc')return String(a.cr).localeCompare(String(b.cr));
@@ -2449,7 +2510,12 @@ window.brRenderCrTab=function(){
 
 /* -- Mapped JIRAs Tab render (PDT Mapped_Tickets) --------------------------- */
 window.brRenderMappedTab=function(){
-  const rows=window._brMappedRows||[];
+  let rows=window._brMappedRows||[];
+  // When "Other Team" is enabled and config is loaded, filter to PDT-only rows
+  if(brOtherTeamEnabled()&&brPdtDeptConfig!==null){
+    const{mappedIds}=brGetOtherTeamRowKeys();
+    if(mappedIds.size)rows=rows.filter(r=>!mappedIds.has(String(r.ticket||'').toUpperCase()));
+  }
   const q=String((g('brMappedSearch')||{}).value||'').toLowerCase();
   const filtered=rows.filter(r=>!q||[r.ticket,r.title,r.status].join(' ').toLowerCase().indexOf(q)>=0);
   const tb=g('brMappedRows'); if(!tb)return;
@@ -2494,7 +2560,12 @@ window.brRenderMappedTab=function(){
 
 /* -- Open JIRAs Tab render (PDT Qstability_Tickets) ------------------------ */
 window.brRenderOpenTab=function(){
-  const rows=window._brOpenRows||[];
+  let rows=window._brOpenRows||[];
+  // When "Other Team" is enabled and config is loaded, filter to PDT-only rows
+  if(brOtherTeamEnabled()&&brPdtDeptConfig!==null){
+    const{openIds}=brGetOtherTeamRowKeys();
+    if(openIds.size)rows=rows.filter(r=>!openIds.has(String(r.key||'').toUpperCase()));
+  }
   const q=String((g('brOpenSearch')||{}).value||'').toLowerCase();
   const filtered=rows.filter(r=>!q||[r.key,r.title,r.status,r.final_resolution,r.resolution_notes_text].join(' ').toLowerCase().indexOf(q)>=0);
   const tb=g('brOpenRows'); if(!tb)return;

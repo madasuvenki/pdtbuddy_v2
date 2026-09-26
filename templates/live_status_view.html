@@ -47,6 +47,10 @@
     .adas-axis-chip{writing-mode:vertical-rl;transform:rotate(180deg);font-size:12px;font-weight:1000;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap}
         .adas-axis-hours{color:#1f4e79}.adas-axis-crashes{color:#c55a11}.adas-axis-mtbf{color:#ed7d31}
     @media(max-width:700px){.adas-axis-shell{grid-template-columns:28px minmax(0,1fr) 28px}.adas-side-axis{min-height:360px}.adas-axis-chip{font-size:10px}}
+    /* ADAS MTBF table compact fix */
+    #adasMtbfTable th,#adasMtbfTable td{padding:4px 7px!important;font-size:11px!important;line-height:1.3!important}
+    #adasMtbfTable th{white-space:nowrap!important}
+    #adasMtbfTable td{word-break:break-word!important;white-space:normal!important;max-width:180px}
 
     @media(max-width:1000px){.summary-grid{grid-template-columns:1fr}.toolbar{flex-direction:column;align-items:stretch}.toolbar .right{justify-content:flex-start}header{padding:18px 20px}}
 

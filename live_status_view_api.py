@@ -61,7 +61,7 @@ def _is_ivi_split_target(target_name: str) -> bool:
     if _is_compute_mtbf_target(target_name):
         return False
     slug = str(target_name or "").strip().upper().replace(".", "_").replace("-", "_")
-    return slug.startswith("NORD_") or slug in {"NORD_HQX", "NORD_HGY"}
+    return slug.startswith(("NORD_", "SECA_")) or slug in {"NORD_HQX", "NORD_HGY"}
 
 
 def _canonical_mtbf_domain_name(domain: Any, target_name: str = "") -> str:
@@ -451,6 +451,30 @@ def _normalise_adas_mtbf_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]
             continue
         row = dict(raw)
         row["id"] = _stable_adas_row_id(row, idx)
+        if not row.get("product_flavor"):
+            row["product_flavor"] = str(
+                row.get("productFlavor")
+                or row.get("product_flavour")
+                or row.get("flavor")
+                or row.get("flavour")
+                or ""
+            ).strip()
+        if not row.get("software_product"):
+            row["software_product"] = str(
+                row.get("softwareProduct")
+                or row.get("product")
+                or ""
+            ).strip()
+        if not row.get("device_count"):
+            row["device_count"] = _num_or_blank(
+                row.get("devices")
+                or row.get("deviceCount")
+                or row.get("number_of_devices")
+                or row.get("no_of_devices")
+                or row.get("device_count")
+                or "",
+                integer=True,
+            )
         canonical_meta = _canonical_mtbf_build_id(row.get("meta_id") or row.get("build_id"))
         if canonical_meta:
             row["meta_id"] = canonical_meta
@@ -704,6 +728,28 @@ def _adas_row_from_payload(payload: Dict[str, Any], existing_rows: List[Dict[str
         "s_no":            s_no,
         "date":            str(payload.get("date") or "").strip()[:10],
         "meta_id":         _canonical_mtbf_build_id(payload.get("meta_id")),
+        "product_flavor":  str(
+            payload.get("product_flavor")
+            or payload.get("productFlavor")
+            or payload.get("product_flavour")
+            or payload.get("flavor")
+            or payload.get("flavour")
+            or ""
+        ).strip(),
+        "software_product": str(
+            payload.get("software_product")
+            or payload.get("softwareProduct")
+            or payload.get("product")
+            or ""
+        ).strip(),
+        "device_count":    _num_or_blank(
+            payload.get("device_count")
+            or payload.get("devices")
+            or payload.get("deviceCount")
+            or payload.get("number_of_devices")
+            or payload.get("no_of_devices"),
+            integer=True,
+        ),
         "hours":           hours,
         "system_crashes":  system_c,
         "ssr_crashes":     ssr_c,
@@ -792,6 +838,10 @@ def _adas_rows_to_chart_data(rows: List[Dict[str, Any]], crash_types: Optional[L
             "overallMTBF":     round(hours / (system_c + ssr_c + process_c), 2) if hours and (system_c + ssr_c + process_c) else "",
             "mtbf":            mtbf,
             "manual_mtbf":     1 if manual_mtbf else 0,
+            "product_flavor":  r.get("product_flavor") or r.get("productFlavor") or r.get("product_flavour") or r.get("flavor") or r.get("flavour") or "",
+            "software_product": r.get("software_product") or r.get("softwareProduct") or r.get("product") or "",
+            "device_count":    r.get("device_count") or r.get("devices") or r.get("deviceCount") or r.get("number_of_devices") or r.get("no_of_devices") or "",
+            "devices":         r.get("device_count") or r.get("devices") or r.get("deviceCount") or r.get("number_of_devices") or r.get("no_of_devices") or "",
             "comments":        r.get("comments") or r.get("comment") or "",
             "s_no":            r.get("s_no") or 0,
             "id":              r.get("id") or "",
@@ -2089,15 +2139,43 @@ def api_running_builds_db(target_name: str):
             return f'Meta-{int(m.group(1)):03d}'
         return s[:60] or 'Unknown'
 
+    def _derive_product_flavor(row: Dict) -> str:
+        """Return Axiom product_flavor, or infer the build flavor from the build suffix.
+
+        Some Auto Gen5 SECA jobs currently have NULL product_flavor in
+        axiom_job_summary even though the build tail carries the flavour, e.g.
+        SecaAU_IVI.QE.1.0-00034-NON_SAFE_STD_PVM.LAGVM-2.
+        """
+        raw = str(row.get('product_flavor') or '').strip()
+        if raw:
+            return raw
+        build_text = str(row.get('build_name') or row.get('build_id') or '').strip()
+        tail = build_text.split('\\')[-1].split('/')[-1] or build_text
+        m = re.search(r'-0*\d{3,6}(?:\.\d+)?-(.+)$', tail, re.IGNORECASE)
+        if m:
+            return m.group(1).strip(" -_")
+        return ''
+
     def _infer_domain(row: Dict) -> str:
         """Infer domain from software_product/build fields."""
+        derived_flavor = _derive_product_flavor(row)
         hay = ' '.join(str(row.get(k) or '') for k in ('software_product', 'build_name', 'build_id', 'product_flavor')).upper()
+        if derived_flavor:
+            hay = f"{hay} {derived_flavor.upper()}".strip()
         compact = re.sub(r'[^A-Z0-9]+', '', hay)
+        flavor_compact = re.sub(r'[^A-Z0-9]+', '', derived_flavor.upper())
         if '_FLEX.' in hay or '.FLEX.' in hay or 'FLEX' in compact:
             return 'FLEX'
         if '_ADAS.' in hay or '.ADAS.' in hay or 'ADAS' in compact:
             return 'ADAS'
-        if 'SAFEIVI' in compact and 'NONSAFEIVI' not in compact:
+        if (
+            'SAFEIVI' in compact
+            or (
+                _is_ivi_split_target(target_name)
+                and 'SAFE' in flavor_compact
+                and 'NONSAFE' not in flavor_compact
+            )
+        ):
             return _MTBF_SAFE_IVI_DOMAIN
         if '_IVI.' in hay or '.IVI.' in hay or 'IVI' in compact:
             return _MTBF_NONSAFE_IVI_DOMAIN if _is_ivi_split_target(target_name) else 'IVI'
@@ -2253,7 +2331,7 @@ def api_running_builds_db(target_name: str):
         for r in running_rows:
             bn     = str(r.get('build_name') or r.get('build_id') or '').strip()
             tail   = bn.split('\\')[-1].split('/')[-1] or bn
-            flavor = str(r.get('product_flavor') or '').strip()
+            flavor = _derive_product_flavor(r)
             domain = _infer_domain(r) if is_auto else ''
             # For AUTO: skip rows that don't match the requested domain
             if is_auto and domain_filter and domain != domain_filter:

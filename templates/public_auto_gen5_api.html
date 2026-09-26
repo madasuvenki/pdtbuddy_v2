@@ -113,7 +113,7 @@ pre{padding:12px;font-size:11px;color:#e2e8f0;font-family:Consolas,monospace;lin
 <div id="tab-gen5" class="tab-pane active">
   <div class="card">
     <div class="card-title"><i class="fas fa-layer-group" style="color:#1d4ed8"></i> Auto Gen5 MTBF — SP-Scoped Data
-      <span style="font-size:11px;color:#64748b;font-weight:700">Targets: nord_hqx &bull; nord_hgy &bull; seca</span>
+      <span style="font-size:11px;color:#64748b;font-weight:700">Targets: nord_hqx &bull; nord_hgy &bull; seca_le &bull; qe_ivi</span>
     </div>
 
     <!-- Nord HQX -->
@@ -176,12 +176,12 @@ pre{padding:12px;font-size:11px;color:#e2e8f0;font-family:Consolas,monospace;lin
       </div>
     </div>
 
-    <!-- SECA -->
+    <!-- SECA LE -->
     <div class="tgt-section">
       <div class="tgt-head" style="background:linear-gradient(90deg,#f0fdf4,#f8fafc)">
         <span class="tgt-label" style="color:#059669"><i class="fas fa-shield-halved" style="margin-right:5px"></i>SECA LE.1.0</span>
         <span class="tgt-pill" style="background:#dcfce7;color:#166534;border:1px solid #86efac">target=seca_le_ivi_1_0</span>
-        <a href="{{ base }}/public/auto-gen5/api/sps?target=seca_le_ivi_1_0" target="_blank" class="ep-link" style="margin-left:auto">List SPs ↗</a>
+        <a href="{{ base }}/public/auto-gen5/sp/seca/LE1.0" target="_blank" class="ep-link" style="margin-left:auto">List Domains ↗</a>
       </div>
       <div style="padding:12px 14px">
       {% if seca_sps %}
@@ -196,13 +196,43 @@ pre{padding:12px;font-size:11px;color:#e2e8f0;font-family:Consolas,monospace;lin
           <td><span class="mtbf-val">{{ dd.latest_mtbf }}</span></td>
           <td><span class="mtbf-val">{{ dd.latest_overallmtbf if dd.latest_overallmtbf not in (None, '') else '—' }}</span></td>
           <td style="font-size:11px;color:#64748b">{{ dd.latest_date or '—' }}</td>
-          <td><a class="ep-link" href="{{ base }}/public/auto-gen5/api/sp/{{ sp.cpl }}/domain/{{ dd.domain }}?target=seca_le_ivi_1_0" target="_blank">/sp/{{ sp.cpl }}/domain/{{ dd.domain }}</a></td>
+          <td><a class="ep-link" href="{{ base }}/public/auto-gen5/sp/seca/LE1.0/domain/{{ dd.domain }}" target="_blank">/sp/seca/LE1.0/domain/{{ dd.domain }}</a></td>
         </tr>
         {% else %}<tr><td><span class="sp-pill">{{ sp.cpl }}</span></td><td colspan="6" style="color:#94a3b8;font-size:11px">{{ sp.domains|join(', ') if sp.domains else 'No SP data yet' }}</td></tr>
         {% endfor %}{% endfor %}
         </tbody>
       </table>
       {% else %}<p class="no-data">No SP data files found for SECA LE.1.0 yet.</p>{% endif %}
+      </div>
+    </div>
+
+    <!-- SECA QE -->
+    <div class="tgt-section">
+      <div class="tgt-head" style="background:linear-gradient(90deg,#fefce8,#f8fafc)">
+        <span class="tgt-label" style="color:#b45309"><i class="fas fa-shield-halved" style="margin-right:5px"></i>SECA QE.1.0</span>
+        <span class="tgt-pill" style="background:#fef9c3;color:#854d0e;border:1px solid #fde047">target=seca_qe_ivi_1_0</span>
+        <a href="{{ base }}/public/auto-gen5/sp/seca/QE1.0" target="_blank" class="ep-link" style="margin-left:auto">List Domains ↗</a>
+      </div>
+      <div style="padding:12px 14px">
+      {% if qe_ivi_sps %}
+      <table>
+        <thead><tr><th>SP (CPL)</th><th>Domain</th><th>Rows</th><th>Latest MTBF</th><th>overallmtbf</th><th>Latest Date</th><th>Endpoint</th></tr></thead>
+        <tbody>
+        {% for sp in qe_ivi_sps %}{% for dd in sp.get('domain_details',[]) %}
+        <tr>
+          {% if loop.first %}<td rowspan="{{ sp.get('domain_details',[sp])|length }}"><span class="sp-pill">{{ sp.cpl }}</span></td>{% endif %}
+          <td><b style="color:#1e3a8a">{{ dd.domain }}</b></td>
+          <td style="color:#475569">{{ dd.row_count }}</td>
+          <td><span class="mtbf-val">{{ dd.latest_mtbf }}</span></td>
+          <td><span class="mtbf-val">{{ dd.latest_overallmtbf if dd.latest_overallmtbf not in (None, '') else '—' }}</span></td>
+          <td style="font-size:11px;color:#64748b">{{ dd.latest_date or '—' }}</td>
+          <td><a class="ep-link" href="{{ base }}/public/auto-gen5/sp/seca/QE1.0/domain/{{ dd.domain }}" target="_blank">/sp/seca/QE1.0/domain/{{ dd.domain }}</a></td>
+        </tr>
+        {% else %}<tr><td><span class="sp-pill">{{ sp.cpl }}</span></td><td colspan="6" style="color:#94a3b8;font-size:11px">{{ sp.domains|join(', ') if sp.domains else 'No SP data yet' }}</td></tr>
+        {% endfor %}{% endfor %}
+        </tbody>
+      </table>
+      {% else %}<p class="no-data">No SP data files found for SECA QE.1.0 yet.</p>{% endif %}
       </div>
     </div>
   </div>
@@ -216,8 +246,18 @@ pre{padding:12px;font-size:11px;color:#e2e8f0;font-family:Consolas,monospace;lin
     <div class="ep-block"><div class="ep-row"><span class="method m-get">GET</span><code>{{ base }}/public/auto-gen5/api/domains?target=nord_hqx</code></div><div class="ep-desc">List base domains for a target</div></div>
     <div class="ep-block"><div class="ep-row"><span class="method m-get">GET</span><code>{{ base }}/public/auto-gen5/api/all?target=nord_hgy&amp;last_n=3&amp;summary=true</code></div><div class="ep-desc">Everything in one call — base + all SP domains</div></div>
     <div style="margin-top:10px;font-size:11px;color:#64748b;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px">
-      <b>Params:</b> <code>?target=nord_hqx|nord_hgy|seca</code> &nbsp; <code>?last_n=5</code> &nbsp; <code>?summary=true</code> &nbsp; <code>?domain=ADAS</code>
+      <b>Params:</b> <code>?target=nord_hqx|nord_hgy|seca_le_ivi_1_0|seca_qe_ivi_1_0</code> &nbsp; <code>?last_n=5</code> &nbsp; <code>?summary=true</code> &nbsp; <code>?domain=ADAS</code>
     </div>
+    <div style="margin-top:10px;font-size:11px;color:#475569;font-weight:800">SECA — Clean Semantic URLs (no <code>?target=</code> needed)</div>
+    <div class="ep-block"><div class="ep-row"><span class="method m-get">GET</span><code>{{ base }}/public/auto-gen5/sp/seca</code></div><div class="ep-desc">List all SECA versions (LE1.0, QE1.0, …) with domain summaries</div></div>
+    <div class="ep-block"><div class="ep-row"><span class="method m-get">GET</span><code>{{ base }}/public/auto-gen5/sp/seca/LE1.0</code></div><div class="ep-desc">All domains for SECA LE.1.0 — <code>?last_n=5</code></div></div>
+    <div class="ep-block"><div class="ep-row"><span class="method m-get">GET</span><code>{{ base }}/public/auto-gen5/sp/seca/LE1.0/domain/NONSAFE-IVI</code></div><div class="ep-desc">SECA LE.1.0 NonSafe-IVI rows</div></div>
+    <div class="ep-block"><div class="ep-row"><span class="method m-get">GET</span><code>{{ base }}/public/auto-gen5/sp/seca/LE1.0/domain/SafeIVI</code></div><div class="ep-desc">SECA LE.1.0 Safe-IVI rows</div></div>
+    <div class="ep-block"><div class="ep-row"><span class="method m-get">GET</span><code>{{ base }}/public/auto-gen5/sp/seca/LE1.0/domain/ADAS</code></div><div class="ep-desc">SECA LE.1.0 ADAS rows</div></div>
+    <div class="ep-block"><div class="ep-row"><span class="method m-get">GET</span><code>{{ base }}/public/auto-gen5/sp/seca/LE1.0/domain/Flex</code></div><div class="ep-desc">SECA LE.1.0 Flex rows</div></div>
+    <div class="ep-block"><div class="ep-row"><span class="method m-get">GET</span><code>{{ base }}/public/auto-gen5/sp/seca/QE1.0/domain/NONSAFE-IVI</code></div><div class="ep-desc">SECA QE.1.0 NonSafe-IVI rows</div></div>
+    <div class="ep-block"><div class="ep-row"><span class="method m-get">GET</span><code>{{ base }}/public/auto-gen5/sp/seca/QE1.0/domain/ADAS</code></div><div class="ep-desc">SECA QE.1.0 ADAS rows</div></div>
+    <div class="ep-block"><div class="ep-row"><span class="method m-get">GET</span><code>{{ base }}/public/auto-gen5/sp/seca/QE1.0/domain/Flex</code></div><div class="ep-desc">SECA QE.1.0 Flex rows</div></div>
   </div>
 </div>
 
@@ -405,7 +445,16 @@ pre{padding:12px;font-size:11px;color:#e2e8f0;font-family:Consolas,monospace;lin
           <optgroup label="Auto Gen5 MTBF">
             <option value="/public/auto-gen5/api/sps?target=nord_hqx">Gen5 — List SPs (HQX)</option>
             <option value="/public/auto-gen5/api/sps?target=nord_hgy">Gen5 — List SPs (HGY)</option>
-            <option value="/public/auto-gen5/api/sps?target=seca_le_ivi_1_0">Gen5 — List SPs (SECA LE.1.0)</option>
+            <option value="/public/auto-gen5/sp/seca">SECA — List all versions</option>
+            <option value="/public/auto-gen5/sp/seca/LE1.0">SECA LE1.0 — All domains</option>
+            <option value="/public/auto-gen5/sp/seca/LE1.0/domain/NONSAFE-IVI">SECA LE1.0 — NONSAFE-IVI rows</option>
+            <option value="/public/auto-gen5/sp/seca/LE1.0/domain/SafeIVI">SECA LE1.0 — SafeIVI rows</option>
+            <option value="/public/auto-gen5/sp/seca/LE1.0/domain/ADAS">SECA LE1.0 — ADAS rows</option>
+            <option value="/public/auto-gen5/sp/seca/LE1.0/domain/Flex">SECA LE1.0 — Flex rows</option>
+            <option value="/public/auto-gen5/sp/seca/QE1.0">SECA QE1.0 — All domains</option>
+            <option value="/public/auto-gen5/sp/seca/QE1.0/domain/NONSAFE-IVI">SECA QE1.0 — NONSAFE-IVI rows</option>
+            <option value="/public/auto-gen5/sp/seca/QE1.0/domain/ADAS">SECA QE1.0 — ADAS rows</option>
+            <option value="/public/auto-gen5/sp/seca/QE1.0/domain/Flex">SECA QE1.0 — Flex rows</option>
             <option value="/public/auto-gen5/api/domains?target=nord_hqx">Gen5 — List domains (HQX)</option>
             <option value="/public/auto-gen5/api/domain/ADAS?target=nord_hqx&last_n=5&summary=true">Gen5 — ADAS rows HQX (last 5)</option>
             <option value="/public/auto-gen5/api/all?target=nord_hgy&last_n=3&summary=true">Gen5 — All domains HGY (last 3)</option>
@@ -494,8 +543,10 @@ pre{padding:12px;font-size:11px;color:#e2e8f0;font-family:Consolas,monospace;lin
 var _testerBase = window.location.origin;
 var _testerBaseVpn = window.location.origin;
 var _hints = {
-  '/public/auto-gen5/api/sps': 'Params: <code>?target=nord_hqx|nord_hgy|seca</code>',
-  '/public/auto-gen5/api/domains': 'Params: <code>?target=nord_hqx|nord_hgy|seca</code>',
+  '/public/auto-gen5/sp/seca': 'Lists all SECA versions. No params required.',
+  '/public/auto-gen5/sp/seca/': 'Params: <code>?last_n=5</code> <code>&summary=true</code>',
+  '/public/auto-gen5/api/sps': 'Params: <code>?target=nord_hqx|nord_hgy|seca_le_ivi_1_0|seca_qe_ivi_1_0</code>',
+  '/public/auto-gen5/api/domains': 'Params: <code>?target=nord_hqx|nord_hgy|seca_le_ivi_1_0|seca_qe_ivi_1_0</code>',
   '/public/auto-gen5/api/domain/': 'Params: <code>?target=nord_hqx</code> <code>&last_n=5</code> <code>&summary=true</code>',
   '/public/auto-gen5/api/sp/': 'Params: <code>?target=nord_hqx</code> <code>&last_n=5</code> <code>&summary=true</code>',
   '/public/auto-gen5/api/all': 'Params: <code>?target=nord_hgy</code> <code>&last_n=3</code> <code>&summary=true</code>',

@@ -29,26 +29,44 @@ _DEFAULT_TARGET = "nord_hqx"
 _PUBLIC_GEN5_API_VERSION = "2026-09-19_latest_first_rows"
 _DEFAULT_DOMAIN_ORDER = ["ADAS", "FLEX", _MTBF_NONSAFE_IVI_DOMAIN, _MTBF_SAFE_IVI_DOMAIN, "IVI"]
 # SECA LE IVI 1.0 — folder is SECA_LE_IVI_1_0, file is mtbf_ivi_10.json (SP key "10")
-_KNOWN_TARGETS = ["nord_hqx", "nord_hgy", "seca_le_ivi_1_0"]
+# SECA QE IVI 1.0 — folder is SECA_QE_IVI_1_0, file is mtbf_ivi_10.json (SP key "10")
+_KNOWN_TARGETS = ["nord_hqx", "nord_hgy", "seca_le_ivi_1_0", "seca_qe_ivi_1_0"]
+
+# Maps clean URL version label → internal target name.
+# Add new SECA versions here (e.g. QE2.0, LE1.1) without touching route code.
+_SECA_VERSION_MAP: Dict[str, str] = {
+    "LE1.0": "seca_le_ivi_1_0",
+    "QE1.0": "seca_qe_ivi_1_0",
+}
+# Reverse: internal target name → URL version label
+_SECA_TARGET_TO_VERSION: Dict[str, str] = {v: k for k, v in _SECA_VERSION_MAP.items()}
+
+# SECA targets expose "IVI" as "NONSAFE-IVI" in the public API.
+# The file on disk is still mtbf_ivi_10.json — only the public-facing name changes.
+_SECA_TARGETS: set = {"seca_le_ivi_1_0", "seca_qe_ivi_1_0"}
 
 # Default SP CPL per target — used when no SP-scoped files exist yet.
 # HQX base files (mtbf_adas.json etc.) represent SP 5.7.7.0 data.
 # SECA LE.1.0: folder=SECA_LE_IVI_1_0, file=mtbf_ivi_10.json, sp_key="10"
+# SECA QE.1.0: folder=SECA_QE_IVI_1_0, file=mtbf_ivi_10.json, sp_key="10"
 _DEFAULT_SP_CPL: Dict[str, str] = {
-    "nord_hqx":       "5.7.7.0",
+    "nord_hqx":        "5.7.7.0",
     "seca_le_ivi_1_0": "LE.1.0",
+    "seca_qe_ivi_1_0": "QE.1.0",
 }
 
 # Default domain per target (used when no domain config exists yet)
 _DEFAULT_DOMAIN: Dict[str, str] = {
-    "seca_le_ivi_1_0": "IVI",
+    "seca_le_ivi_1_0": _MTBF_NONSAFE_IVI_DOMAIN,
+    "seca_qe_ivi_1_0": _MTBF_NONSAFE_IVI_DOMAIN,
 }
 
 # Display labels for known targets
 _TARGET_LABELS: Dict[str, str] = {
-    "nord_hqx":       "Nord HQX",
-    "nord_hgy":       "Nord HGY",
+    "nord_hqx":        "Nord HQX",
+    "nord_hgy":        "Nord HGY",
     "seca_le_ivi_1_0": "SECA LE.1.0",
+    "seca_qe_ivi_1_0": "SECA QE.1.0",
 }
 
 
@@ -451,6 +469,34 @@ def _sp_arg() -> str:
     return str(request.args.get("sp") or "").strip()
 
 
+# ---------------------------------------------------------------------------
+# SECA domain name helpers — IVI ↔ NONSAFE-IVI remapping for public API
+# ---------------------------------------------------------------------------
+
+def _seca_public_domain(domain: str, target_name: str) -> str:
+    """For SECA targets, remap IVI → NONSAFE-IVI in public API responses.
+
+    The file on disk is mtbf_ivi_10.json but the public API exposes it as
+    NONSAFE-IVI to be consistent with Nord HQX/HGY naming conventions.
+    """
+    if target_name in _SECA_TARGETS and str(domain or "").upper() == "IVI":
+        return _MTBF_NONSAFE_IVI_DOMAIN  # "NONSAFE-IVI"
+    return domain
+
+
+def _seca_file_domain(domain: str, target_name: str) -> str:
+    """For SECA targets, remap NONSAFE-IVI → IVI for file loading.
+
+    Callers pass the public domain name (NONSAFE-IVI); this returns the
+    actual file-system domain name (IVI) used in mtbf_ivi_10.json.
+    """
+    if target_name in _SECA_TARGETS:
+        compact = re.sub(r"[^A-Z0-9]", "", str(domain or "").upper())
+        if compact == "NONSAFEIVI":
+            return "IVI"
+    return domain
+
+
 @public_auto_gen5_bp.route("/public/apis", methods=["GET", "OPTIONS"])
 @public_auto_gen5_bp.route("/public/all-apis", methods=["GET", "OPTIONS"])
 @public_auto_gen5_bp.route("/public/auto-gen5", methods=["GET", "OPTIONS"])
@@ -497,7 +543,7 @@ def public_auto_gen5_docs():
                 hgy_sps.append({**sp, "domains": [d["domain"] for d in details], "domain_details": details})
     except Exception:
         hgy_sps = []
-    # SECA LE IVI 1.0 target (folder: SECA_LE_IVI_1_0)
+    # SECA LE IVI 1.0 target (folder: SECA_LE_IVI_1_0) — IVI exposed as NONSAFE-IVI
     try:
         seca_domains = [_domain_summary("seca_le_ivi_1_0", d) for d in _ordered_domains("seca_le_ivi_1_0")]
     except Exception:
@@ -511,6 +557,7 @@ def public_auto_gen5_docs():
                 try:
                     detail = _sp_domain_summary("seca_le_ivi_1_0", dom, sp["cpl"])
                     if int(detail.get("row_count") or 0) > 0:
+                        detail["domain"] = _seca_public_domain(detail["domain"], "seca_le_ivi_1_0")
                         details.append(detail)
                 except Exception:
                     pass
@@ -518,6 +565,28 @@ def public_auto_gen5_docs():
                 seca_sps.append({**sp, "domains": [d["domain"] for d in details], "domain_details": details})
     except Exception:
         seca_sps = []
+    # SECA QE IVI 1.0 target (folder: SECA_QE_IVI_1_0) — IVI exposed as NONSAFE-IVI
+    try:
+        qe_ivi_domains = [_domain_summary("seca_qe_ivi_1_0", d) for d in _ordered_domains("seca_qe_ivi_1_0")]
+    except Exception:
+        qe_ivi_domains = []
+    try:
+        qe_ivi_sps_raw = _discover_sps_for_target("seca_qe_ivi_1_0")
+        qe_ivi_sps = []
+        for sp in qe_ivi_sps_raw:
+            details = []
+            for dom in sp["domains"]:
+                try:
+                    detail = _sp_domain_summary("seca_qe_ivi_1_0", dom, sp["cpl"])
+                    if int(detail.get("row_count") or 0) > 0:
+                        detail["domain"] = _seca_public_domain(detail["domain"], "seca_qe_ivi_1_0")
+                        details.append(detail)
+                except Exception:
+                    pass
+            if details:
+                qe_ivi_sps.append({**sp, "domains": [d["domain"] for d in details], "domain_details": details})
+    except Exception:
+        qe_ivi_sps = []
     return render_template(
         "public_auto_gen5_api.html",
         base=_base_url(),
@@ -528,6 +597,8 @@ def public_auto_gen5_docs():
         hgy_sps=hgy_sps,
         seca_domains=seca_domains,
         seca_sps=seca_sps,
+        qe_ivi_domains=qe_ivi_domains,
+        qe_ivi_sps=qe_ivi_sps,
     )
 
 
@@ -851,3 +922,210 @@ def api_public_auto_gen5_all():
         })
     except Exception as exc:
         return jsonify({"ok": False, "message": f"Unable to fetch all data: {exc}"}), 500
+
+
+# ---------------------------------------------------------------------------
+# SECA version-based routes  /public/auto-gen5/sp/seca/<version>/domain/<domain>
+# Clean semantic URLs — no ?target= param needed.
+# Add new versions to _SECA_VERSION_MAP above; no route code changes required.
+# ---------------------------------------------------------------------------
+
+def _resolve_seca_version(version: str) -> Optional[str]:
+    """Return the internal target name for a SECA version label (case-insensitive).
+
+    Accepts LE1.0, le1.0, LE1_0, QE1.0, QE2.0, LE1.1 etc.
+    """
+    norm = str(version or "").strip().upper().replace("_", ".")
+    for label, target in _SECA_VERSION_MAP.items():
+        if label.upper().replace("_", ".") == norm:
+            return target
+    return None
+
+
+@public_auto_gen5_bp.route("/public/auto-gen5/sp/seca", methods=["GET", "OPTIONS"])
+def api_public_seca_list():
+    """List all known SECA versions with available domain data.
+    GET /public/auto-gen5/sp/seca
+    """
+    if request.method == "OPTIONS":
+        return "", 204
+    try:
+        versions = []
+        for version_label, target_name in _SECA_VERSION_MAP.items():
+            domain_summaries = []
+            sp_cpl = _DEFAULT_SP_CPL.get(target_name, "")
+            for dom in _ordered_domains(target_name):
+                try:
+                    file_dom = _seca_file_domain(dom, target_name)
+                    summary = (
+                        _sp_domain_summary(target_name, file_dom, sp_cpl)
+                        if sp_cpl else _domain_summary(target_name, file_dom)
+                    )
+                    if int(summary.get("row_count") or 0) > 0:
+                        summary["domain"] = _seca_public_domain(summary["domain"], target_name)
+                        domain_summaries.append(summary)
+                except Exception:
+                    pass
+            versions.append({
+                "version":      version_label,
+                "target":       target_name,
+                "label":        _TARGET_LABELS.get(target_name, target_name),
+                "domain_count": len(domain_summaries),
+                "domains":      [d["domain"] for d in domain_summaries],
+                "domain_details": domain_summaries,
+            })
+        return jsonify({"ok": True, "count": len(versions), "versions": versions})
+    except Exception as exc:
+        return jsonify({"ok": False, "message": f"Unable to list SECA versions: {exc}", "versions": []}), 500
+
+
+@public_auto_gen5_bp.route("/public/auto-gen5/sp/seca/<string:version>", methods=["GET", "OPTIONS"])
+def api_public_seca_version(version: str):
+    """Get all domains + rows for a SECA version (e.g. LE1.0, QE1.0).
+    GET /public/auto-gen5/sp/seca/LE1.0?last_n=5&summary=true
+    """
+    if request.method == "OPTIONS":
+        return "", 204
+    target_name = _resolve_seca_version(version)
+    if not target_name:
+        return jsonify({
+            "ok":                False,
+            "message":           f"Unknown SECA version '{version}'. Available: {list(_SECA_VERSION_MAP.keys())}",
+            "available_versions": list(_SECA_VERSION_MAP.keys()),
+        }), 404
+    last_n = int(request.args.get("last_n") or 0)
+    try:
+        sp_cpl = _DEFAULT_SP_CPL.get(target_name, "")
+        sp_key = _sp_key(sp_cpl) if sp_cpl else ""
+        result_domains: List[Dict[str, Any]] = []
+        for dom in _ordered_domains(target_name):
+            file_dom = _seca_file_domain(dom, target_name)
+            pub_dom  = _seca_public_domain(dom, target_name)
+            data = _sp_load(target_name, file_dom, sp_cpl) if sp_cpl else _load_adas_mtbf(target_name, file_dom)
+            rows = _positive_public_rows(data.get("rows") or [], pub_dom)
+            if last_n > 0:
+                rows = rows[:last_n]
+            entry: Dict[str, Any] = {
+                "domain":    pub_dom,
+                "sp":        sp_cpl or None,
+                "sp_key":    sp_key or None,
+                "row_count": len(rows),
+                "rows":      rows,
+            }
+            if _bool_arg("summary", True):
+                s = _sp_domain_summary(target_name, file_dom, sp_cpl) if sp_cpl else _domain_summary(target_name, file_dom)
+                s["domain"] = pub_dom
+                entry["summary"] = s
+            if rows:
+                result_domains.append(entry)
+        return jsonify({
+            "ok":           True,
+            "api_version":  _PUBLIC_GEN5_API_VERSION,
+            "version":      version,
+            "target":       target_name,
+            "label":        _TARGET_LABELS.get(target_name, target_name),
+            "domain_count": len(result_domains),
+            "domains":      result_domains,
+        })
+    except Exception as exc:
+        return jsonify({"ok": False, "message": f"Unable to fetch SECA version '{version}': {exc}", "domains": []}), 500
+
+
+@public_auto_gen5_bp.route("/public/auto-gen5/api/sp_build_wise_report", methods=["GET", "OPTIONS"])
+def public_auto_gen5_sp_build_wise_report():
+    """Build-wise consolidated report for AutoGen5 targets (mirrors AutoGen4.5 HQX behavior).
+
+    Query params:
+      target : nord_hqx | nord_hgy | seca_le_ivi_1_0 | seca_qe_ivi_1_0 (default: nord_hqx)
+      sp     : SP version (e.g. 5.1.9.0, LE.1.0, QE.1.0)
+      domain : ADAS | FLEX | NONSAFE-IVI | SAFE-IVI | IVI
+      build  : specific build ID to get detail rows
+      crash_types : comma-separated: system,ssr,process,open_jira
+
+    Returns JSON with builds summary and optional detail_rows for selected build.
+    """
+    if request.method == "OPTIONS":
+        return "", 204
+
+    from live_status_publish_routes import api_build_wise_report
+
+    # Map public target param to internal target name
+    target_param = (request.args.get("target") or _DEFAULT_TARGET).strip().lower()
+    if target_param not in _KNOWN_TARGETS:
+        return jsonify({"success": False, "message": f"Unknown target: {target_param}"}), 400
+
+    # Forward to the internal build_wise API with target_name.
+    # The internal route is login-protected, so call the wrapped view function
+    # from this explicitly public endpoint.
+    try:
+        handler = getattr(api_build_wise_report, "__wrapped__", api_build_wise_report)
+        return handler(target_param)
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@public_auto_gen5_bp.route("/public/auto-gen5/sp/seca/<string:version>/domain/<string:domain>", methods=["GET", "OPTIONS"])
+def api_public_seca_version_domain(version: str, domain: str):
+    """Get MTBF rows for a specific SECA version + domain.
+    GET /public/auto-gen5/sp/seca/LE1.0/domain/IVI?last_n=5&summary=true
+    GET /public/auto-gen5/sp/seca/QE1.0/domain/ADAS
+    GET /public/auto-gen5/sp/seca/LE1.0/domain/SafeIVI
+    """
+    if request.method == "OPTIONS":
+        return "", 204
+    target_name = _resolve_seca_version(version)
+    if not target_name:
+        return jsonify({
+            "ok":                False,
+            "message":           f"Unknown SECA version '{version}'. Available: {list(_SECA_VERSION_MAP.keys())}",
+            "available_versions": list(_SECA_VERSION_MAP.keys()),
+        }), 404
+    last_n = int(request.args.get("last_n") or 0)
+    try:
+        # Accept both NONSAFE-IVI and IVI as input; always load from IVI file
+        file_domain = _seca_file_domain(domain, target_name)
+        resolved = _resolve_domain(target_name, file_domain)
+        if not resolved:
+            # Also try the original domain name in case it's ADAS/FLEX/etc.
+            resolved = _resolve_domain(target_name, domain)
+        if not resolved:
+            pub_domains = [_seca_public_domain(d, target_name) for d in _ordered_domains(target_name)]
+            return jsonify({
+                "ok":               False,
+                "message":          f"Domain '{domain}' not available for SECA {version}.",
+                "version":          version,
+                "target":           target_name,
+                "available_domains": pub_domains,
+                "rows":             [],
+                "row_count":        0,
+            }), 404
+        pub_domain = _seca_public_domain(resolved, target_name)
+        sp_cpl = _DEFAULT_SP_CPL.get(target_name, "")
+        sp_key = _sp_key(sp_cpl) if sp_cpl else ""
+        data = _sp_load(target_name, resolved, sp_cpl) if sp_cpl else _load_adas_mtbf(target_name, resolved)
+        pub_rows = _positive_public_rows(data.get("rows") or [], pub_domain)
+        if last_n > 0:
+            pub_rows = pub_rows[:last_n]
+        response: Dict[str, Any] = {
+            "ok":          True,
+            "api_version": _PUBLIC_GEN5_API_VERSION,
+            "version":     version,
+            "target":      target_name,
+            "label":       _TARGET_LABELS.get(target_name, target_name),
+            "sp":          sp_cpl or None,
+            "sp_key":      sp_key or None,
+            "domain":      pub_domain,
+            "row_count":   len(pub_rows),
+            "rows":        pub_rows,
+        }
+        if _bool_arg("summary", True):
+            s = _sp_domain_summary(target_name, resolved, sp_cpl) if sp_cpl else _domain_summary(target_name, resolved)
+            s["domain"] = pub_domain
+            response["summary"] = s
+        return jsonify(response)
+    except Exception as exc:
+        return jsonify({
+            "ok": False,
+            "message": f"Unable to fetch SECA {version} domain '{domain}': {exc}",
+            "rows": [], "row_count": 0,
+        }), 500
