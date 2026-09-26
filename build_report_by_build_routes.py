@@ -1325,6 +1325,108 @@ def _db_fast_report_from_rows(
     }
 
 
+def _run_single_build_fast_report(
+    cursor,
+    build: str,
+    target_hint: str,
+    date_from: str,
+    date_to: str,
+    devices: Sequence[str],
+) -> Dict[str, Any]:
+    """Run the fast DB report for a single build and return the full report dict.
+
+    Used by individual-mode to produce one report per build without merging.
+    Returns a dict with ok/success/error keys plus the standard report shape.
+    """
+
+    build_matches = _candidate_tables(cursor, build, target_hint)
+    selected_for_build = _selected_matches(build_matches, target_hint)
+    lookup = _aggregate_lookup(selected_for_build or build_matches, build)
+    if selected_for_build:
+        lookup["target"] = selected_for_build[0].get("target") or lookup.get("target") or ""
+        lookup["target_display"] = selected_for_build[0].get("target_display") or lookup.get("target") or ""
+        lookup["bu"] = selected_for_build[0].get("bu") or ""
+
+    db_rows: List[Dict[str, Any]] = []
+    seen_jira_keys: set = set()
+    for row in _fetch_matching_jiras(cursor, selected_for_build or build_matches, build, date_from, date_to, devices):
+        key = str(row.get("jira_key") or "").strip().upper()
+        if not key or key in seen_jira_keys:
+            continue
+        seen_jira_keys.add(key)
+        db_rows.append(row)
+
+    supplement = _fetch_build_info_jql_supplement(
+        build_ids=[build],
+        date_from=date_from,
+        date_to=date_to,
+        devices=devices,
+        existing_keys=seen_jira_keys,
+    )
+    for row in supplement.get("rows") or []:
+        key = str(row.get("jira_key") or "").strip().upper()
+        if not key or key in seen_jira_keys:
+            continue
+        seen_jira_keys.add(key)
+        row["jira_key"] = key
+        db_rows.append(row)
+
+    jira_keys = [r["jira_key"] for r in db_rows if r.get("jira_key")]
+
+    if not jira_keys:
+        return {
+            "ok": True,
+            "success": True,
+            "build": build,
+            "filter_id": str(JIRA_PDT_FILTER_ID),
+            "builds": [build],
+            "target_name": lookup.get("target") or target_hint or None,
+            "software_images": [build],
+            "lookup": lookup,
+            "db_rows": [],
+            "jira_keys": [],
+            "meta": {
+                "jql": "",
+                "build_ids": [build],
+                "generated_at": datetime.utcnow().isoformat() + "Z",
+                "source": "build_report_by_build",
+                "lookup": lookup,
+                "date_from": date_from,
+                "date_to": date_to,
+                "devices": list(devices or []),
+                "db_jira_count": 0,
+                "jql_supplement": _public_supplement_meta(supplement),
+            },
+            "jql_supplement": _public_supplement_meta(supplement),
+            "summary": {"total_jiras": 0, "total_all_jiras": 0, "with_cr": 0},
+            "cr_index": {},
+            "hierarchical_report": [],
+            "jiras": [],
+        }
+
+    report = _db_fast_report_from_rows(
+        db_rows=db_rows,
+        jira_keys=jira_keys,
+        build_id=build,
+        lookup=lookup,
+        date_from=date_from,
+        date_to=date_to,
+        devices=devices,
+        matches=selected_for_build or build_matches,
+    )
+    public_supplement = _public_supplement_meta(supplement)
+    report["jql_supplement"] = public_supplement
+    meta = dict(report.get("meta") or {})
+    meta.update({
+        "db_jira_count": len(seen_jira_keys),
+        "jira_count_after_supplement": len(jira_keys),
+        "jql_supplement": public_supplement,
+    })
+    report["meta"] = meta
+    report["build"] = build
+    return report
+
+
 def _lookup_response(build_id: str, target_hint: str = "") -> Tuple[Dict[str, Any], int]:
     build_ids = _parse_build_ids(build_id)
     if not build_ids:
@@ -1425,12 +1527,70 @@ def api_build_report_by_build():
     ))
     devices = _parse_csv_values(_req_value(body, "devices", "device_ids", "serials", "serial_no", default=""))
     live_jira = _truthy(_req_value(body, "live_jira", "live", "full", default=""))
+    report_mode = str(_req_value(body, "report_mode", "mode", default="") or "").strip().lower()
     if not build_ids:
         return jsonify({
             "ok": False,
             "success": False,
             "error": "build is mandatory. Pass build=<MetaBuild>.",
         }), 400
+
+    # ── Individual-mode: run one report per build, return reports dict ────────
+    if report_mode == "individual" and len(build_ids) > 1:
+        conn = get_mysql_connection_db()
+        if not conn:
+            return jsonify({"ok": False, "success": False, "error": "DB connection error"}), 500
+        cursor = conn.cursor(dictionary=True)
+        reports: Dict[str, Any] = {}
+        successful = 0
+        failed = 0
+        total_jiras = 0
+        try:
+            for build in build_ids:
+                try:
+                    single = _run_single_build_fast_report(
+                        cursor=cursor,
+                        build=build,
+                        target_hint=target_hint,
+                        date_from=date_from,
+                        date_to=date_to,
+                        devices=devices,
+                    )
+                    reports[build] = _sanitize_report_payload_for_response(single)
+                    total_jiras += int((single.get("summary") or {}).get("total_jiras") or 0)
+                    successful += 1
+                except Exception as exc:
+                    reports[build] = {
+                        "ok": False,
+                        "success": False,
+                        "build": build,
+                        "error": str(exc),
+                        "summary": {"total_jiras": 0},
+                        "jiras": [],
+                        "hierarchical_report": [],
+                        "cr_index": {},
+                    }
+                    failed += 1
+        finally:
+            try:
+                cursor.close()
+                conn.close()
+            except Exception:
+                pass
+        return jsonify({
+            "ok": True,
+            "success": True,
+            "report_mode": "individual",
+            "builds": build_ids,
+            "build_count": len(build_ids),
+            "summary": {
+                "build_count": len(build_ids),
+                "successful_builds": successful,
+                "failed_builds": failed,
+                "total_jiras": total_jiras,
+            },
+            "reports": reports,
+        })
 
     conn = get_mysql_connection_db()
     if not conn:

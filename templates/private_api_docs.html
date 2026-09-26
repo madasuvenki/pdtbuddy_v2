@@ -214,12 +214,12 @@ X-Build-Report-API-Token: YOUR_TOKEN
       </div>
 
       <!-- /api/build_report/by_build -->
-      <div class="api-card" data-search="build report by_build private token consolidated latest build info jql supplement serial devices">
+      <div class="api-card" data-search="build report by_build private token consolidated latest build info jql supplement serial devices individual merged report_mode">
         <div class="api-card__head" onclick="toggleCard(this)">
           <span class="method method--get">GET</span>
           <span class="method method--post" style="margin-left:-6px">POST</span>
           <span class="api-card__endpoint">/api/build_report/by_build</span>
-          <span class="api-card__desc">Consolidated report by build</span>
+          <span class="api-card__desc">Consolidated report by build (merged or individual per-build)</span>
           <i class="fas fa-chevron-down api-card__chevron"></i>
         </div>
         <div class="api-card__body">
@@ -252,8 +252,10 @@ If date_to is old, response meta.jql_supplement.skipped_reason = "date_to_not_la
           <div class="sec-label">cURL Example</div>
           <div class="code-block" id="curl-by-build">curl -H "X-PDTBuddy-API-Token: YOUR_TOKEN" \
   "http://10.142.210.127:50/api/build_report/by_build?builds=SecaAU_IVI.LE.1.0.r1-00027.01-NON_SAFE_STD_PVM.LAGVM-3&amp;target=seca_qe_ivi_1_0&amp;date_from=2026-09-18&amp;date_to=2026-09-22&amp;devices=TDC00003561L,TDC000035CT7"<button class="copy-btn" onclick="copyCode('curl-by-build')"><i class="fas fa-copy"></i> Copy</button></div>
-          <div class="sec-label">Example Response</div>
+          <div class="sec-label">Merged response (default — all builds combined)</div>
           <div class="code-block" id="resp-by-build">{"ok": true, "source": "build_report_by_build_db_fast", "db_jira_count": 24, "jira_count_after_supplement": 27, "jql_supplement": {"enabled": true, "added_count": 3, "total_fetched": 5, "duplicate_count": 2}, "summary": {"total_jiras": 27}, "hierarchical_report": [...], "cr_index": {...}}<button class="copy-btn" onclick="copyCode('resp-by-build')"><i class="fas fa-copy"></i> Copy</button></div>
+          <div class="sec-label">Individual mode — add <code>report_mode=individual</code> for separate report per build</div>
+          <div class="code-block" id="resp-by-build-indiv">{"ok": true, "report_mode": "individual", "builds": ["BUILD_A", "BUILD_B"], "build_count": 2, "summary": {"build_count": 2, "successful_builds": 2, "failed_builds": 0, "total_jiras": 51}, "reports": {"BUILD_A": {"ok": true, "summary": {"total_jiras": 27}, "hierarchical_report": [...], "cr_index": {...}, "jiras": [...]}, "BUILD_B": {"ok": true, "summary": {"total_jiras": 24}, "hierarchical_report": [...], "cr_index": {...}, "jiras": [...]}}}<button class="copy-btn" onclick="copyCode('resp-by-build-indiv')"><i class="fas fa-copy"></i> Copy</button></div>
           <div class="try-box">
             <div class="try-title"><i class="fas fa-flask"></i> Try It with Token <span style="font-size:10px;color:#94a3b8;font-weight:700">(no browser session needed by API)</span></div>
             <div class="sec-label" style="margin-top:0">API Token</div>
@@ -262,13 +264,16 @@ If date_to is old, response meta.jql_supplement.skipped_reason = "date_to_not_la
             </div>
             <div class="sec-label">Build Report Inputs</div>
             <div class="try-row">
-              <input class="try-input" id="ti-bybuild-build" placeholder="Build ID / MetaBuild">
+              <input class="try-input" id="ti-bybuild-build" placeholder="Build ID(s) — comma-separated for multiple">
               <input class="try-input" id="ti-bybuild-target" placeholder="target optional" style="max-width:220px">
             </div>
             <div class="try-row">
               <input class="try-input" id="ti-bybuild-from" placeholder="date_from YYYY-MM-DD" style="max-width:180px">
               <input class="try-input" id="ti-bybuild-to" placeholder="date_to YYYY-MM-DD" style="max-width:180px">
               <input class="try-input" id="ti-bybuild-devices" placeholder="devices optional SN1,SN2">
+            </div>
+            <div class="try-row">
+              <select class="try-input" id="ti-bybuild-mode" style="max-width:200px"><option value="">report_mode: merged (default)</option><option value="individual">report_mode: individual</option></select>
               <button class="run-btn" onclick="runByBuildToken()"><i class="fas fa-play"></i> Run</button>
             </div>
             <div class="try-result" id="ti-bybuild-result"></div>
@@ -521,6 +526,7 @@ If date_to is old, response meta.jql_supplement.skipped_reason = "date_to_not_la
     addParam(p, 'date_from', 'ti-bybuild-from');
     addParam(p, 'date_to', 'ti-bybuild-to');
     addParam(p, 'devices', 'ti-bybuild-devices');
+    addParam(p, 'report_mode', 'ti-bybuild-mode');
     runGetToken('/api/build_report/by_build?' + p.toString(), 'ti-bybuild-result', 'ti-bybuild-token');
   }
 

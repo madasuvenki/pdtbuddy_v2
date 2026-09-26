@@ -183,10 +183,35 @@
       <div class="toolbar" style="margin-top:12px;justify-content:flex-end">
         <button id="brByBuildLookupBtn" class="btn" type="button" onclick="brLookupBuild()"><i class="fas fa-search"></i> Lookup Build</button>
         <a id="brByBuildMtbfLink" class="btn" href="#" target="_blank" rel="noopener" style="display:none"><i class="fas fa-up-right-from-square"></i> Open MTBF Link</a>
+        <span style="display:inline-flex;align-items:center;gap:0;border:1.5px solid #c7d2fe;border-radius:999px;overflow:hidden;background:#fff;box-shadow:0 4px 10px rgba(79,70,229,.08)" title="Report mode: Merged combines all builds into one report; Individual generates a separate report per build">
+          <button id="brByBuildModeBtn" class="br-mode-seg active" type="button" onclick="brByBuildSetMode('merged')" style="border:none;background:linear-gradient(135deg,#2563eb,#7c3aed);color:#fff;padding:7px 13px;font-size:11px;font-weight:950;cursor:pointer;border-radius:999px 0 0 999px"><i class="fas fa-layer-group"></i> Merged</button>
+          <button id="brByBuildIndivBtn" class="br-mode-seg" type="button" onclick="brByBuildSetMode('individual')" style="border:none;background:transparent;color:#4338ca;padding:7px 13px;font-size:11px;font-weight:950;cursor:pointer;border-radius:0 999px 999px 0"><i class="fas fa-list-ul"></i> Individual</button>
+        </span>
         <button id="brByBuildRunBtn" class="btn btn-primary" type="button" onclick="brRunByBuild(this)"><i class="fas fa-play"></i> Generate Consolidated Report</button>
       </div>
       <div id="brByBuildStatus" class="muted" style="margin-top:10px"></div>
       <div id="brByBuildSummary" class="br-bybuild-summary" style="display:none"></div>
+      <!-- Individual mode: per-build report selector -->
+      <div id="brIndivPanel" style="display:none;margin-top:12px">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;flex-wrap:wrap">
+          <span style="font-size:11px;font-weight:950;color:#1e3a8a;text-transform:uppercase;letter-spacing:.06em"><i class="fas fa-list-ul" style="margin-right:5px;color:#6366f1"></i>Individual Build Reports</span>
+          <span id="brIndivSummaryBadge" style="font-size:11px;color:#64748b;font-weight:900"></span>
+        </div>
+        <div class="tbl-wrap" style="max-height:320px;overflow:auto">
+          <table style="width:100%;table-layout:auto">
+            <thead><tr>
+              <th style="white-space:nowrap">#</th>
+              <th style="min-width:260px">Build ID</th>
+              <th style="white-space:nowrap">Target</th>
+              <th style="white-space:nowrap">JIRAs</th>
+              <th style="white-space:nowrap">CRs</th>
+              <th style="white-space:nowrap">Status</th>
+              <th style="white-space:nowrap">Action</th>
+            </tr></thead>
+            <tbody id="brIndivRows"><tr><td colspan="7" class="empty">Run Individual report to see per-build results.</td></tr></tbody>
+          </table>
+        </div>
+      </div>
       <div class="grid" style="margin-top:10px">
         <div>
           <div class="mode-help" style="font-weight:950;color:#475569">API method for tools</div>
@@ -3166,6 +3191,20 @@ function brSwitchInputTab(mode){
 }
 function brByBuildValue(){return String((g('brByBuildInput')&&g('brByBuildInput').value)||'').trim();}
 function brByBuildBuilds(){return brByBuildValue().split(/[,\n;]+/).map(x=>String(x||'').trim()).filter(Boolean);}
+let _brByBuildMode='merged';
+function brByBuildReportMode(){return _brByBuildMode;}
+function brByBuildSetMode(mode){
+  _brByBuildMode=mode==='individual'?'individual':'merged';
+  const mb=g('brByBuildModeBtn'), ib=g('brByBuildIndivBtn');
+  const activeStyle='border:none;background:linear-gradient(135deg,#2563eb,#7c3aed);color:#fff;padding:7px 13px;font-size:11px;font-weight:950;cursor:pointer;';
+  const inactiveStyle='border:none;background:transparent;color:#4338ca;padding:7px 13px;font-size:11px;font-weight:950;cursor:pointer;';
+  if(mb){mb.style.cssText=(_brByBuildMode==='merged'?activeStyle:inactiveStyle)+'border-radius:999px 0 0 999px';}
+  if(ib){ib.style.cssText=(_brByBuildMode==='individual'?activeStyle:inactiveStyle)+'border-radius:0 999px 999px 0';}
+  // Hide individual panel when switching back to merged
+  const panel=g('brIndivPanel');
+  if(panel&&_brByBuildMode==='merged')panel.style.display='none';
+  brByBuildUpdateLinks();
+}
 function brByBuildSetStatus(msg,bad){
   const el=g('brByBuildStatus'); if(!el)return;
   el.className='muted '+(bad?'status-bad':'status-ok');
@@ -3210,8 +3249,65 @@ function brByBuildFilterParams(pageLink){
   if(df)p.set('date_from',df);
   if(dt)p.set('date_to',dt);
   if(dev.length)p.set('devices',dev.join(','));
+  // Include report_mode only when individual and multiple builds
+  const builds=brByBuildBuilds();
+  if(_brByBuildMode==='individual'&&builds.length>1)p.set('report_mode','individual');
   if(pageLink)p.set('run','1');
   return p;
+}
+function brRenderIndivPanel(data){
+  const panel=g('brIndivPanel'), tbody=g('brIndivRows'), badge=g('brIndivSummaryBadge');
+  if(!panel||!tbody)return;
+  panel.style.display='block';
+  const reports=data.reports||{};
+  const builds=data.builds||Object.keys(reports);
+  const summary=data.summary||{};
+  if(badge)badge.textContent=builds.length+' build(s) · '+esc(summary.total_jiras||0)+' total JIRAs · '+esc(summary.successful_builds||0)+' ok · '+esc(summary.failed_builds||0)+' failed';
+  if(!builds.length){tbody.innerHTML='<tr><td colspan="7" class="empty">No builds in response.</td></tr>';return;}
+  tbody.innerHTML=builds.map((build,i)=>{
+    const rep=reports[build]||{};
+    const ok=rep.ok!==false&&rep.success!==false&&!rep.error;
+    const jiras=Number((rep.summary||{}).total_jiras||0);
+    const crs=Object.keys(rep.cr_index||{}).length;
+    const target=String((rep.target_name||((rep.lookup||{}).target)||((rep.meta||{}).target_name)||'--'));
+    const statusBadge=ok
+      ?'<span style="background:#dcfce7;color:#166534;border:1px solid #86efac;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900">&#10003; OK</span>'
+      :'<span style="background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900" title="'+esc(rep.error||'Failed')+'">&#10007; Error</span>';
+    const viewBtn=ok
+      ?'<button class="btn btn-primary" style="padding:4px 10px;font-size:11px" onclick="brViewIndivReport('+i+')"><i class="fas fa-eye"></i> View</button>'
+      :'<span class="muted" style="font-size:11px">'+esc(rep.error||'Failed')+'</span>';
+    const shortBuild=(build.match(/-?(\d{4,6}-[^.]+)/)||[])[1]||build.slice(-40);
+    return '<tr>'
+      +'<td style="text-align:center;color:#94a3b8;font-size:11px">'+(i+1)+'</td>'
+      +'<td><code style="font-size:10px;background:#e2e8f0;padding:2px 6px;border-radius:4px;word-break:break-all" title="'+esc(build)+'">'+esc(shortBuild)+'</code></td>'
+      +'<td style="font-size:11px;color:#475569">'+esc(target)+'</td>'
+      +'<td style="text-align:center;font-weight:900;color:#4f46e5">'+esc(jiras||'--')+'</td>'
+      +'<td style="text-align:center;font-weight:900;color:#7c3aed">'+esc(crs||'--')+'</td>'
+      +'<td>'+statusBadge+'</td>'
+      +'<td>'+viewBtn+'</td>'
+      +'</tr>';
+  }).join('');
+}
+let _brIndivReports=null;
+function brViewIndivReport(idx){
+  if(!_brIndivReports)return;
+  const builds=_brIndivReports.builds||Object.keys(_brIndivReports.reports||{});
+  const build=builds[idx];
+  if(!build)return;
+  const rep=(_brIndivReports.reports||{})[build];
+  if(!rep||rep.ok===false){alert('No report data for build: '+build);return;}
+  // Inject build context
+  if(g('brBuilds'))g('brBuilds').value=build;
+  brExplicitSoftwareImages=[build];
+  const lookup=rep.lookup||{};
+  if(lookup.bu&&g('brBu')){g('brBu').value=String(lookup.bu).toUpperCase();brPopulateTargets();}
+  if((lookup.target||rep.target_name)&&g('brTarget'))g('brTarget').value=lookup.target||rep.target_name||'';
+  brAutoIsAutomotive=String((lookup.bu||'')).toUpperCase()==='AUTO';
+  renderReport(rep);
+  brByBuildSetStatus('<i class="fas fa-check-circle"></i> Showing individual report for: '+esc(build));
+  // Scroll to report output
+  const out=g('brReportOutputBody');
+  if(out)out.scrollIntoView({behavior:'smooth',block:'start'});
 }
 function brByBuildUpdateLinks(){
   const api=g('brByBuildApiLink'), page=g('brByBuildPageLink'), mtbf=g('brByBuildMtbfLink');
@@ -3305,7 +3401,8 @@ async function brRunByBuild(btn){
   brExplicitSoftwareImages=buildItems;
   const spin=g('brByBuildSpinner'); if(spin)spin.style.display='inline';
   if(btn){btn.disabled=true;btn.innerHTML='<i class="fas fa-circle-notch spin"></i> Generating...';}
-  brByBuildSetStatus('<i class="fas fa-circle-notch spin"></i> Generating consolidated report from internal DB build match and latest Build Info JQL supplement...');
+  const isIndiv=_brByBuildMode==='individual'&&buildItems.length>1;
+  brByBuildSetStatus('<i class="fas fa-circle-notch spin"></i> '+(isIndiv?'Generating individual reports for '+buildItems.length+' builds...':'Generating consolidated report from internal DB build match and latest Build Info JQL supplement...'));
   if(g('brCrRows'))g('brCrRows').innerHTML='<tr><td colspan="18" class="empty"><i class="fas fa-circle-notch spin"></i> Running build report...</td></tr>';
   try{
     if(!brByBuildLookupData||String(brByBuildLookupData.build||'').toUpperCase()!==build.toUpperCase()){
@@ -3315,6 +3412,15 @@ async function brRunByBuild(btn){
     const resp=await fetch(url,{cache:'no-store'});
     const data=await resp.json();
     if(!data.ok)throw new Error(data.error||'Build report failed');
+    // ── Individual mode: show per-build selector table ─────────────────────
+    if(isIndiv&&data.report_mode==='individual'){
+      _brIndivReports=data;
+      brRenderIndivPanel(data);
+      brByBuildSetStatus('<i class="fas fa-check-circle"></i> Individual reports ready for '+buildItems.length+' builds. Click <b>View</b> to render any build\'s report below.');
+      if(g('brCrRows'))g('brCrRows').innerHTML='<tr><td colspan="18" class="empty">Select a build above to view its report.</td></tr>';
+      return;
+    }
+    // ── Merged mode (default) ──────────────────────────────────────────────
     const lookup=data.lookup||brByBuildLookupData||{};
     if(lookup.bu&&g('brBu')){g('brBu').value=String(lookup.bu).toUpperCase();brPopulateTargets();}
     if((lookup.target||data.target_name)&&g('brTarget'))g('brTarget').value=lookup.target||data.target_name;

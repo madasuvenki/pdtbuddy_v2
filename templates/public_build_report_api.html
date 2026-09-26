@@ -506,6 +506,7 @@ console.log(report.summary);</code></pre>
       <table>
         <tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr>
         <tr><td><code>builds</code></td><td>string or array</td><td><span class="req">required*</span></td><td>Build ID(s). Comma-separated string or JSON array. e.g. <code>"SecaAU_IVI.LE.1.0-00070"</code></td></tr>
+        <tr><td><code>report_mode</code></td><td>string</td><td>optional</td><td><code>"merged"</code> (default) — all builds combined into one report. <code>"individual"</code> — separate report per build; response contains <code>reports</code> dict keyed by build ID. Only applies when multiple builds are provided.</td></tr>
         <tr><td><code>custom_jql</code></td><td>string</td><td><span class="req">required*</span></td><td>Direct JIRA JQL or saved filter ID/URL. Required if <code>builds</code> not provided.</td></tr>
         <tr><td><code>target</code></td><td>string</td><td><span class="opt">optional</span></td><td>Target name for context (e.g. <code>"ALDABRA"</code>)</td></tr>
         <tr><td><code>traverse</code></td><td>boolean</td><td><span class="opt">optional</span></td><td>Follow linked JIRAs (default: <code>true</code>)</td></tr>
@@ -749,7 +750,7 @@ data: {"stage":"done","done":50,"total":50,"pct":100,"message":"Report complete.
   <h2>Quick Reference</h2>
   <table>
     <tr><th>Endpoint</th><th>Method</th><th>Auth</th><th>Description</th></tr>
-    <tr><td><code>/api/build_report/by_build</code></td><td>GET/POST</td><td>Token or Session</td><td>Recommended for other teams: mandatory single/comma-separated <code>builds</code>, optional <code>date_from</code>/<code>date_to</code>/<code>devices</code></td></tr>
+    <tr><td><code>/api/build_report/by_build</code></td><td>GET/POST</td><td>Token or Session</td><td>Recommended for other teams: mandatory single/comma-separated <code>builds</code>, optional <code>date_from</code>/<code>date_to</code>/<code>devices</code>/<code>report_mode</code></td></tr>
     <tr><td><code>/api/build_report/build_lookup</code></td><td>GET/POST</td><td>Token or Session</td><td>Lookup available target/date/device filters for one or more builds; internal table details hidden for non-admins</td></tr>
     <tr><td><code>/api/build_report/run</code></td><td>GET/POST</td><td>Token or Session</td><td>Run synchronous Build Report; accepts <code>software_images_txt</code>/<code>build_info_file</code> for CR/SIR status matching</td></tr>
     <tr><td><code>/api/consolidated_report</code></td><td>POST</td><td>Token or Session</td><td>Start async report job</td></tr>
