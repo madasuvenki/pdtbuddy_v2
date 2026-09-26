@@ -2348,10 +2348,12 @@ function fixedTableColumns(){return[
     // Use the selected platform's rows for field discovery.
     // If HGY has no rows yet, fall back to HQX rows so the same columns appear.
     const preferred=['date','target','build_s','builds','build','build_id','meta_id','meta','product_flavor','devices','hours','crashes','process_crash','system_crash','ssr','system_mtbf','overallmtbf','comments'];
+    // These keys are always shown in Add Build / Edit Table even if no existing row has them yet.
+    const _alwaysShow = new Set(['devices']);
     let src = _abRows();
     if(!src.length && _abPlat==='HGY') src = (spPayload&&spPayload.rows)||[]; // HQX fallback for field template
     const seen=[], have=new Set();
-    preferred.forEach(k=>{ if(src.some(r=>Object.prototype.hasOwnProperty.call(r||{},k))){ seen.push(k); have.add(k); } });
+    preferred.forEach(k=>{ if(_alwaysShow.has(k)||src.some(r=>Object.prototype.hasOwnProperty.call(r||{},k))){ seen.push(k); have.add(k); } });
     src.forEach(r=>Object.keys(r||{}).forEach(k=>{ if(!_ADD_BUILD_RESERVED.has(k)&&!_MTBF_LEGACY_HIDE_KEYS.has(k)&&!have.has(k)){ have.add(k); seen.push(k); } }));
     if(!seen.length) preferred.forEach(k=>{ if(!have.has(k)){ have.add(k); seen.push(k); } });
     return seen;
