@@ -5287,6 +5287,13 @@ var _adasLoadedSp  = '';        // SP that was active when data was last loaded
 window._mtbfIncludeZero = false;
 /* --- helpers ------------------------------------------------- */
 function _esc(v){ var d=document.createElement('div'); d.textContent=String(v==null?'':v); return d.innerHTML; }
+function _adasFirstNonBlank(){
+for(var i=0; i<arguments.length; i++){
+var v = arguments[i];
+if(v != null && String(v).trim() !== '') return v;
+}
+return '';
+}
 function _adasGetCrashTypes(){
 var types = [];
 if(document.querySelector('#ck_system input')  && document.querySelector('#ck_system input').checked)  types.push('system');
@@ -5528,7 +5535,7 @@ navigator.clipboard.writeText(lines.join('\n'))
 };
 /* --- modal helpers ------------------------------------------- */
 function _adasModalClear(){
-['adasModalRowId','adasModalSoftwareProduct','adasModalMetaId','adasModalProductFlavor','adasModalHours',
+['adasModalRowId','adasModalSoftwareProduct','adasModalMetaId','adasModalProductFlavor','adasModalDevices','adasModalHours',
 'adasModalSystem','adasModalSsr','adasModalProcess',
 'adasModalTotal','adasModalMtbf','adasModalComments'].forEach(function(id){
 var el = document.getElementById(id);
@@ -5590,6 +5597,7 @@ set('adasModalDate',    row.date);
 set('adasModalMetaId',  row.meta_id);
 set('adasModalProductFlavor', row.product_flavor || row.productFlavor || row.product_flavour || row.flavor || row.flavour || '');
 set('adasModalSoftwareProduct', row.software_product || row.softwareProduct || row.product || '');
+set('adasModalDevices', _adasFirstNonBlank(row.device_count, row.devices, row.deviceCount, row.number_of_devices, row.no_of_devices));
 set('adasModalHours',   row.hours);
 set('adasModalSystem',  row.system_crashes);
 set('adasModalSsr',     row.ssr_crashes);
@@ -5718,7 +5726,7 @@ window.adasBulkAddRow = function(){
 _bulkEditRows.push({
 id: '', s_no: _bulkEditRows.length + 1,
 date: new Date().toISOString().slice(0,10),
-meta_id: '', product_flavor: '', software_product: '', hours: '', system_crashes: '', ssr_crashes: '',
+meta_id: '', product_flavor: '', software_product: '', device_count: '', hours: '', system_crashes: '', ssr_crashes: '',
 process_crashes: '', total_crashes: '', mtbf: '', comments: ''
 });
 _adasBulkRender();
@@ -5776,6 +5784,7 @@ sp: _adasCurrentSp() || undefined,
 meta_id: String(r.meta_id||'').trim(), date: String(r.date||'').trim(),
 product_flavor: String(r.product_flavor || r.productFlavor || r.product_flavour || r.flavor || r.flavour || '').trim(),
 software_product: String(r.software_product || r.softwareProduct || r.product || '').trim(),
+device_count: _adasFirstNonBlank(r.device_count, r.devices, r.deviceCount, r.number_of_devices, r.no_of_devices),
 hours: r.hours, system_crashes: r.system_crashes,
 ssr_crashes: r.ssr_crashes, process_crashes: r.process_crashes,
 total_crashes: r.total_crashes, mtbf: r.mtbf,
@@ -5868,6 +5877,7 @@ meta_id:         metaId,
 date:            dateVal,
 product_flavor:  (document.getElementById('adasModalProductFlavor')||{}).value || '',
 software_product: (document.getElementById('adasModalSoftwareProduct')||{}).value || '',
+device_count:    (document.getElementById('adasModalDevices')||{}).value || '',
 hours:           hoursVal,
 system_crashes:  (document.getElementById('adasModalSystem')||{}).value  || '',
 ssr_crashes:     (document.getElementById('adasModalSsr')||{}).value     || '',
