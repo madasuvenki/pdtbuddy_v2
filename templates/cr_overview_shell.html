@@ -12,8 +12,11 @@
   .crv2-shell--embedded .crv2-section { overflow-x: auto !important; max-width: 100% !important; }
   .crv2-shell--embedded .crv2-card { overflow-x: auto !important; max-width: 100% !important; }
   .crv2-shell--embedded .crv2-content { overflow-x: auto !important; }
-  /* Chart containers: auto height, scroll horizontally */
-  #crv2MainChart, #crv2DrillTargetChart { overflow-x: auto !important; overflow-y: visible !important; height: auto !important; min-height: 0 !important; }
+  /* Chart containers: reserve layout space so rotated x-axis labels/legend never overlap following details */
+  #crv2MainChart { overflow-x: auto !important; overflow-y: hidden !important; height: auto !important; min-height: 0 !important; }
+  #crv2DrillTargetChart { overflow-x: auto !important; overflow-y: visible !important; height: auto !important; min-height: 560px !important; padding-bottom: 18px !important; }
+  #crv2DrillTargetChart .highcharts-container,
+  #crv2DrillTargetChart svg { overflow: visible !important; }
   /* Drill panel: allow content to show, not clip */
   #crv2AreaTargetPanel.crv2-drill { overflow: visible !important; }
   /* Inner cards inside drill panel: restore proper styling */
@@ -29,10 +32,17 @@
 {% block shell_inner_content %}
 
 {# ── Pass BU targets to JS for the target dropdown ── #}
-<script>
-window.CRV2_BU_TARGETS = {
+<script id="crv2BuTargetsJson" type="application/json">
+{
   {% for bu in bu_list %}"{{ bu.key|upper }}": {{ (bu.target_entries or []) | tojson }}{% if not loop.last %},{% endif %}{% endfor %}
-};
+}
+</script>
+<script>
+(function(){
+  var el = document.getElementById('crv2BuTargetsJson');
+  try { window.CRV2_BU_TARGETS = JSON.parse((el && el.textContent) || '{}'); }
+  catch (e) { window.CRV2_BU_TARGETS = {}; }
+})();
 </script>
 
 

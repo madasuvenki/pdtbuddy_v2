@@ -1147,7 +1147,7 @@
   var contextTitle = isSingleTarget ? 'Selected Target Breakdown' : (String(label||'').trim() ? (label + ' Targets') : 'Targets Reporting');
   // Update chart title span
   if($('crv2DrillChartTitle')) $('crv2DrillChartTitle').textContent = contextTitle;
-    setText('crv2DrillTargetSub', isSingleTarget ? selectedTargetLabel+' * 1 target selected' : fmt(totalTargets)+' targets');
+    setText('crv2DrillTargetSub', isSingleTarget ? selectedTargetLabel+' (1 target selected)' : fmt(totalTargets)+' targets');
   $('crv2DrillKpis').innerHTML='<div class="crv2-drill-kpi"><b>'+fmt(totalTargets)+'</b><span>'+(isSingleTarget?'Selected target':'Targets reported')+'</span></div><div class="crv2-drill-kpi"><b>'+fmt(totalCrs)+'</b><span>Total CRs</span></div><div class="crv2-drill-kpi"><b>'+fmt(totalJiras)+'</b><span>Total JIRAs</span></div><div class="crv2-drill-kpi"><b>'+(targets.length?(state.ageUnit==='weeks'?avg(targets,'avg_weeks')+'w':avg(targets,'avg_days')+'d'):'0')+'</b><span>Avg Age</span></div>';
     renderDrillTargetChart(targets, contextTitle);
   renderDrillTargetTable(targets);
@@ -1164,8 +1164,38 @@
         var cats=targets.map(function(t){return upperText(t.target||'Unknown');}), counts=targets.map(function(t){return Number(t.total_count||0);}), ages=targets.map(function(t){return Number(state.ageUnit==='weeks'?t.avg_weeks:t.avg_days)||0;});
 
         var drillPointW = cats.length <= 8 ? 52 : (cats.length <= 15 ? 40 : (cats.length <= 30 ? 28 : 18));
-    var drillWrap = $('crv2DrillTargetChart'); if(drillWrap) drillWrap.style.overflowX='auto';
-    state.drillChart=Highcharts.chart('crv2DrillTargetChart',{chart:{zoomType:'xy',height:490,spacingBottom:60,marginBottom:120,style:{fontFamily:'inherit'}},title:{text:chartTitle || 'Targets Reporting',style:{fontSize:'14px',fontWeight:'900',color:'#1e293b'}},xAxis:{categories:cats,title:{text:'Target',style:{fontSize:'15px',fontWeight:'900'},margin:8},labels:{rotation:-40,style:{fontSize:'16px',fontWeight:'900',color:'#0f172a'},reserveSpace:true,y:14},min:0,max:cats.length-1},yAxis:[{title:{text:'CR Count',style:{fontSize:'13px',fontWeight:'800'}},labels:{style:{fontSize:'12px',fontWeight:'700'}}},{title:{text:'Avg Age ('+state.ageUnit+')',style:{fontSize:'13px',fontWeight:'800'}},labels:{style:{fontSize:'12px',fontWeight:'700'}},opposite:true}],tooltip:{shared:true},legend:{align:'center',verticalAlign:'bottom',layout:'horizontal',floating:false,itemStyle:{fontSize:'12px',fontWeight:'800'}},plotOptions:{column:{pointWidth:drillPointW,borderRadius:4,groupPadding:0.05,pointPadding:0.05},series:{dataLabels:{enabled:true,style:{fontSize:'12px',fontWeight:'900',textOutline:'none'},crop:false,overflow:'allow',allowOverlap:true}}},series:[{type:'column',name:'CR Count',data:counts,color:'#0ea5e9'},{type:'spline',name:'Avg Age',data:ages,yAxis:1,color:'#f59e0b',dataLabels:{format:'{y:.1f}',style:{fontSize:'12px',fontWeight:'900',color:'#f59e0b',textOutline:'none'},crop:false,overflow:'allow',allowOverlap:true}}],credits:{enabled:false}});
+    var drillWrap = $('crv2DrillTargetChart');
+    var drillContainerW = 0, _drillEl = drillWrap;
+    for(var _di=0; _di<8 && _drillEl; _di++){
+      if(_drillEl.offsetWidth > 200){ drillContainerW = _drillEl.offsetWidth; break; }
+      _drillEl = _drillEl.parentElement;
+    }
+    if(!drillContainerW) drillContainerW = window.innerWidth - 120;
+    var drillPerCat = cats.length <= 8 ? 94 : (cats.length <= 15 ? 86 : (cats.length <= 30 ? 74 : 60));
+    var drillChartW = Math.max(drillContainerW - 4, cats.length * drillPerCat + 160);
+    var drillLabelFontSz = cats.length <= 10 ? 14 : (cats.length <= 20 ? 13 : 12);
+    var drillMaxLabelLen = cats.reduce(function(a,c){ return Math.max(a, String(c || '').length); }, 0);
+    var drillLabelH = Math.min(230, Math.max(110, Math.round(drillMaxLabelLen * drillLabelFontSz * 0.64) + 38));
+    var drillLegendH = 40, drillAxisTitleH = 34;
+    var drillBottomMargin = drillLabelH + drillLegendH + drillAxisTitleH;
+    var drillHeight = 330 + drillBottomMargin;
+    if(drillWrap){
+      drillWrap.style.overflowX = 'auto';
+      drillWrap.style.overflowY = 'visible';
+      drillWrap.style.setProperty('padding-bottom', '18px', 'important');
+      drillWrap.style.setProperty('min-height', (drillHeight + 18) + 'px', 'important');
+    }
+    state.drillChart=Highcharts.chart('crv2DrillTargetChart',{
+      chart:{zoomType:'xy',width:drillChartW,height:drillHeight,spacingBottom:8,marginBottom:drillBottomMargin,marginTop:48,style:{fontFamily:'inherit'},backgroundColor:'#ffffff'},
+      title:{text:chartTitle || 'Targets Reporting',style:{fontSize:'14px',fontWeight:'900',color:'#1e293b'},margin:8},
+      xAxis:{categories:cats,title:{text:'Target',style:{fontSize:'14px',fontWeight:'900'},margin:12},labels:{rotation:-42,style:{fontSize:drillLabelFontSz+'px',fontWeight:'900',color:'#0f172a'},reserveSpace:true,y:18},min:0,max:cats.length-1},
+      yAxis:[{title:{text:'CR Count',style:{fontSize:'13px',fontWeight:'800'}},labels:{style:{fontSize:'12px',fontWeight:'700'}}},{title:{text:'Avg Age ('+state.ageUnit+')',style:{fontSize:'13px',fontWeight:'800'}},labels:{style:{fontSize:'12px',fontWeight:'700'}},opposite:true}],
+      tooltip:{shared:true},
+      legend:{align:'center',verticalAlign:'bottom',layout:'horizontal',floating:false,margin:14,padding:8,y:0,itemStyle:{fontSize:'12px',fontWeight:'800'}},
+      plotOptions:{column:{pointWidth:drillPointW,borderRadius:4,groupPadding:0.05,pointPadding:0.05},series:{dataLabels:{enabled:true,style:{fontSize:'12px',fontWeight:'900',textOutline:'none'},crop:false,overflow:'allow',allowOverlap:true}}},
+      series:[{type:'column',name:'CR Count',data:counts,color:'#0ea5e9'},{type:'spline',name:'Avg Age',data:ages,yAxis:1,color:'#f59e0b',dataLabels:{format:'{y:.1f}',style:{fontSize:'12px',fontWeight:'900',color:'#f59e0b',textOutline:'none'},crop:false,overflow:'allow',allowOverlap:true}}],
+      credits:{enabled:false}
+    });
     // store targets for PPT
     state.drillTargets = targets;
     state.drillAreaLabel = state.selectedBreakdownLabel || '';
@@ -1508,21 +1538,26 @@
                         var perBar = cats.length <= 8 ? 58 : (cats.length <= 15 ? 48 : (cats.length <= 30 ? 38 : 34));
     var chartW = Math.max(modalW, cats.length * perBar);
     var pw = cats.length <= 8 ? 42 : (cats.length <= 15 ? 32 : (cats.length <= 30 ? 24 : 16));
+    var expandLabelFontSz = cats.length > 80 ? 12 : (cats.length > 30 ? 13 : 15);
+    var expandMaxLabelLen = cats.reduce(function(a,c){ return Math.max(a, String(c || '').length); }, 0);
+    var expandLabelH = Math.min(230, Math.max(105, Math.round(expandMaxLabelLen * expandLabelFontSz * 0.64) + 38));
+    var expandBottomMargin = expandLabelH + 78;
+    var expandHeight = Math.max(560, 350 + expandBottomMargin);
     return {
-            chart:{ zoomType:'xy', width: chartW, height: 520, spacingBottom:28,
+            chart:{ zoomType:'xy', width: chartW, height: expandHeight, marginBottom: expandBottomMargin, spacingBottom:8,
         style:{ fontFamily:'inherit' },
         backgroundColor:'#ffffff' },
       title:{ text: title, style:{ fontSize:'18px', fontWeight:'900', color:'#1e293b' } },
       xAxis:{ categories: cats,
-        title:{ text: isMain ? labelForDim(state.dim) : 'Target', style:{ fontSize:'17px', fontWeight:'900', color:'#0f172a' } },
-        labels:{ rotation:(cats.length>30?-50:-38), style:{ fontSize:(cats.length>80?'12px':(cats.length>30?'14px':'18px')), fontWeight:'900', color:'#0f172a' }, reserveSpace:true, y:12 },
+        title:{ text: isMain ? labelForDim(state.dim) : 'Target', style:{ fontSize:'16px', fontWeight:'900', color:'#0f172a' }, margin:12 },
+        labels:{ rotation:(cats.length>30?-50:-40), style:{ fontSize:expandLabelFontSz+'px', fontWeight:'900', color:'#0f172a' }, reserveSpace:true, y:18 },
         min:0, max: cats.length - 1 },
       yAxis:[
         { title:{ text:'CR Count', style:{ fontSize:'15px', fontWeight:'900' } }, labels:{ style:{ fontSize:'14px', fontWeight:'800' } } },
         { title:{ text:'Avg Age ('+state.ageUnit+')', style:{ fontSize:'15px', fontWeight:'900' } }, labels:{ style:{ fontSize:'14px', fontWeight:'800' } }, opposite:true }
       ],
       tooltip:{ shared:true },
-      legend:{ enabled:true, itemStyle:{ fontSize:'14px', fontWeight:'900' } },
+      legend:{ enabled:true, align:'center', verticalAlign:'bottom', layout:'horizontal', floating:false, margin:16, padding:8, y:0, itemStyle:{ fontSize:'14px', fontWeight:'900' } },
       plotOptions:{
         column:{ pointWidth: pw, borderRadius:4, groupPadding:0.02, pointPadding:0.01 },
         series:{
@@ -1673,7 +1708,7 @@
     state._expandAges=targets.map(function(t){ return Number(state.ageUnit==='weeks' ? t.avg_weeks : t.avg_days) || 0; });
     state._expandColor='#0ea5e9';
     state._expandColLabel='Target';
-    state._expandTitle='Targets Reporting' + (state.drillAreaLabel ? ' Ã¢â‚¬â€ ' + state.drillAreaLabel : '');
+    state._expandTitle='Targets Reporting' + (state.drillAreaLabel ? ' - ' + state.drillAreaLabel : '');
     state._expandSelectedLabel='CRs';
     if(titleEl) titleEl.textContent=state._expandTitle;
     if(subEl) subEl.textContent=state._expandCats.length + ' targets';
@@ -1719,7 +1754,7 @@
       counts = targets.map(function(t){ return Number(t.total_count || 0); });
       ages   = targets.map(function(t){ return Number(state.ageUnit==='weeks' ? t.avg_weeks : t.avg_days) || 0; });
       color  = '#0ea5e9';
-      title  = 'Targets Reporting' + (state.drillAreaLabel ? ' Ã¢â‚¬â€ ' + state.drillAreaLabel : '');
+      title  = 'Targets Reporting' + (state.drillAreaLabel ? ' - ' + state.drillAreaLabel : '');
     }
     if(!cats.length){ flashBtn(btn, false); btn.disabled = false; return; }
 

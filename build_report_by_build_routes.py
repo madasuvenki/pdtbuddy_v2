@@ -102,6 +102,12 @@ _DEPT_COL_CANDIDATES = (
     "dept",
     "test_team",
 )
+_TEAM_COL_CANDIDATES = (
+    "test_team",
+    "testteam",
+    "Test Team",
+    "team",
+)
 _STATUS_COL_CANDIDATES = (
     "status",
     "jira_status",
@@ -203,6 +209,8 @@ _PUBLIC_MATCH_KEYS = {
     "min_jira_date",
     "max_jira_date",
     "devices",
+    "teams",
+    "team_count",
 }
 
 
@@ -516,6 +524,7 @@ def _candidate_tables(cursor, build_id: str, target_hint: str = "") -> List[Dict
             cr_col = _first_col(columns, _CR_COL_CANDIDATES)
             reporter_col = _first_col(columns, _REPORTER_COL_CANDIDATES)
             dept_col = _first_col(columns, _DEPT_COL_CANDIDATES)
+            team_col = _first_col(columns, _TEAM_COL_CANDIDATES)
             status_col = _first_col(columns, _STATUS_COL_CANDIDATES)
             resolution_col = _first_col(columns, _RESOLUTION_COL_CANDIDATES)
 
@@ -551,6 +560,23 @@ def _candidate_tables(cursor, build_id: str, target_hint: str = "") -> List[Dict
                 except Exception:
                     devices = []
 
+            teams: List[str] = []
+            if team_col:
+                try:
+                    cursor.execute(
+                        f"SELECT DISTINCT `{team_col}` AS team FROM {fq_name} "
+                        f"WHERE `{mb_col}` LIKE %s AND `{team_col}` IS NOT NULL AND TRIM(`{team_col}`) <> '' "
+                        f"ORDER BY `{team_col}` LIMIT 1000",
+                        (like,),
+                    )
+                    teams = [
+                        str(r.get("team") or "").strip()
+                        for r in (cursor.fetchall() or [])
+                        if str(r.get("team") or "").strip()
+                    ]
+                except Exception:
+                    teams = []
+
             matches.append({
                 **target,
                 "build": build,
@@ -568,9 +594,12 @@ def _candidate_tables(cursor, build_id: str, target_hint: str = "") -> List[Dict
                 "cr_col": cr_col,
                 "reporter_col": reporter_col,
                 "dept_col": dept_col,
+                "team_col": team_col,
                 "status_col": status_col,
                 "resolution_col": resolution_col,
                 "devices": devices,
+                "teams": teams,
+                "team_count": len(teams),
             })
 
     matches.sort(key=lambda m: (str(m.get("target") or ""), 0 if m.get("source") == "jira" else 1))
@@ -579,7 +608,9 @@ def _candidate_tables(cursor, build_id: str, target_hint: str = "") -> List[Dict
 
 def _aggregate_lookup(matches: List[Dict[str, Any]], build_id: str) -> Dict[str, Any]:
     devices: List[str] = []
+    teams: List[str] = []
     seen_devices = set()
+    seen_teams = set()
     min_dates = []
     max_dates = []
     target_counts: Dict[str, int] = {}
@@ -590,6 +621,11 @@ def _aggregate_lookup(matches: List[Dict[str, Any]], build_id: str) -> Dict[str,
             if key not in seen_devices:
                 seen_devices.add(key)
                 devices.append(str(d))
+        for t in m.get("teams") or []:
+            key = str(t).strip().upper()
+            if key and key not in seen_teams:
+                seen_teams.add(key)
+                teams.append(str(t))
         if m.get("min_jira_date"):
             min_dates.append(str(m["min_jira_date"])[:10])
         if m.get("max_jira_date"):
@@ -613,6 +649,8 @@ def _aggregate_lookup(matches: List[Dict[str, Any]], build_id: str) -> Dict[str,
         "target": best_target,
         "devices": devices,
         "device_count": len(devices),
+        "teams": teams,
+        "team_count": len(teams),
         "min_jira_date": min(min_dates) if min_dates else "",
         "max_jira_date": max(max_dates) if max_dates else "",
     }
@@ -630,7 +668,14 @@ def _selected_matches(matches: List[Dict[str, Any]], selected_target: str = "") 
     return [m for m in matches if str(m.get("target") or "").lower() == target]
 
 
-def _build_row_where(match: Dict[str, Any], build_id: str, date_from: str, date_to: str, devices: Sequence[str]) -> Tuple[str, Tuple[Any, ...]]:
+def _build_row_where(
+    match: Dict[str, Any],
+    build_id: str,
+    date_from: str,
+    date_to: str,
+    devices: Sequence[str],
+    test_teams: Sequence[str] = (),
+) -> Tuple[str, Tuple[Any, ...]]:
     where = [f"`{match['build_col']}` LIKE %s"]
     params: List[Any] = [f"%{_norm_build(build_id)}%"]
 
@@ -649,6 +694,16 @@ def _build_row_where(match: Dict[str, Any], build_id: str, date_from: str, date_
         where.append(f"`{device_col}` IN ({placeholders})")
         params.extend(clean_devices)
 
+    team_col = match.get("team_col") or ""
+    clean_teams = [str(t).strip() for t in test_teams or [] if str(t).strip()]
+    if clean_teams:
+        if team_col:
+            placeholders = ",".join(["%s"] * len(clean_teams))
+            where.append(f"UPPER(TRIM(`{team_col}`)) IN ({placeholders})")
+            params.extend([t.upper() for t in clean_teams])
+        else:
+            where.append("1=0")
+
     return " AND ".join(where), tuple(params)
 
 
@@ -659,6 +714,7 @@ def _fetch_matching_jiras(
     date_from: str,
     date_to: str,
     devices: Sequence[str],
+    test_teams: Sequence[str] = (),
 ) -> List[Dict[str, Any]]:
     rows: List[Dict[str, Any]] = []
     seen = set()
@@ -697,6 +753,10 @@ def _fetch_matching_jiras(
             select_parts.append(f"`{match['dept_col']}` AS reporters_dept")
         else:
             select_parts.append("NULL AS reporters_dept")
+        if match.get("team_col"):
+            select_parts.append(f"`{match['team_col']}` AS test_team")
+        else:
+            select_parts.append("NULL AS test_team")
         if match.get("status_col"):
             select_parts.append(f"`{match['status_col']}` AS status")
         else:
@@ -706,7 +766,7 @@ def _fetch_matching_jiras(
         else:
             select_parts.append("NULL AS resolution")
 
-        where_sql, params = _build_row_where(match, build_id, date_from, date_to, devices)
+        where_sql, params = _build_row_where(match, build_id, date_from, date_to, devices, test_teams)
         order_col = match.get("date_col") or ticket_col
         cursor.execute(
             f"SELECT {', '.join(select_parts)} FROM {match['fq_table']} "
@@ -826,6 +886,25 @@ def _issue_matches_devices(issue_dict: Dict[str, Any], devices: Sequence[str]) -
     return False
 
 
+def _issue_matches_test_teams(issue_dict: Dict[str, Any], test_teams: Sequence[str]) -> bool:
+    wanted = {_norm_match_token(t) for t in test_teams or [] if _norm_match_token(t)}
+    if not wanted:
+        return True
+
+    candidates: List[str] = []
+    for field in ("test_team", "team", "reporters_dept", "reporter_dept", "department"):
+        raw = str(issue_dict.get(field) or "").strip()
+        if raw:
+            candidates.append(raw)
+            candidates.extend(_parse_csv_values(raw))
+
+    for cand in candidates:
+        norm = _norm_match_token(cand)
+        if norm and norm in wanted:
+            return True
+    return False
+
+
 def _issue_matches_date_filters(issue_dict: Dict[str, Any], date_from: str, date_to: str) -> bool:
     raw_date = str(issue_dict.get("created") or issue_dict.get("jira_date") or "").strip()[:10]
     if not raw_date:
@@ -869,6 +948,7 @@ def _supplement_row_from_issue_dict(issue_dict: Dict[str, Any], build_id: str) -
         "cr": final_cr,
         "reporter": issue_dict.get("reporter") or "",
         "reporters_dept": issue_dict.get("reporters_dept") or "",
+        "test_team": issue_dict.get("test_team") or issue_dict.get("team") or "",
         "status": issue_dict.get("status") or "",
         "resolution": issue_dict.get("resolution") or "",
         "scenario": issue_dict.get("scenario") or "",
@@ -881,6 +961,7 @@ def _fetch_build_info_jql_supplement(
     date_from: str,
     date_to: str,
     devices: Sequence[str],
+    test_teams: Sequence[str] = (),
     existing_keys: Optional[Iterable[str]] = None,
 ) -> Dict[str, Any]:
     """Fetch latest Build Info JQL rows for by-build mode only.
@@ -903,6 +984,8 @@ def _fetch_build_info_jql_supplement(
         "duplicate_count": 0,
         "filtered_device_count": 0,
         "filtered_date_count": 0,
+        "filtered_team_count": 0,
+        "test_teams": list(test_teams or []),
         "error": "",
         "rows": [],
         "jira_keys": [],
@@ -960,6 +1043,9 @@ def _fetch_build_info_jql_supplement(
                     continue
                 if not _issue_matches_devices(issue_dict, devices):
                     meta["filtered_device_count"] += 1
+                    continue
+                if not _issue_matches_test_teams(issue_dict, test_teams):
+                    meta["filtered_team_count"] += 1
                     continue
 
                 row = _supplement_row_from_issue_dict(issue_dict, clean_build)
@@ -1115,6 +1201,7 @@ def _db_fast_report_from_rows(
     date_from: str,
     date_to: str,
     devices: Sequence[str],
+    test_teams: Sequence[str] = (),
     matches: Optional[List[Dict[str, Any]]] = None,
 ) -> Dict[str, Any]:
     """Build a fast 3-tab report directly from PDT DB rows.
@@ -1135,6 +1222,7 @@ def _db_fast_report_from_rows(
     cr_index: Dict[str, Dict[str, Any]] = {}
     by_project: Dict[str, int] = {}
     by_build: Dict[str, int] = {}
+    by_test_team: Dict[str, int] = {}
     with_cr = 0
     all_cr_keys: List[str] = []
 
@@ -1153,6 +1241,7 @@ def _db_fast_report_from_rows(
         source_table = str(row.get("source_table") or "").strip()
         reporter = str(row.get("reporter") or "").strip()
         reporters_dept = str(row.get("reporters_dept") or "").strip()
+        test_team = str(row.get("test_team") or "").strip()
         row_build = str(row.get("_query_build") or build).strip()
 
         jira = {
@@ -1172,6 +1261,7 @@ def _db_fast_report_from_rows(
             "jira_date": created,
             "reporter": reporter,
             "reporters_dept": reporters_dept,
+            "test_team": test_team,
             "component": "",
             "labels": "",
             "serial_no": row.get("serial_no") or "",
@@ -1219,6 +1309,8 @@ def _db_fast_report_from_rows(
         by_project[project] = by_project.get(project, 0) + 1
         if row_build:
             by_build[row_build] = by_build.get(row_build, 0) + 1
+        if test_team:
+            by_test_team[test_team] = by_test_team.get(test_team, 0) + 1
         group_key = final_cr or "NO_CR"
         groups.setdefault(group_key, []).append(jira)
 
@@ -1285,6 +1377,7 @@ def _db_fast_report_from_rows(
         "invalid_jiras": 0,
         "by_build": by_build or ({build: len(jiras)} if build else {}),
         "by_project": by_project,
+        "by_test_team": by_test_team,
         "with_cr": with_cr,
         "transferred_count": 0,
         "open_without_cr": len(jiras) - with_cr,
@@ -1303,6 +1396,7 @@ def _db_fast_report_from_rows(
         "date_from": date_from,
         "date_to": date_to,
         "devices": list(devices or []),
+        "test_teams": list(test_teams or []),
         "db_jira_count": len(jira_keys),
         "note": "Fast report generated from PDT internal DB rows. Use live_jira=1 for full JIRA traversal/Orbit enrichment.",
     }
@@ -1332,6 +1426,7 @@ def _run_single_build_fast_report(
     date_from: str,
     date_to: str,
     devices: Sequence[str],
+    test_teams: Sequence[str] = (),
 ) -> Dict[str, Any]:
     """Run the fast DB report for a single build and return the full report dict.
 
@@ -1349,7 +1444,7 @@ def _run_single_build_fast_report(
 
     db_rows: List[Dict[str, Any]] = []
     seen_jira_keys: set = set()
-    for row in _fetch_matching_jiras(cursor, selected_for_build or build_matches, build, date_from, date_to, devices):
+    for row in _fetch_matching_jiras(cursor, selected_for_build or build_matches, build, date_from, date_to, devices, test_teams):
         key = str(row.get("jira_key") or "").strip().upper()
         if not key or key in seen_jira_keys:
             continue
@@ -1361,6 +1456,7 @@ def _run_single_build_fast_report(
         date_from=date_from,
         date_to=date_to,
         devices=devices,
+        test_teams=test_teams,
         existing_keys=seen_jira_keys,
     )
     for row in supplement.get("rows") or []:
@@ -1394,6 +1490,7 @@ def _run_single_build_fast_report(
                 "date_from": date_from,
                 "date_to": date_to,
                 "devices": list(devices or []),
+                "test_teams": list(test_teams or []),
                 "db_jira_count": 0,
                 "jql_supplement": _public_supplement_meta(supplement),
             },
@@ -1412,6 +1509,7 @@ def _run_single_build_fast_report(
         date_from=date_from,
         date_to=date_to,
         devices=devices,
+        test_teams=test_teams,
         matches=selected_for_build or build_matches,
     )
     public_supplement = _public_supplement_meta(supplement)
@@ -1526,6 +1624,7 @@ def api_build_report_by_build():
         default="",
     ))
     devices = _parse_csv_values(_req_value(body, "devices", "device_ids", "serials", "serial_no", default=""))
+    test_teams = _parse_csv_values(_req_value(body, "test_teams", "test_team", "teams", "team", default=""))
     live_jira = _truthy(_req_value(body, "live_jira", "live", "full", default=""))
     report_mode = str(_req_value(body, "report_mode", "mode", default="") or "").strip().lower()
     if not build_ids:
@@ -1555,6 +1654,7 @@ def api_build_report_by_build():
                         date_from=date_from,
                         date_to=date_to,
                         devices=devices,
+                        test_teams=test_teams,
                     )
                     reports[build] = _sanitize_report_payload_for_response(single)
                     total_jiras += int((single.get("summary") or {}).get("total_jiras") or 0)
@@ -1582,6 +1682,7 @@ def api_build_report_by_build():
             "success": True,
             "report_mode": "individual",
             "builds": build_ids,
+            "test_teams": test_teams,
             "build_count": len(build_ids),
             "summary": {
                 "build_count": len(build_ids),
@@ -1616,7 +1717,7 @@ def api_build_report_by_build():
                 child_lookup["bu"] = selected_for_build[0].get("bu") or ""
             per_build_lookup[build] = child_lookup
 
-            for row in _fetch_matching_jiras(cursor, selected_for_build or build_matches, build, date_from, date_to, devices):
+            for row in _fetch_matching_jiras(cursor, selected_for_build or build_matches, build, date_from, date_to, devices, test_teams):
                 key = str(row.get("jira_key") or "").strip().upper()
                 if not key or key in seen_jira_keys:
                     continue
@@ -1638,6 +1739,7 @@ def api_build_report_by_build():
             date_from=date_from,
             date_to=date_to,
             devices=devices,
+            test_teams=test_teams,
             existing_keys=seen_jira_keys,
         )
         for row in supplement.get("rows") or []:
@@ -1677,6 +1779,7 @@ def api_build_report_by_build():
                 "date_from": date_from,
                 "date_to": date_to,
                 "devices": devices,
+                "test_teams": test_teams,
                 "db_jira_count": db_jira_count,
                 "jql_supplement": _public_supplement_meta(supplement),
             },
@@ -1696,6 +1799,7 @@ def api_build_report_by_build():
             date_from=date_from,
             date_to=date_to,
             devices=devices,
+            test_teams=test_teams,
             matches=selected or all_matches,
         )
         public_supplement = _public_supplement_meta(supplement)
@@ -1732,6 +1836,7 @@ def api_build_report_by_build():
             "date_from": date_from,
             "date_to": date_to,
              "devices": devices,
+             "test_teams": test_teams,
              "db_jira_count": db_jira_count,
              "jira_count_after_supplement": len(jira_keys),
              "jql_supplement": _public_supplement_meta(supplement),
