@@ -1427,6 +1427,216 @@ def build_report_standalone():
     )
 
 
+# ---------------------------------------------------------------------------
+# MTBF Editor APIs — context loader + mail composer
+# ---------------------------------------------------------------------------
+
+@live_status_publish_bp.route('/api/mtbf_editor/context', methods=['GET'])
+@login_required
+def api_mtbf_editor_context():
+    """Return MTBF schema + latest rows for a target.
+
+    Query params:
+      target  - target key (required)
+      view    - view/domain name (optional)
+      sp      - SP/CPL key for Auto Gen5 (optional)
+    """
+    target = str(request.args.get('target') or '').strip().lower()
+    if not target:
+        return jsonify({'ok': False, 'error': 'target is required'}), 400
+
+    view = str(request.args.get('view') or request.args.get('domain') or '').strip()
+    sp   = str(request.args.get('sp') or '').strip()
+
+    try:
+        bu = str(get_bu_for_target(target) or '').strip().upper()
+
+        # ── Auto Gen5 / Gen4.5 ──────────────────────────────────────────────
+        if bu == 'AUTO':
+            try:
+                from live_status_view_api import _load_adas_mtbf, _get_target_domains
+                domains = _get_target_domains(target)
+                if not view:
+                    view = domains[0] if domains else 'ADAS'
+                data = _load_adas_mtbf(target, view, sp)
+                rows = data.get('rows') or []
+                columns = [
+                    {'key': 'date',            'label': 'Date',            'type': 'date',   'required': True},
+                    {'key': 'meta_id',         'label': 'Meta ID',         'type': 'text',   'required': True},
+                    {'key': 'hours',           'label': 'Hours',           'type': 'number'},
+                    {'key': 'system_crashes',  'label': 'System Crashes',        'type': 'int'},
+                    {'key': 'ssr_crashes',     'label': 'SSR Crashes',           'type': 'int'},
+                    {'key': 'process_crashes', 'label': 'Process Crashes',       'type': 'int'},
+                    {'key': 'total_crashes',   'label': 'System + SSR Crashes',  'type': 'int',    'formula': 'system+ssr'},
+                    {'key': 'overall_crashes', 'label': 'Overall Crashes',       'type': 'int',    'formula': 'system+ssr+process'},
+                    {'key': 'mtbf',            'label': 'MTBF',                  'type': 'number', 'formula': 'hours/total_crashes'},
+                    {'key': 'overallMTBF',     'label': 'Overall MTBF',          'type': 'number', 'formula': 'hours/overall_crashes'},
+                    {'key': 'comments',        'label': 'Comments',              'type': 'text'},
+                ]
+                return jsonify({
+                    'ok': True, 'target': target, 'bu': bu,
+                    'schema': 'auto_gen5', 'view': view, 'domains': domains, 'sp': sp,
+                    'columns': columns, 'rows': rows[-30:], 'total_rows': len(rows),
+                    'updated_at': data.get('updated_at') or '',
+                })
+            except Exception as exc:
+                return jsonify({'ok': False, 'error': f'Auto MTBF load failed: {exc}'}), 500
+
+        # ── Compute (Glymur / Mahua) ─────────────────────────────────────────
+        elif bu == 'COMPUTE':
+            try:
+                from dashboard_routes import _load_mtbf_json_payload, _MTBF_JSON_VIEW_NAMES
+                views = list(_MTBF_JSON_VIEW_NAMES)
+                if not view:
+                    view = views[0]
+                data = _load_mtbf_json_payload(target, view)
+                rows = data.get('rows') or []
+                columns = [
+                    {'key': 'build',        'label': 'Build(s)',     'type': 'text',   'required': True},
+                    {'key': 'date',         'label': 'Date',         'type': 'date',   'required': True},
+                    {'key': 'hours',        'label': 'Hours',        'type': 'number'},
+                    {'key': 'total_crashes','label': 'Total Crashes','type': 'int'},
+                    {'key': 'qc_crashes',   'label': 'QC Crashes',   'type': 'int'},
+                    {'key': 'product_mtbf', 'label': 'Product MTBF', 'type': 'number', 'formula': 'hours/total_crashes'},
+                    {'key': 'qc_mtbf',      'label': 'QC MTBF',      'type': 'number', 'formula': 'hours/qc_crashes'},
+                    {'key': 'comments',     'label': 'Comments',     'type': 'text'},
+                ]
+                return jsonify({
+                    'ok': True, 'target': target, 'bu': bu,
+                    'schema': 'compute_dual_mtbf', 'view': view, 'views': views,
+                    'columns': columns, 'rows': rows[-30:], 'total_rows': len(rows),
+                    'updated_at': data.get('updated_at') or '',
+                })
+            except Exception as exc:
+                return jsonify({'ok': False, 'error': f'Compute MTBF load failed: {exc}'}), 500
+
+        # ── WBC ──────────────────────────────────────────────────────────────
+        elif bu == 'WBC':
+            try:
+                import os, json as _json
+                from wbc_live_view_stats_routes import _mtbf_json_path
+                path = _mtbf_json_path(target)
+                data = {}
+                if os.path.exists(path):
+                    with open(path, 'r', encoding='utf-8') as fh:
+                        data = _json.load(fh)
+                rows = data.get('chart_rows') or data.get('rows') or []
+                columns = [
+                    {'key': 'build',         'label': 'Build',         'type': 'text',   'required': True},
+                    {'key': 'date',          'label': 'Date',          'type': 'date'},
+                    {'key': 'hours',         'label': 'Hours',         'type': 'number'},
+                    {'key': 'total_crashes', 'label': 'Total Crashes', 'type': 'int'},
+                    {'key': 'mtbf',          'label': 'MTBF',          'type': 'number', 'formula': 'hours/total_crashes'},
+                    {'key': 'comments',      'label': 'Comments',      'type': 'text'},
+                ]
+                return jsonify({
+                    'ok': True, 'target': target, 'bu': bu,
+                    'schema': 'wbc_mtbf', 'view': 'MTBF',
+                    'columns': columns, 'rows': rows[-30:], 'total_rows': len(rows),
+                    'updated_at': data.get('updated_at') or '',
+                })
+            except Exception as exc:
+                return jsonify({'ok': False, 'error': f'WBC MTBF load failed: {exc}'}), 500
+
+        # ── Simple MTBF (XR / IoT / Mobile / others) ─────────────────────────
+        else:
+            try:
+                from dashboard_routes import _load_mtbf_json_payload
+                data = _load_mtbf_json_payload(target, 'MTBF')
+                rows = data.get('rows') or []
+                columns = [
+                    {'key': 'build',         'label': 'Build(s)',     'type': 'text',   'required': True},
+                    {'key': 'date',          'label': 'Date',         'type': 'date',   'required': True},
+                    {'key': 'hours',         'label': 'Hours',        'type': 'number'},
+                    {'key': 'total_crashes', 'label': 'Total Crashes','type': 'int'},
+                    {'key': 'mtbf',          'label': 'MTBF',         'type': 'number', 'formula': 'hours/total_crashes'},
+                    {'key': 'comments',      'label': 'Comments',     'type': 'text'},
+                ]
+                return jsonify({
+                    'ok': True, 'target': target, 'bu': bu,
+                    'schema': 'simple_mtbf', 'view': 'MTBF',
+                    'columns': columns, 'rows': rows[-30:], 'total_rows': len(rows),
+                    'updated_at': data.get('updated_at') or '',
+                })
+            except Exception as exc:
+                return jsonify({'ok': False, 'error': f'Simple MTBF load failed: {exc}'}), 500
+
+    except Exception as exc:
+        return jsonify({'ok': False, 'error': str(exc)}), 500
+
+
+@live_status_publish_bp.route('/api/mtbf_editor/compose_mail', methods=['POST'])
+@login_required
+def api_mtbf_editor_compose_mail():
+    """Generate a structured MTBF update mail body.
+
+    POST body (JSON):
+      target      - target key
+      bu          - BU key
+      schema      - schema type
+      view        - view/domain/SP
+      sp          - SP key (optional)
+      row         - dict of MTBF row fields
+      source_mode - 'filter_table' or 'manual'
+      recipient   - optional email recipient
+    """
+    payload     = request.get_json(force=True, silent=True) or {}
+    target      = str(payload.get('target') or '').strip()
+    bu          = str(payload.get('bu') or '').strip().upper()
+    schema      = str(payload.get('schema') or '').strip()
+    view        = str(payload.get('view') or '').strip()
+    sp          = str(payload.get('sp') or '').strip()
+    row         = payload.get('row') or {}
+    source_mode = str(payload.get('source_mode') or 'manual').strip()
+    recipient   = str(payload.get('recipient') or 'pdtbuddy.mtbf@qualcomm.com').strip()
+
+    if not target:
+        return jsonify({'ok': False, 'error': 'target is required'}), 400
+
+    uid = str(getattr(current_user, 'id', '') or '').strip()
+
+    lines = ['PDTBUDDY_MTBF_UPDATE_V1']
+    lines.append(f'target_key: {target}')
+    lines.append(f'bu: {bu}')
+    lines.append(f'schema: {schema}')
+    lines.append(f'view: {view}')
+    if sp:
+        lines.append(f'sp: {sp}')
+    lines.append(f'source_mode: {source_mode}')
+    lines.append(f'requested_by: {uid}')
+    lines.append('')
+    for k, v in (row or {}).items():
+        if v not in (None, ''):
+            lines.append(f'{k}: {v}')
+    lines.append('')
+    lines.append('END_PDTBUDDY_MTBF_UPDATE_V1')
+
+    body = '\n'.join(lines)
+
+    try:
+        display_name = get_display_name_for_target(target) or target
+    except Exception:
+        display_name = target
+
+    subject = f'[PDTBuddy] MTBF Update Request - {display_name} / {view}'
+
+    import urllib.parse as _up
+    mailto = (
+        f'mailto:{_up.quote(recipient)}?subject={_up.quote(subject)}'
+        f'&body={_up.quote(body)}'
+    )
+
+    return jsonify({
+        'ok': True,
+        'subject': subject,
+        'body': body,
+        'recipient': recipient,
+        'mailto': mailto,
+    })
+
+
+# ---------------------------------------------------------------------------
+
 @live_status_publish_bp.route('/api/build_report/running_builds', methods=['GET'])
 @login_required
 def api_build_report_running_builds():

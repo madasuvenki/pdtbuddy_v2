@@ -248,6 +248,7 @@
       <div class="toolbar">
                 <button id="brCopyReportBtn" class="btn" type="button" onclick="brCopyReportOutput(this)" style="display:none"><i class="fas fa-copy"></i> Copy Clear Report</button>
         <button id="brExcelBtn" class="btn btn-good" type="button" onclick="brDownloadExcel(this)" style="display:none"><i class="fas fa-file-excel"></i> Excel V3</button>
+        <button id="brMtbfFromReportBtn" class="btn" type="button" onclick="brMtbfFromReport()" style="display:none;background:linear-gradient(135deg,#fff,#ecfdf5);border-color:#a7f3d0;color:#047857" title="Update MTBF and generate mail from this report"><i class="fas fa-envelope-open-text"></i> Update MTBF</button>
         <div id="brCounts" class="toolbar"></div>
       </div>
     </div>
@@ -319,6 +320,86 @@
       <!-- legacy hidden containers kept for CSV/copy functions -->
       <div style="display:none"><table><tbody id="brJiraRows"></tbody></table></div>
       <div style="display:none"><table><tbody id="brAllJiraRows"></tbody></table></div></div>
+    </div>
+  </div>
+
+  <!-- MTBF Update Section — shown after consolidated report runs -->
+  <div class="card" id="brMtbfSection" style="display:none">
+    <div class="card-h">
+      <h2><i class="fas fa-envelope-open-text" style="color:#059669"></i> Update MTBF & Generate Mail</h2>
+      <div class="toolbar">
+        <span id="brMtbfMailSpinner" style="display:none;color:#059669"><i class="fas fa-circle-notch spin"></i></span>
+        <span id="brMtbfMailStatus" class="muted" style="font-size:11px;font-weight:800"></span>
+        <button class="btn" style="font-size:11px" onclick="g('brMtbfSection').style.display='none'"><i class="fas fa-times"></i></button>
+      </div>
+    </div>
+    <div class="card-b">
+      <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:12px;align-items:center">
+        <label style="display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:900;color:#334155;cursor:pointer">
+          <input type="radio" name="brMtbfSource" id="brMtbfSrcFilter" value="filter" onchange="brMtbfSourceChanged()" style="width:auto;accent-color:#059669" checked> Use current report result
+        </label>
+        <label style="display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:900;color:#334155;cursor:pointer">
+          <input type="radio" name="brMtbfSource" id="brMtbfSrcManual" value="manual" onchange="brMtbfSourceChanged()" style="width:auto;accent-color:#059669"> Manual / Target dropdown
+        </label>
+      </div>
+      <div id="brMtbfAutoCrashSummary" style="display:none;margin:0 0 12px 0;border:1.5px solid #bfdbfe;background:linear-gradient(135deg,#eff6ff,#f0fdf4);border-radius:14px;padding:10px 12px"></div>
+      <div class="grid" style="margin-bottom:12px">
+        <div class="field">
+          <label>Target</label>
+          <select id="brMtbfTarget" onchange="brMtbfTargetChanged()">
+            <option value="">-- Select Target --</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>View / Domain / PL</label>
+          <select id="brMtbfView" onchange="brMtbfViewChanged()">
+            <option value="">-- Select Target first --</option>
+          </select>
+        </div>
+      </div>
+      <div id="brMtbfExistingSection" style="display:none;margin-bottom:14px">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;flex-wrap:wrap">
+          <span style="font-size:11px;font-weight:950;color:#047857;text-transform:uppercase;letter-spacing:.05em"><i class="fas fa-table" style="margin-right:5px"></i>Existing MTBF Rows <span id="brMtbfRowCount" style="background:#d1fae5;color:#065f46;border-radius:999px;padding:1px 8px;font-size:10px;margin-left:4px">0</span></span>
+          <span id="brMtbfUpdatedAt" class="muted" style="font-size:10px;font-weight:800"></span>
+        </div>
+        <div class="tbl-wrap" style="max-height:280px;overflow:auto">
+          <table style="width:100%;table-layout:auto">
+            <thead><tr id="brMtbfExistingHead"></tr></thead>
+            <tbody id="brMtbfExistingBody"><tr><td class="empty" colspan="10">Select a target to load existing rows.</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+      <div id="brMtbfFormSection" style="display:none">
+        <div style="font-size:11px;font-weight:950;color:#047857;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px"><i class="fas fa-plus-circle" style="margin-right:5px"></i>New / Edit Row</div>
+        <div id="brMtbfFormFields" class="grid" style="grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin-bottom:10px"></div>
+        <div class="toolbar" style="margin-bottom:10px">
+          <button class="btn" type="button" onclick="brMtbfCalcFormulas()" style="background:linear-gradient(135deg,#fff,#ecfdf5);border-color:#a7f3d0;color:#047857"><i class="fas fa-calculator"></i> Calculate MTBF</button>
+          <button class="btn" type="button" onclick="brMtbfFillFromFilter()" id="brMtbfFillBtn" style="background:linear-gradient(135deg,#fff,#eff6ff);border-color:#bfdbfe;color:#1d4ed8"><i class="fas fa-arrow-down"></i> Fill from Report</button>
+          <button class="btn" type="button" onclick="brMtbfClearForm()"><i class="fas fa-eraser"></i> Clear</button>
+        </div>
+      </div>
+      <div id="brMtbfMailSection" style="display:none">
+        <div style="font-size:11px;font-weight:950;color:#047857;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px"><i class="fas fa-envelope" style="margin-right:5px"></i>Generate Mail</div>
+        <div class="grid" style="margin-bottom:10px">
+          <div class="field">
+            <label>Recipient</label>
+            <input id="brMtbfRecipient" value="pdtbuddy.mtbf@qualcomm.com" placeholder="pdtbuddy.mtbf@qualcomm.com">
+          </div>
+          <div class="field">
+            <label>Subject (auto-generated)</label>
+            <input id="brMtbfSubject" readonly style="background:#f8fafc;color:#64748b">
+          </div>
+        </div>
+        <div class="toolbar" style="margin-bottom:10px">
+          <button class="btn btn-good" type="button" onclick="brMtbfGenerateMail(this)"><i class="fas fa-envelope-open-text"></i> Generate Mail</button>
+          <button class="btn" type="button" id="brMtbfCopyBtn" onclick="brMtbfCopyBody(this)" style="display:none"><i class="fas fa-copy"></i> Copy Mail Body</button>
+          <a id="brMtbfOutlookLink" class="btn" href="#" style="display:none;background:linear-gradient(135deg,#0078d4,#106ebe);color:#fff;border:0"><i class="fas fa-envelope"></i> Open Outlook</a>
+        </div>
+        <div id="brMtbfMailBodyWrap" style="display:none">
+          <div style="font-size:10px;font-weight:950;color:#475569;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Mail Body Preview</div>
+          <textarea id="brMtbfMailBody" readonly style="min-height:180px;font-family:Consolas,monospace;font-size:11px;background:#f8fafc;color:#334155;border-color:#e2e8f0"></textarea>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -2335,7 +2416,7 @@ function renderReport(rep){
   if(window._brAxiomBuildIds.length) brRebuildBuildMap();
 
   // Show/hide action buttons
-    ['brCopyReportBtn','brExcelBtn'].forEach(id=>{const b=g(id);if(b)b.style.display='inline-flex';});
+    ['brCopyReportBtn','brExcelBtn','brMtbfFromReportBtn'].forEach(id=>{const b=g(id);if(b)b.style.display='inline-flex';});
   ['brCopyCrBtn','brCsvCrBtn','brCsvAllJiraBtn','brCopyAllJiraBtn','brCopyJiraBtn','brCsvJiraBtn'].forEach(id=>{const b=g(id);if(b)b.style.display='none';});
 
     // Metric cards
@@ -3179,7 +3260,8 @@ async function brRunStabilityReport(btn){
 }
 
 function brSwitchInputTab(mode){
-  mode=mode==='build'?'build':'jql';
+  const validModes=['jql','build'];
+  if(!validModes.includes(mode)) mode='jql';
   const jqlPanel=g('brJqlFilterPanel'), buildPanel=g('brBuildReportPanel');
   const jqlTab=g('brModeTabJql'), buildTab=g('brModeTabBuild');
   if(jqlPanel)jqlPanel.style.display=mode==='jql'?'block':'none';
@@ -3188,6 +3270,724 @@ function brSwitchInputTab(mode){
   if(buildTab)buildTab.classList.toggle('active',mode==='build');
   window._brInputMode=mode;
   brByBuildUpdateLinks();
+}
+
+// ── MTBF Update Mail tab JS ──────────────────────────────────────────────────
+let _brMtbfCtx = null;  // current loaded context from API
+
+// ── MTBF tab: JQL/filter run helpers ─────────────────────────────────────────
+let _brMtbfReportData = null;  // last report run from MTBF tab
+
+function brMtbfUpdateRunBtn(){
+  // Only show/hide the Run button — do NOT auto-resolve or create any JQL here.
+  // Resolution happens inside brMtbfRunReport using the existing pipeline.
+  const filterRaw = String((g('brMtbfFilterInput') && g('brMtbfFilterInput').value) || '').trim();
+  const jqlRaw    = String((g('brMtbfJql') && g('brMtbfJql').value) || '').trim();
+  const hasFilter = !!(brExtractFilterId(filterRaw) || brLooksLikeOnlyFilterInput(filterRaw) || brLooksLikeOnlyFilterInput(jqlRaw));
+  const hasJql    = brJqlIsValid(jqlRaw);
+  const btn = g('brMtbfRunBtn');
+  if(btn) btn.style.display = (hasFilter || hasJql) ? 'inline-flex' : 'none';
+}
+
+async function brMtbfRunReport(btn){
+  const filterRaw = String((g('brMtbfFilterInput') && g('brMtbfFilterInput').value) || '').trim();
+  const jqlRaw    = String((g('brMtbfJql') && g('brMtbfJql').value) || '').trim();
+  const spinner   = g('brMtbfRunSpinner');
+  const status    = g('brMtbfRunStatus');
+  const summary   = g('brMtbfReportSummary');
+
+  // ── Reuse the existing JQL/Filter tab resolution pipeline ─────────────────
+  // Copy the MTBF filter/JQL inputs into the main filter inputs so that
+  // brResolveFilterJqlNow and brCurrentRunnableJql work exactly as they do
+  // for the JQL/Filter Report tab.
+  const _prevFilter = String((g('brFilterInput') && g('brFilterInput').value) || '');
+  const _prevJql    = String((g('brJql') && g('brJql').value) || '');
+
+  if(filterRaw && g('brFilterInput')) g('brFilterInput').value = filterRaw;
+  if(jqlRaw    && g('brJql'))         g('brJql').value         = jqlRaw;
+
+  // Resolve filter → JQL using the existing pipeline
+  if(status) status.textContent = 'Resolving filter / JQL...';
+  const expanded = await brResolveFilterJqlNow({source: filterRaw ? 'filter' : 'direct', silent: true});
+  if(expanded && g('brMtbfJql')) g('brMtbfJql').value = expanded;
+
+  // Get the final runnable JQL (same function used by the main Run Query button)
+  let activeJql = brCurrentRunnableJql();
+
+  // Restore the main filter/JQL inputs so the main tab is not disturbed
+  if(g('brFilterInput')) g('brFilterInput').value = _prevFilter;
+  if(g('brJql'))         g('brJql').value         = _prevJql;
+
+  if(!activeJql){
+    if(status) status.textContent = 'Enter a filter ID or JQL first.';
+    return;
+  }
+
+  if(btn){ btn.disabled = true; btn.innerHTML = '<i class="fas fa-circle-notch spin"></i> Running...'; }
+  if(spinner) spinner.style.display = 'inline';
+  if(status) status.textContent = 'Running consolidated report...';
+  if(summary) summary.style.display = 'none';
+  _brMtbfReportData = null;
+
+  try{
+    await brCheckJiraReady();
+    const payload = {
+      builds: [], traverse: true, orbit: true, target: '', force: true,
+      custom_jql: activeJql, include_axiom_metrics: false, axiom_taxonomy_path: '/PDT',
+      software_images: []
+    };
+    const resp = await fetch('/api/consolidated_report', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(payload)
+    });
+    let data = await resp.json();
+    if(data.error) throw new Error(data.error);
+    if(data.job_id) data = await waitForResult(data.job_id);
+    if(data.error) throw new Error(data.error);
+
+    // Normalize the report
+    const rows = normalize(data || {});
+    _brMtbfReportData = rows;
+
+    // Compute summary stats
+    const totalCrashes = rows.totalJiras || 0;
+    const validCrashes = rows.totalJiras - (rows.totalJiras - (rows.convertedToCrs + rows.openRows.length + rows.mappedRows.length));
+    const crCount = rows.crRows.length;
+    const openCount = rows.openRows.length;
+    const allDates = rows.openRows.map(r=>r.date||'').concat(rows.crRows.map(r=>r.date||'')).filter(Boolean).sort();
+    const minDate = allDates[0] ? allDates[0].slice(0,10) : '';
+    const maxDate = allDates.length ? allDates[allDates.length-1].slice(0,10) : '';
+
+    // Show summary
+    const crashEl = g('brMtbfRptCrashes');
+    const crEl    = g('brMtbfRptCrs');
+    const dateEl  = g('brMtbfRptDates');
+    if(crashEl) crashEl.innerHTML = '<i class="fas fa-bug" style="margin-right:4px"></i>' + totalCrashes + ' Total JIRAs';
+    if(crEl)    crEl.innerHTML    = '<i class="fas fa-code-branch" style="margin-right:4px"></i>' + crCount + ' CRs';
+    if(dateEl && minDate) dateEl.innerHTML = '<i class="fas fa-calendar" style="margin-right:4px"></i>' + minDate + (maxDate && maxDate !== minDate ? ' → ' + maxDate : '');
+    if(summary) summary.style.display = 'block';
+
+    if(status) status.textContent = 'Report ready: ' + totalCrashes + ' JIRAs, ' + crCount + ' CRs.';
+  }catch(e){
+    if(status) status.textContent = 'Error: ' + (e.message || e);
+    if(summary) summary.style.display = 'none';
+  }finally{
+    if(btn){ btn.disabled = false; btn.innerHTML = '<i class="fas fa-play"></i> Run Report'; }
+    if(spinner) spinner.style.display = 'none';
+  }
+}
+
+function brMtbfUseReportData(){
+  // Called when user clicks "Update MTBF from this Report"
+  if(!_brMtbfReportData){
+    alert('Run the report first.');
+    return;
+  }
+  const rows = _brMtbfReportData;
+  const crRows   = rows.crRows   || [];
+  const openRows = rows.openRows || [];
+  const allRows  = crRows.concat(openRows);
+
+  // Auto-select "Use current filter/table result"
+  const filterRadio = g('brMtbfSrcFilter');
+  if(filterRadio){ filterRadio.checked = true; brMtbfSourceChanged(); }
+
+  // Store in window so brMtbfFillFromFilter can read them
+  window._brCrRows   = crRows;
+  window._brOpenRows = openRows;
+
+  // Show hint
+  const status = g('brMtbfMailStatus');
+  if(status){
+    status.innerHTML = '<span style="color:#047857;font-weight:900"><i class="fas fa-check-circle" style="margin-right:4px"></i>'
+      + allRows.length + ' rows from MTBF report available. Select a target, then click <b>Fill from Filter/Table</b>.</span>';
+  }
+
+  // If target already selected, auto-fill form
+  const target = String((g('brMtbfTarget') && g('brMtbfTarget').value) || '').trim();
+  if(target && _brMtbfCtx){
+    brMtbfFillFromFilter();
+    // Scroll to form
+    const formSec = g('brMtbfFormSection');
+    if(formSec) formSec.scrollIntoView({behavior:'smooth', block:'nearest'});
+  } else {
+    // Scroll to target selector
+    const targetSel = g('brMtbfTarget');
+    if(targetSel) targetSel.scrollIntoView({behavior:'smooth', block:'nearest'});
+    if(status){
+      status.innerHTML += '<br><span style="color:#b45309;font-size:11px"><i class="fas fa-arrow-down" style="margin-right:4px"></i>Now select a target above to load existing MTBF rows.</span>';
+    }
+  }
+}
+
+// ── brMtbfFromReport: show MTBF section below Report Output ──────────────────
+function brMtbfFromReport(){
+  // Show the MTBF section at the bottom of the page
+  const section = g('brMtbfSection');
+  if(section) section.style.display = 'block';
+
+  // Auto-select "Use current report result"
+  const filterRadio = g('brMtbfSrcFilter');
+  if(filterRadio){ filterRadio.checked = true; brMtbfSourceChanged(); }
+
+  // Populate target dropdown
+  brMtbfInitTargetDropdown();
+
+  // Show hint with current report data count + explain crash type fields
+  const crCount = (window._brCrRows || []).length;
+  const openCount = (window._brOpenRows || []).length;
+  const totalRows = crCount + openCount;
+  const status = g('brMtbfMailStatus');
+  if(status){
+    let hint = '';
+    if(totalRows > 0){
+      hint = '<span style="color:#047857;font-weight:900"><i class="fas fa-check-circle" style="margin-right:4px"></i>'
+        + totalRows + ' rows from current report ready. Select a target, then click <b>Fill from Report</b>.</span>';
+    }
+    // Note: System/SSR/Process crash fields in the form come from the target schema (e.g. Auto Gen5),
+    // not from the Automotive popup. The popup only affects crash type display in the Report Output.
+    hint += '<div style="margin-top:6px;font-size:11px;color:#64748b;font-weight:700">'
+      + '<i class="fas fa-info-circle" style="margin-right:4px;color:#6366f1"></i>'
+      + 'The form fields (System/SSR/Process Crashes etc.) are defined by the selected <b>target\'s schema</b>. '
+      + 'The "Automotive BU?" popup only affects crash type display in the Report Output above — it does not change the MTBF form fields.'
+      + '</div>';
+    status.innerHTML = hint;
+  }
+
+  // Scroll to MTBF section
+  if(section) setTimeout(function(){ section.scrollIntoView({behavior:'smooth', block:'start'}); }, 100);
+}
+
+function brMtbfInitTargetDropdown(){
+  const sel = g('brMtbfTarget');
+  if(!sel || sel.options.length > 1) return;  // already populated
+  sel.innerHTML = '<option value="">-- Select Target --</option>';
+  (BR_TARGET_OPTIONS || []).forEach(function(row){
+    const opt = document.createElement('option');
+    opt.value = row.target || '';
+    opt.textContent = (row.display_name || row.target || '') + ' (' + (row.bu_key || '') + ')';
+    sel.appendChild(opt);
+  });
+}
+
+function brMtbfSourceChanged(){
+  const src = document.querySelector('input[name="brMtbfSource"]:checked');
+  const mode = src ? src.value : 'manual';
+  const fillBtn = g('brMtbfFillBtn');
+  if(fillBtn) fillBtn.style.display = mode === 'filter' ? 'inline-flex' : 'none';
+  if(mode !== 'filter') brMtbfUpdateAutoCrashSummary(null);
+}
+
+function brMtbfShouldUseReport(){
+  const src = document.querySelector('input[name="brMtbfSource"]:checked');
+  return !src || src.value === 'filter';
+}
+
+function brMtbfHasReportRows(){
+  return !!((window._brCrRows||[]).length || (window._brOpenRows||[]).length || (window._brMappedRows||[]).length);
+}
+
+function brMtbfNorm(s){
+  return String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'');
+}
+
+function brMtbfAliases(name){
+  const m = {
+    date: ['date','jira date','created date','run date'],
+    build: ['build','builds','build id','build ids','build(s)','metabuild','meta build'],
+    meta_id: ['meta_id','meta id','meta','metabuild','meta build','build id','build'],
+    hours: ['hours','hour','runtime hours','runtimehours','run hours','total hours','device hours','device-hours'],
+    system_crashes: ['system_crashes','system crashes','system crash','system'],
+    ssr_crashes: ['ssr_crashes','ssr crashes','ssr crash','ssr','subsystem restart','subsystemrestart'],
+    process_crashes: ['process_crashes','process crashes','process crash','process','process dump','processdump','qnx crashes'],
+    total_crashes: ['total_crashes','total crashes','system + ssr crashes','system ssr crashes','systemssrcrashes','crashes','crash count','total crash count'],
+    overall_crashes: ['overall_crashes','overall crashes','overall crash count','all crashes','total valid crashes','system ssr process crashes','system + ssr + process crashes'],
+    qc_crashes: ['qc_crashes','qc crashes','qc crash count'],
+    mtbf: ['mtbf','product mtbf','product_mtbf','mtbf hrs','mtbf hours'],
+    product_mtbf: ['product_mtbf','product mtbf','mtbf'],
+    qc_mtbf: ['qc_mtbf','qc mtbf'],
+    overallMTBF: ['overallMTBF','overall_mtbf','overall mtbf']
+  };
+  return [name].concat(m[name] || []);
+}
+
+function brMtbfFindColumnKey(nameOrAliases){
+  if(!_brMtbfCtx) return '';
+  const cols = _brMtbfCtx.columns || [];
+  const aliases = Array.isArray(nameOrAliases) ? nameOrAliases : brMtbfAliases(nameOrAliases);
+  const wanted = aliases.map(brMtbfNorm).filter(Boolean);
+  let col = cols.find(function(c){
+    const ck = brMtbfNorm(c.key);
+    const cl = brMtbfNorm(c.label || '');
+    return wanted.indexOf(ck) >= 0 || wanted.indexOf(cl) >= 0;
+  });
+  if(!col){
+    col = cols.find(function(c){
+      const ck = brMtbfNorm(c.key);
+      const cl = brMtbfNorm(c.label || '');
+      return wanted.some(function(w){ return w && ((ck && ck.indexOf(w) >= 0) || (cl && cl.indexOf(w) >= 0) || (w.indexOf(ck) >= 0 && ck.length > 3)); });
+    });
+  }
+  return col ? col.key : '';
+}
+
+function brMtbfSetField(name, value){
+  if(value === null || value === undefined || String(value).trim() === '') return false;
+  const key = brMtbfFindColumnKey(name);
+  if(!key) return false;
+  const el = g('brMtbfField_' + key);
+  if(!el) return false;
+  el.value = value;
+  return true;
+}
+
+function brMtbfParseNumber(raw){
+  raw = String(raw == null ? '' : raw).trim();
+  if(raw === '' || /^(na|n\/a|n\.a\.?|-+|none|null|empty|tbd)$/i.test(raw)) return 0;
+  const m = raw.replace(/,/g,'').match(/-?\d+(?:\.\d+)?/);
+  return m ? Number(m[0]) : 0;
+}
+
+function brMtbfValueFromAliases(vals, aliases){
+  const key = brMtbfFindColumnKey(aliases);
+  return key ? (Number(vals[key] || 0) || 0) : 0;
+}
+
+function brMtbfIsAutoContext(){
+  return !!(_brMtbfCtx && (String(_brMtbfCtx.bu||'').toUpperCase() === 'AUTO' || String(_brMtbfCtx.schema||'').toLowerCase().indexOf('auto') >= 0));
+}
+
+function brMtbfCrashTypeForFill(row){
+  if(brMtbfIsAutoContext()){
+    const title = [
+      row&&row.jira_title,row&&row.final_summary,row&&row.summary,
+      row&&row.cr_title,row&&row.title,row&&row.resolution_notes_text
+    ].filter(Boolean).join(' ');
+    return crashTypeFromTitle(title);
+  }
+  return crashType(row);
+}
+
+function brMtbfUpdateAutoCrashSummary(stats){
+  const box = g('brMtbfAutoCrashSummary');
+  if(!box) return;
+  if(!stats || !brMtbfIsAutoContext()){
+    box.style.display = 'none';
+    box.innerHTML = '';
+    return;
+  }
+  const hours = Number(stats.hours || 0) || 0;
+  const sys = Number(stats.system || 0) || 0;
+  const ssr = Number(stats.ssr || 0) || 0;
+  const proc = Number(stats.process || 0) || 0;
+  const sysSsr = Number(stats.systemSsr != null ? stats.systemSsr : (sys + ssr)) || 0;
+  const overall = Number(stats.overall != null ? stats.overall : (sys + ssr + proc)) || 0;
+  const mtbf = sysSsr > 0 ? Math.round(hours / sysSsr * 100) / 100 : 0;
+  const overallMtbf = overall > 0 ? Math.round(hours / overall * 100) / 100 : 0;
+  function chip(label, val, color){
+    return '<span style="display:inline-flex;align-items:center;gap:5px;border:1px solid '+color+';background:#fff;border-radius:999px;padding:4px 9px;font-size:11px;font-weight:950;color:#1e293b"><b style="color:'+color+'">'+esc(val)+'</b> '+esc(label)+'</span>';
+  }
+  box.style.display = 'block';
+  box.innerHTML =
+    '<div style="font-size:11px;font-weight:950;color:#1e3a8a;text-transform:uppercase;letter-spacing:.06em;margin-bottom:7px"><i class="fas fa-car-crash" style="color:#2563eb;margin-right:5px"></i>Auto crash split filled from current report</div>'
+    + '<div style="display:flex;gap:7px;flex-wrap:wrap">'
+    + chip('System', sys, '#dc2626')
+    + chip('SSR', ssr, '#d97706')
+    + chip('Process', proc, '#7c3aed')
+    + chip('System+SSR', sysSsr, '#047857')
+    + chip('Overall', overall, '#1d4ed8')
+    + chip('Hours', hours, '#0f766e')
+    + chip('MTBF', mtbf, '#166534')
+    + chip('Overall MTBF', overallMtbf, '#4338ca')
+    + '</div>';
+}
+
+function brMtbfAutoFillAfterRender(){
+  if(!_brMtbfCtx || !brMtbfShouldUseReport() || !brMtbfHasReportRows()) return;
+  setTimeout(function(){
+    brMtbfFillFromFilter();
+  }, 80);
+}
+
+async function brMtbfTargetChanged(){
+  const target = String((g('brMtbfTarget') && g('brMtbfTarget').value) || '').trim();
+  const viewSel = g('brMtbfView');
+  const spinner = g('brMtbfMailSpinner');
+  const status = g('brMtbfMailStatus');
+  const existSec = g('brMtbfExistingSection');
+  const formSec = g('brMtbfFormSection');
+  const mailSec = g('brMtbfMailSection');
+
+  if(!target){
+    if(viewSel) viewSel.innerHTML = '<option value="">-- Select Target first --</option>';
+    if(existSec) existSec.style.display = 'none';
+    if(formSec) formSec.style.display = 'none';
+    if(mailSec) mailSec.style.display = 'none';
+    _brMtbfCtx = null;
+    return;
+  }
+  if(spinner) spinner.style.display = 'inline';
+  if(status) status.textContent = 'Loading MTBF context...';
+  try{
+    const resp = await fetch('/api/mtbf_editor/context?target=' + encodeURIComponent(target), {cache:'no-store'});
+    const data = await resp.json();
+    if(!data.ok) throw new Error(data.error || 'Failed to load MTBF context');
+    _brMtbfCtx = data;
+    // Populate view/domain dropdown
+    if(viewSel){
+      viewSel.innerHTML = '';
+      const views = data.domains || data.views || [data.view || 'MTBF'];
+      views.forEach(function(v){
+        const opt = document.createElement('option');
+        opt.value = v;
+        opt.textContent = v;
+        if(v === data.view) opt.selected = true;
+        viewSel.appendChild(opt);
+      });
+    }
+    brMtbfRenderExistingRows(data);
+    brMtbfRenderFormFields(data);
+    if(existSec) existSec.style.display = 'block';
+    if(formSec) formSec.style.display = 'block';
+    if(mailSec) mailSec.style.display = 'block';
+    // Auto-fill subject and, when requested, auto-fill row data from current report
+    brMtbfUpdateSubject();
+    brMtbfAutoFillAfterRender();
+    if(status && !brMtbfShouldUseReport()) status.textContent = 'Loaded ' + (data.total_rows || 0) + ' existing rows.';
+  }catch(e){
+    if(status) status.textContent = 'Error: ' + (e.message || e);
+    _brMtbfCtx = null;
+  }finally{
+    if(spinner) spinner.style.display = 'none';
+  }
+}
+
+async function brMtbfViewChanged(){
+  const target = String((g('brMtbfTarget') && g('brMtbfTarget').value) || '').trim();
+  const view = String((g('brMtbfView') && g('brMtbfView').value) || '').trim();
+  if(!target || !view) return;
+  const spinner = g('brMtbfMailSpinner');
+  const status = g('brMtbfMailStatus');
+  if(spinner) spinner.style.display = 'inline';
+  if(status) status.textContent = 'Loading view...';
+  try{
+    const resp = await fetch('/api/mtbf_editor/context?target=' + encodeURIComponent(target) + '&view=' + encodeURIComponent(view), {cache:'no-store'});
+    const data = await resp.json();
+    if(!data.ok) throw new Error(data.error || 'Failed');
+    _brMtbfCtx = data;
+    brMtbfRenderExistingRows(data);
+    brMtbfRenderFormFields(data);
+    brMtbfUpdateSubject();
+    brMtbfAutoFillAfterRender();
+    if(status && !brMtbfShouldUseReport()) status.textContent = 'Loaded ' + (data.total_rows || 0) + ' rows for ' + view + '.';
+  }catch(e){
+    if(status) status.textContent = 'Error: ' + (e.message || e);
+  }finally{
+    if(spinner) spinner.style.display = 'none';
+  }
+}
+
+function brMtbfRenderExistingRows(ctx){
+  const head = g('brMtbfExistingHead');
+  const body = g('brMtbfExistingBody');
+  const rowCount = g('brMtbfRowCount');
+  const updatedAt = g('brMtbfUpdatedAt');
+  if(!head || !body) return;
+  const cols = ctx.columns || [];
+  const rows = ctx.rows || [];
+  if(rowCount) rowCount.textContent = ctx.total_rows || rows.length;
+  if(updatedAt) updatedAt.textContent = ctx.updated_at ? 'Updated: ' + ctx.updated_at.slice(0,16).replace('T',' ') : '';
+  // Header
+  head.innerHTML = cols.map(function(c){
+    return '<th style="white-space:nowrap">' + esc(c.label || c.key) + '</th>';
+  }).join('') + '<th style="white-space:nowrap">Action</th>';
+  // Rows
+  if(!rows.length){
+    body.innerHTML = '<tr><td class="empty" colspan="' + (cols.length + 1) + '">No existing rows. Add the first row below.</td></tr>';
+    return;
+  }
+  body.innerHTML = rows.map(function(row, i){
+    const cells = cols.map(function(c){
+      const v = row[c.key];
+      return '<td style="white-space:nowrap;font-size:11px">' + esc(v == null ? '' : v) + '</td>';
+    }).join('');
+    return '<tr>' + cells + '<td><button class="btn" style="padding:3px 8px;font-size:10px" onclick="brMtbfEditRow(' + i + ')"><i class="fas fa-edit"></i> Edit</button></td></tr>';
+  }).join('');
+}
+
+function brMtbfRenderFormFields(ctx){
+  const container = g('brMtbfFormFields');
+  if(!container) return;
+  const cols = ctx.columns || [];
+  container.innerHTML = cols.map(function(c){
+    const req = c.required ? ' *' : '';
+    const hint = c.formula ? ' <span style="font-size:9px;color:#059669">(auto: ' + esc(c.formula) + ')</span>' : '';
+    const inputType = c.type === 'date' ? 'date' : 'text';
+    return '<div class="field">'
+      + '<label>' + esc(c.label || c.key) + req + hint + '</label>'
+      + '<input id="brMtbfField_' + esc(c.key) + '" type="' + inputType + '" placeholder="' + esc(c.label || c.key) + '" oninput="brMtbfCalcFormulas()">'
+      + '</div>';
+  }).join('');
+}
+
+function brMtbfEditRow(idx){
+  if(!_brMtbfCtx) return;
+  const rows = _brMtbfCtx.rows || [];
+  const row = rows[idx];
+  if(!row) return;
+  const cols = _brMtbfCtx.columns || [];
+  cols.forEach(function(c){
+    const el = g('brMtbfField_' + c.key);
+    if(el) el.value = row[c.key] == null ? '' : String(row[c.key]);
+  });
+  // Scroll to form
+  const formSec = g('brMtbfFormSection');
+  if(formSec) formSec.scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+
+function brMtbfCalcFormulas(){
+  if(!_brMtbfCtx) return;
+  const cols = _brMtbfCtx.columns || [];
+  // Read current values — treat NA / - / empty as 0
+  const vals = {};
+  cols.forEach(function(c){
+    const el = g('brMtbfField_' + c.key);
+    vals[c.key] = el ? brMtbfParseNumber(el.value) : 0;
+  });
+
+  const hours = brMtbfValueFromAliases(vals, brMtbfAliases('hours'));
+  const systemCrashes = brMtbfValueFromAliases(vals, brMtbfAliases('system_crashes'));
+  const ssrCrashes = brMtbfValueFromAliases(vals, brMtbfAliases('ssr_crashes'));
+  const processCrashes = brMtbfValueFromAliases(vals, brMtbfAliases('process_crashes'));
+  const systemSsrCrashes = systemCrashes + ssrCrashes;
+  const allAutoCrashes = systemCrashes + ssrCrashes + processCrashes;
+  const totalCrashes = brMtbfValueFromAliases(vals, brMtbfAliases('total_crashes')) || systemSsrCrashes || allAutoCrashes;
+  const overallCrashes = brMtbfValueFromAliases(vals, brMtbfAliases('overall_crashes')) || allAutoCrashes || totalCrashes;
+  const qcCrashes = brMtbfValueFromAliases(vals, brMtbfAliases('qc_crashes')) || totalCrashes;
+
+  // Apply formulas — always compute even when hours = 0 (result = 0)
+  cols.forEach(function(c){
+    if(!c.formula) return;
+    const el = g('brMtbfField_' + c.key);
+    if(!el) return;
+    let result = null;
+    try{
+      if(c.formula === 'hours/total_crashes'){
+        result = totalCrashes > 0 ? Math.round(hours / totalCrashes * 100) / 100 : 0;
+      } else if(c.formula === 'hours/qc_crashes'){
+        result = qcCrashes > 0 ? Math.round(hours / qcCrashes * 100) / 100 : 0;
+      } else if(c.formula === 'hours/overall_crashes'){
+        result = overallCrashes > 0 ? Math.round(hours / overallCrashes * 100) / 100 : 0;
+      } else if(c.formula === 'system+ssr'){
+        result = systemSsrCrashes;
+      } else if(c.formula === 'system+ssr+process'){
+        result = allAutoCrashes;
+      }
+    }catch(e){}
+    if(result !== null && !isNaN(result)) el.value = result;
+  });
+}
+
+function brMtbfFillFromFilter(){
+  // Fill from current consolidated report data
+  const crRows   = window._brCrRows   || [];
+  const openRows = window._brOpenRows || [];
+  const mappedRows = window._brMappedRows || [];
+
+  if(!crRows.length && !openRows.length && !mappedRows.length){
+    alert('Run a filter/table report first, then use Fill from Report.');
+    return;
+  }
+  if(!_brMtbfCtx) return;
+
+  const cols    = _brMtbfCtx.columns || [];
+
+  // Helper: set a field by exact/fuzzy key OR label alias
+  function setField(key, value){
+    brMtbfSetField(key, value);
+  }
+
+  // ── 1. Latest date from all JIRA rows ─────────────────────────────────────
+  const allDates = [];
+  crRows.forEach(function(r){ if(r.date) allDates.push(r.date); });
+  openRows.forEach(function(r){ if(r.date) allDates.push(r.date); });
+  allDates.sort();
+  const latestDate = allDates.length ? allDates[allDates.length - 1].slice(0, 10) : '';
+  if(latestDate) setField('date', latestDate);
+
+  // ── 2. Crash counts from report ───────────────────────────────────────────
+  // Collect all JIRA objects for crash type counting
+  const allJiraItems = [];
+  crRows.forEach(function(r){ (r.jiras || []).forEach(function(j){ allJiraItems.push(j); }); });
+  openRows.forEach(function(j){ allJiraItems.push(j); });
+  mappedRows.forEach(function(r){ (r.sourceJiras || []).forEach(function(j){ allJiraItems.push(j); }); });
+
+  let sysCrashes = 0, ssrCrashes = 0, procCrashes = 0;
+  allJiraItems.forEach(function(j){
+    const ct = brMtbfCrashTypeForFill(j);
+    if(ct === 'System') sysCrashes++;
+    else if(ct === 'SSR') ssrCrashes++;
+    else procCrashes++;
+  });
+
+  // Valid JIRAs = total crashes denominator
+  const IKW_FILL = ['invalid','setup issue','incomplete',"won't fix",'wont fix',
+    'cannot reproduce','not a bug','nosir','no sir','not applicable',
+    'obsolete','postponed','withdrawn','closed','cannotduplicate','invalid_dup'];
+  const validOpen = openRows.filter(function(r){
+    const s = String(r.status||'').toLowerCase();
+    const fr = String(r.final_resolution||'').toLowerCase();
+    return !IKW_FILL.some(function(k){ return s.indexOf(k)>=0 || fr.indexOf(k)>=0; });
+  }).length;
+  const mappedCount = mappedRows.reduce(function(s,r){ return s + (Number(r.count || 1) || 1); }, 0);
+  const totalValid = crRows.reduce(function(s,r){ return s + (r.count || (r.jiras||[]).length || 1); }, 0)
+                   + mappedCount + validOpen;
+  const systemSsrCrashes = sysCrashes + ssrCrashes;
+  const overallCrashes = sysCrashes + ssrCrashes + procCrashes;
+
+  // Fill crash fields. For AUTO, System+SSR and Overall are intentionally separate.
+  setField('system_crashes',  sysCrashes);
+  setField('ssr_crashes',     ssrCrashes);
+  setField('process_crashes', procCrashes);
+  setField('total_crashes',   brMtbfIsAutoContext() ? systemSsrCrashes : totalValid);
+  setField('overall_crashes', brMtbfIsAutoContext() ? overallCrashes : totalValid);
+  setField('qc_crashes',      totalValid);   // QC = total for most schemas
+
+  // ── 3. Hours from Axiom metrics (if available) ────────────────────────────
+  const axHoursEl = g('brAxiomTotalHours');
+  if(axHoursEl){
+    const hoursText = String(axHoursEl.textContent || '').replace(/[^\d.]/g, '');
+    const hoursVal  = parseFloat(hoursText);
+    if(hoursVal > 0) setField('hours', Math.round(hoursVal * 100) / 100);
+  }
+
+  // ── 4. Meta ID / Build ID from Axiom build IDs ────────────────────────────
+  const buildIds = window._brAxiomBuildIds || [];
+  if(buildIds.length){
+    // Use short build token as meta ID
+    const shortId = (buildIds[0].match(/-?(\d{4,6}-[^.]+)/) || [])[1] || buildIds[0];
+    setField('meta_id', shortId);
+    setField('build_id', buildIds[0]);
+    setField('build', buildIds.join(', '));
+  }
+
+  // ── 5. Recalculate auto-formula fields and show visible AUTO split ─────────
+  brMtbfCalcFormulas();
+  brMtbfUpdateAutoCrashSummary({
+    system: sysCrashes,
+    ssr: ssrCrashes,
+    process: procCrashes,
+    systemSsr: systemSsrCrashes,
+    overall: overallCrashes,
+    hours: brMtbfParseNumber((g('brMtbfField_' + (brMtbfFindColumnKey('hours') || '')) || {}).value)
+  });
+
+  // Show success hint
+  const status = g('brMtbfMailStatus');
+  if(status){
+    const parts = ['<i class="fas fa-check-circle" style="margin-right:4px"></i>Filled from report:',
+      totalValid + ' total crashes'];
+    if(sysCrashes || ssrCrashes || procCrashes)
+      parts.push('(' + sysCrashes + ' System, ' + ssrCrashes + ' SSR, ' + procCrashes + ' Process)');
+    if(latestDate) parts.push('date ' + latestDate);
+    parts.push('— edit as needed.');
+    status.innerHTML = '<span style="color:#047857;font-weight:900">' + parts.join(' ') + '</span>';
+  }
+}
+
+function brMtbfClearForm(){
+  if(!_brMtbfCtx) return;
+  const cols = _brMtbfCtx.columns || [];
+  cols.forEach(function(c){
+    const el = g('brMtbfField_' + c.key);
+    if(el) el.value = '';
+  });
+}
+
+function brMtbfGetFormRow(){
+  if(!_brMtbfCtx) return {};
+  const cols = _brMtbfCtx.columns || [];
+  const row = {};
+  cols.forEach(function(c){
+    const el = g('brMtbfField_' + c.key);
+    if(el && el.value.trim()) row[c.key] = el.value.trim();
+  });
+  return row;
+}
+
+function brMtbfUpdateSubject(){
+  const subEl = g('brMtbfSubject');
+  if(!subEl || !_brMtbfCtx) return;
+  const target = _brMtbfCtx.target || '';
+  const view = (g('brMtbfView') && g('brMtbfView').value) || _brMtbfCtx.view || '';
+  subEl.value = '[PDTBuddy] MTBF Update Request - ' + target + ' / ' + view;
+}
+
+async function brMtbfGenerateMail(btn){
+  if(!_brMtbfCtx){
+    alert('Select a target first.');
+    return;
+  }
+  const row = brMtbfGetFormRow();
+  const target = _brMtbfCtx.target || '';
+  const bu = _brMtbfCtx.bu || '';
+  const schema = _brMtbfCtx.schema || '';
+  const view = (g('brMtbfView') && g('brMtbfView').value) || _brMtbfCtx.view || '';
+  const sp = _brMtbfCtx.sp || '';
+  const recipient = String((g('brMtbfRecipient') && g('brMtbfRecipient').value) || 'pdtbuddy.mtbf@qualcomm.com').trim();
+  const srcMode = (document.querySelector('input[name="brMtbfSource"]:checked') || {}).value || 'manual';
+
+  const old = btn && btn.innerHTML;
+  if(btn){ btn.disabled = true; btn.innerHTML = '<i class="fas fa-circle-notch spin"></i> Generating...'; }
+  try{
+    const resp = await fetch('/api/mtbf_editor/compose_mail', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({target, bu, schema, view, sp, row, source_mode: srcMode, recipient})
+    });
+    const data = await resp.json();
+    if(!data.ok) throw new Error(data.error || 'Failed to compose mail');
+    // Show mail body
+    const bodyEl = g('brMtbfMailBody');
+    if(bodyEl) bodyEl.value = data.body || '';
+    const subEl = g('brMtbfSubject');
+    if(subEl) subEl.value = data.subject || '';
+    const wrap = g('brMtbfMailBodyWrap');
+    if(wrap) wrap.style.display = 'block';
+    // Show copy + outlook buttons
+    const copyBtn = g('brMtbfCopyBtn');
+    if(copyBtn) copyBtn.style.display = 'inline-flex';
+    const outlookLink = g('brMtbfOutlookLink');
+    if(outlookLink){
+      outlookLink.href = data.mailto || '#';
+      outlookLink.style.display = 'inline-flex';
+    }
+    const status = g('brMtbfMailStatus');
+    if(status) status.textContent = 'Mail body generated. Copy or open Outlook.';
+  }catch(e){
+    const status = g('brMtbfMailStatus');
+    if(status) status.textContent = 'Error: ' + (e.message || e);
+  }finally{
+    if(btn){ btn.disabled = false; if(old) btn.innerHTML = old; }
+  }
+}
+
+function brMtbfCopyBody(btn){
+  const bodyEl = g('brMtbfMailBody');
+  if(!bodyEl || !bodyEl.value){ alert('Generate mail first.'); return; }
+  try{
+    navigator.clipboard.writeText(bodyEl.value).then(function(){
+      brFlashButton(btn, true, 'Copied');
+    }).catch(function(){
+      bodyEl.select();
+      document.execCommand('copy');
+      brFlashButton(btn, true, 'Copied');
+    });
+  }catch(e){
+    bodyEl.select();
+    document.execCommand('copy');
+    brFlashButton(btn, true, 'Copied');
+  }
 }
 function brByBuildValue(){return String((g('brByBuildInput')&&g('brByBuildInput').value)||'').trim();}
 function brByBuildBuilds(){return brByBuildValue().split(/[,\n;]+/).map(x=>String(x||'').trim()).filter(Boolean);}
