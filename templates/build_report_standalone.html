@@ -356,6 +356,13 @@
             <option value="">-- Select Target first --</option>
           </select>
         </div>
+        <div class="field" id="brMtbfSpField" style="display:none">
+          <label>SP / JSON file</label>
+          <select id="brMtbfSp" onchange="brMtbfSpChanged()">
+            <option value="">Default/base JSON</option>
+          </select>
+          <small id="brMtbfJsonPath" class="muted" style="display:block;margin-top:4px;font-size:10px;word-break:break-all"></small>
+        </div>
       </div>
       <div id="brMtbfExistingSection" style="display:none;margin-bottom:14px">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;flex-wrap:wrap">
@@ -375,6 +382,7 @@
         <div class="toolbar" style="margin-bottom:10px">
           <button class="btn" type="button" onclick="brMtbfCalcFormulas()" style="background:linear-gradient(135deg,#fff,#ecfdf5);border-color:#a7f3d0;color:#047857"><i class="fas fa-calculator"></i> Calculate MTBF</button>
           <button class="btn" type="button" onclick="brMtbfFillFromFilter()" id="brMtbfFillBtn" style="background:linear-gradient(135deg,#fff,#eff6ff);border-color:#bfdbfe;color:#1d4ed8"><i class="fas fa-arrow-down"></i> Fill from Report</button>
+          <button class="btn btn-primary" type="button" id="brMtbfSaveBtn" onclick="brMtbfSaveJson(this)" style="background:linear-gradient(135deg,#2563eb,#7c3aed);color:#fff;border:0"><i class="fas fa-save"></i> Save to selected JSON</button>
           <button class="btn" type="button" onclick="brMtbfClearForm()"><i class="fas fa-eraser"></i> Clear</button>
         </div>
       </div>
@@ -3272,8 +3280,11 @@ function brSwitchInputTab(mode){
   brByBuildUpdateLinks();
 }
 
-// ── MTBF Update Mail tab JS ──────────────────────────────────────────────────
+ // ── MTBF Update Mail tab JS ──────────────────────────────────────────────────
 let _brMtbfCtx = null;  // current loaded context from API
+let _brMtbfEditOriginal = null;
+let _brMtbfEditIndex = null;
+let _brMtbfLastMailHtml = '';
 
 // ── MTBF tab: JQL/filter run helpers ─────────────────────────────────────────
 let _brMtbfReportData = null;  // last report run from MTBF tab
@@ -3483,6 +3494,52 @@ function brMtbfShouldUseReport(){
   return !src || src.value === 'filter';
 }
 
+function brMtbfCurrentSp(){
+  const spSel = g('brMtbfSp');
+  if(spSel) return String(spSel.value || '').trim();
+  return String((_brMtbfCtx && _brMtbfCtx.sp) || '').trim();
+}
+
+function brMtbfCurrentReportPayload(){
+  const fromWindow = {
+    cr_rows: window._brCrRows || [],
+    mapped_rows: window._brMappedRows || [],
+    open_rows: window._brOpenRows || []
+  };
+  if(_brMtbfReportData){
+    return {
+      cr_rows: _brMtbfReportData.crRows || _brMtbfReportData.cr_rows || fromWindow.cr_rows,
+      mapped_rows: _brMtbfReportData.mappedRows || _brMtbfReportData.mapped_rows || fromWindow.mapped_rows,
+      open_rows: _brMtbfReportData.openRows || _brMtbfReportData.open_rows || fromWindow.open_rows
+    };
+  }
+  return fromWindow;
+}
+
+function brMtbfResetEditState(){
+  _brMtbfEditOriginal = null;
+  _brMtbfEditIndex = null;
+  const saveBtn = g('brMtbfSaveBtn');
+  if(saveBtn) saveBtn.innerHTML = '<i class="fas fa-save"></i> Save to selected JSON';
+}
+
+function brMtbfUpdateJsonPath(ctx){
+  const el = g('brMtbfJsonPath');
+  if(!el) return;
+  const path = String((ctx && (ctx.json_path || ctx.path || ctx.filename || ctx.file)) || '').trim();
+  const sp = brMtbfCurrentSp();
+  if(path){
+    el.textContent = path;
+    el.style.display = 'block';
+  } else if(sp){
+    el.textContent = 'Selected SP: ' + sp;
+    el.style.display = 'block';
+  } else {
+    el.textContent = '';
+    el.style.display = 'none';
+  }
+}
+
 function brMtbfHasReportRows(){
   return !!((window._brCrRows||[]).length || (window._brOpenRows||[]).length || (window._brMappedRows||[]).length);
 }
@@ -3612,6 +3669,8 @@ function brMtbfAutoFillAfterRender(){
 async function brMtbfTargetChanged(){
   const target = String((g('brMtbfTarget') && g('brMtbfTarget').value) || '').trim();
   const viewSel = g('brMtbfView');
+  const spField = g('brMtbfSpField');
+  const spSel = g('brMtbfSp');
   const spinner = g('brMtbfMailSpinner');
   const status = g('brMtbfMailStatus');
   const existSec = g('brMtbfExistingSection');
@@ -3620,10 +3679,13 @@ async function brMtbfTargetChanged(){
 
   if(!target){
     if(viewSel) viewSel.innerHTML = '<option value="">-- Select Target first --</option>';
+    if(spSel) spSel.innerHTML = '<option value="">Default/base JSON</option>';
+    if(spField) spField.style.display = 'none';
     if(existSec) existSec.style.display = 'none';
     if(formSec) formSec.style.display = 'none';
     if(mailSec) mailSec.style.display = 'none';
     _brMtbfCtx = null;
+    brMtbfResetEditState();
     return;
   }
   if(spinner) spinner.style.display = 'inline';
@@ -3645,8 +3707,10 @@ async function brMtbfTargetChanged(){
         viewSel.appendChild(opt);
       });
     }
+    brMtbfRenderSpOptions(data);
     brMtbfRenderExistingRows(data);
     brMtbfRenderFormFields(data);
+    brMtbfResetEditState();
     if(existSec) existSec.style.display = 'block';
     if(formSec) formSec.style.display = 'block';
     if(mailSec) mailSec.style.display = 'block';
@@ -3657,6 +3721,7 @@ async function brMtbfTargetChanged(){
   }catch(e){
     if(status) status.textContent = 'Error: ' + (e.message || e);
     _brMtbfCtx = null;
+    brMtbfResetEditState();
   }finally{
     if(spinner) spinner.style.display = 'none';
   }
@@ -3675,11 +3740,66 @@ async function brMtbfViewChanged(){
     const data = await resp.json();
     if(!data.ok) throw new Error(data.error || 'Failed');
     _brMtbfCtx = data;
+    brMtbfRenderSpOptions(data);
     brMtbfRenderExistingRows(data);
     brMtbfRenderFormFields(data);
+    brMtbfResetEditState();
     brMtbfUpdateSubject();
     brMtbfAutoFillAfterRender();
     if(status && !brMtbfShouldUseReport()) status.textContent = 'Loaded ' + (data.total_rows || 0) + ' rows for ' + view + '.';
+  }catch(e){
+    if(status) status.textContent = 'Error: ' + (e.message || e);
+  }finally{
+    if(spinner) spinner.style.display = 'none';
+  }
+}
+
+function brMtbfRenderSpOptions(ctx){
+  const spField = g('brMtbfSpField');
+  const spSel = g('brMtbfSp');
+  if(!spField || !spSel) return;
+  const options = ctx.sp_options || [];
+  brMtbfUpdateJsonPath(ctx);
+  if(!options.length){
+    spField.style.display = 'none';
+    spSel.innerHTML = '<option value="">Default/base JSON</option>';
+    brMtbfUpdateJsonPath(ctx);
+    return;
+  }
+  spField.style.display = 'block';
+  spSel.innerHTML = '<option value="">Default/base JSON</option>' + options.map(function(item){
+    const value = String(item.value || item.key || '').trim();
+    const label = String(item.label || item.value || item.key || value).trim();
+    const sel = value === String(ctx.sp || '').trim() ? ' selected' : '';
+    return '<option value="' + esc(value) + '"' + sel + '>' + esc(label) + '</option>';
+  }).join('');
+  brMtbfUpdateJsonPath(ctx);
+}
+
+async function brMtbfSpChanged(){
+  const target = String((g('brMtbfTarget') && g('brMtbfTarget').value) || '').trim();
+  const view = String((g('brMtbfView') && g('brMtbfView').value) || '').trim();
+  const sp = brMtbfCurrentSp();
+  if(!target || !view) return;
+  const spinner = g('brMtbfMailSpinner');
+  const status = g('brMtbfMailStatus');
+  if(spinner) spinner.style.display = 'inline';
+  if(status) status.textContent = 'Loading selected SP JSON...';
+  try{
+    const url = '/api/mtbf_editor/context?target=' + encodeURIComponent(target)
+      + '&view=' + encodeURIComponent(view)
+      + '&sp=' + encodeURIComponent(sp);
+    const resp = await fetch(url, {cache:'no-store'});
+    const data = await resp.json();
+    if(!data.ok) throw new Error(data.error || 'Failed');
+    _brMtbfCtx = data;
+    brMtbfRenderSpOptions(data);
+    brMtbfRenderExistingRows(data);
+    brMtbfRenderFormFields(data);
+    brMtbfResetEditState();
+    brMtbfUpdateSubject();
+    brMtbfAutoFillAfterRender();
+    if(status && !brMtbfShouldUseReport()) status.textContent = 'Loaded ' + (data.total_rows || 0) + ' rows for ' + view + (sp ? (' / SP ' + sp) : '') + '.';
   }catch(e){
     if(status) status.textContent = 'Error: ' + (e.message || e);
   }finally{
@@ -3735,11 +3855,18 @@ function brMtbfEditRow(idx){
   const rows = _brMtbfCtx.rows || [];
   const row = rows[idx];
   if(!row) return;
+  _brMtbfEditOriginal = Object.assign({}, row);
+  _brMtbfEditIndex = idx;
   const cols = _brMtbfCtx.columns || [];
   cols.forEach(function(c){
     const el = g('brMtbfField_' + c.key);
     if(el) el.value = row[c.key] == null ? '' : String(row[c.key]);
   });
+  brMtbfCalcFormulas();
+  const saveBtn = g('brMtbfSaveBtn');
+  if(saveBtn) saveBtn.innerHTML = '<i class="fas fa-save"></i> Update selected JSON row';
+  const status = g('brMtbfMailStatus');
+  if(status) status.textContent = 'Editing existing MTBF row. Save will update the matching build/date row.';
   // Scroll to form
   const formSec = g('brMtbfFormSection');
   if(formSec) formSec.scrollIntoView({behavior:'smooth', block:'nearest'});
@@ -3902,17 +4029,79 @@ function brMtbfClearForm(){
     const el = g('brMtbfField_' + c.key);
     if(el) el.value = '';
   });
+  brMtbfResetEditState();
+  brMtbfUpdateAutoCrashSummary(null);
 }
 
 function brMtbfGetFormRow(){
   if(!_brMtbfCtx) return {};
   const cols = _brMtbfCtx.columns || [];
+  brMtbfCalcFormulas();
   const row = {};
   cols.forEach(function(c){
     const el = g('brMtbfField_' + c.key);
     if(el && el.value.trim()) row[c.key] = el.value.trim();
   });
+  if(_brMtbfEditOriginal) row._edit_original = _brMtbfEditOriginal;
+  if(_brMtbfEditIndex !== null && _brMtbfEditIndex !== undefined) row._edit_index = _brMtbfEditIndex;
   return row;
+}
+
+function brMtbfValidateRow(row){
+  const cols = (_brMtbfCtx && _brMtbfCtx.columns) || [];
+  const missing = [];
+  cols.forEach(function(c){
+    if(c.required && !String(row[c.key] || '').trim()) missing.push(c.label || c.key);
+  });
+  return missing;
+}
+
+async function brMtbfSaveJson(btn){
+  if(!_brMtbfCtx){
+    alert('Select a target first.');
+    return;
+  }
+  const row = brMtbfGetFormRow();
+  const missing = brMtbfValidateRow(row);
+  if(missing.length){
+    alert('Please fill required MTBF field(s): ' + missing.join(', '));
+    return;
+  }
+  const target = _brMtbfCtx.target || '';
+  const bu = _brMtbfCtx.bu || '';
+  const schema = _brMtbfCtx.schema || '';
+  const view = (g('brMtbfView') && g('brMtbfView').value) || _brMtbfCtx.view || '';
+  const sp = brMtbfCurrentSp();
+  const srcMode = (document.querySelector('input[name="brMtbfSource"]:checked') || {}).value || 'manual';
+  const old = btn && btn.innerHTML;
+  const status = g('brMtbfMailStatus');
+  if(btn){ btn.disabled = true; btn.innerHTML = '<i class="fas fa-circle-notch spin"></i> Saving...'; }
+  if(status) status.textContent = 'Saving MTBF row to selected JSON...';
+  try{
+    const resp = await fetch('/api/mtbf_editor/save', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({target, bu, schema, view, sp, row, source_mode: srcMode})
+    });
+    const data = await resp.json();
+    if(!data.ok) throw new Error(data.error || 'Save failed');
+    _brMtbfCtx = Object.assign({}, _brMtbfCtx, data, {columns: _brMtbfCtx.columns || []});
+    if(data.rows) _brMtbfCtx.rows = data.rows;
+    if(data.total_rows != null) _brMtbfCtx.total_rows = data.total_rows;
+    if(data.updated_at) _brMtbfCtx.updated_at = data.updated_at;
+    if(data.sp != null) _brMtbfCtx.sp = data.sp;
+    if(data.json_path) _brMtbfCtx.json_path = data.json_path;
+    brMtbfUpdateJsonPath(_brMtbfCtx);
+    brMtbfRenderExistingRows(_brMtbfCtx);
+    brMtbfResetEditState();
+    if(status) status.innerHTML = '<span style="color:#047857;font-weight:900"><i class="fas fa-check-circle" style="margin-right:4px"></i>' + esc(data.message || ('MTBF row ' + (data.action || 'saved') + '.')) + '</span>';
+    brFlashButton(btn, true, data.action === 'updated' ? 'Updated' : 'Saved');
+  }catch(e){
+    if(status) status.textContent = 'Error: ' + (e.message || e);
+    brFlashButton(btn, false, 'Failed');
+  }finally{
+    if(btn){ btn.disabled = false; if(old) btn.innerHTML = old; }
+  }
 }
 
 function brMtbfUpdateSubject(){
@@ -3933,9 +4122,11 @@ async function brMtbfGenerateMail(btn){
   const bu = _brMtbfCtx.bu || '';
   const schema = _brMtbfCtx.schema || '';
   const view = (g('brMtbfView') && g('brMtbfView').value) || _brMtbfCtx.view || '';
-  const sp = _brMtbfCtx.sp || '';
+  const sp = brMtbfCurrentSp();
   const recipient = String((g('brMtbfRecipient') && g('brMtbfRecipient').value) || 'pdtbuddy.mtbf@qualcomm.com').trim();
   const srcMode = (document.querySelector('input[name="brMtbfSource"]:checked') || {}).value || 'manual';
+  const report = brMtbfCurrentReportPayload();
+  const columns = (_brMtbfCtx && _brMtbfCtx.columns) || [];
 
   const old = btn && btn.innerHTML;
   if(btn){ btn.disabled = true; btn.innerHTML = '<i class="fas fa-circle-notch spin"></i> Generating...'; }
@@ -3943,13 +4134,17 @@ async function brMtbfGenerateMail(btn){
     const resp = await fetch('/api/mtbf_editor/compose_mail', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({target, bu, schema, view, sp, row, source_mode: srcMode, recipient})
+      body: JSON.stringify({target, bu, schema, view, sp, row, source_mode: srcMode, recipient, report, columns})
     });
     const data = await resp.json();
     if(!data.ok) throw new Error(data.error || 'Failed to compose mail');
     // Show mail body
+    _brMtbfLastMailHtml = data.html_body || '';
     const bodyEl = g('brMtbfMailBody');
-    if(bodyEl) bodyEl.value = data.body || '';
+    if(bodyEl){
+      bodyEl.value = data.body || '';
+      bodyEl.setAttribute('data-html-body', _brMtbfLastMailHtml || '');
+    }
     const subEl = g('brMtbfSubject');
     if(subEl) subEl.value = data.subject || '';
     const wrap = g('brMtbfMailBodyWrap');
@@ -3963,7 +4158,7 @@ async function brMtbfGenerateMail(btn){
       outlookLink.style.display = 'inline-flex';
     }
     const status = g('brMtbfMailStatus');
-    if(status) status.textContent = 'Mail body generated. Copy or open Outlook.';
+    if(status) status.textContent = 'Mail body generated. Copy Mail Body for rich Outlook tables, then open Outlook and paste.';
   }catch(e){
     const status = g('brMtbfMailStatus');
     if(status) status.textContent = 'Error: ' + (e.message || e);
@@ -3972,21 +4167,69 @@ async function brMtbfGenerateMail(btn){
   }
 }
 
+function brMtbfLegacyCopyHtml(html, plain, btn){
+  try{
+    const holder = document.createElement('div');
+    holder.contentEditable = 'true';
+    holder.style.cssText = 'position:fixed;left:-9999px;top:0;background:#fff;color:#000;z-index:-1;';
+    holder.innerHTML = html || ('<pre style="white-space:pre-wrap;font-family:Consolas,monospace">' + esc(plain || '') + '</pre>');
+    document.body.appendChild(holder);
+    const range = document.createRange();
+    range.selectNodeContents(holder);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    const ok = document.execCommand('copy');
+    sel.removeAllRanges();
+    holder.remove();
+    brFlashButton(btn, !!ok, ok ? 'Copied' : 'Failed');
+    return !!ok;
+  }catch(e){
+    return false;
+  }
+}
+
 function brMtbfCopyBody(btn){
   const bodyEl = g('brMtbfMailBody');
-  if(!bodyEl || !bodyEl.value){ alert('Generate mail first.'); return; }
+  const plain = bodyEl ? String(bodyEl.value || '') : '';
+  const html = (bodyEl && bodyEl.getAttribute('data-html-body')) || _brMtbfLastMailHtml || '';
+  if(!plain && !html){ alert('Generate mail first.'); return; }
+  function fallback(){
+    if(html && brMtbfLegacyCopyHtml(html, plain, btn)) return;
+    try{
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(plain).then(function(){ brFlashButton(btn, true, 'Copied'); }).catch(function(){
+          if(bodyEl){ bodyEl.select(); document.execCommand('copy'); brFlashButton(btn, true, 'Copied'); }
+          else brFlashButton(btn, false, 'Failed');
+        });
+      } else if(bodyEl){
+        bodyEl.select();
+        document.execCommand('copy');
+        brFlashButton(btn, true, 'Copied');
+      } else {
+        brFlashButton(btn, false, 'Failed');
+      }
+    }catch(e){
+      if(bodyEl){
+        bodyEl.select();
+        document.execCommand('copy');
+        brFlashButton(btn, true, 'Copied');
+      } else {
+        brFlashButton(btn, false, 'Failed');
+      }
+    }
+  }
   try{
-    navigator.clipboard.writeText(bodyEl.value).then(function(){
-      brFlashButton(btn, true, 'Copied');
-    }).catch(function(){
-      bodyEl.select();
-      document.execCommand('copy');
-      brFlashButton(btn, true, 'Copied');
-    });
+    if(html && typeof ClipboardItem !== 'undefined' && navigator.clipboard && navigator.clipboard.write){
+      navigator.clipboard.write([new ClipboardItem({
+        'text/html': new Blob([html], {type:'text/html'}),
+        'text/plain': new Blob([plain], {type:'text/plain'})
+      })]).then(function(){ brFlashButton(btn, true, 'Copied'); }).catch(fallback);
+    } else {
+      fallback();
+    }
   }catch(e){
-    bodyEl.select();
-    document.execCommand('copy');
-    brFlashButton(btn, true, 'Copied');
+    fallback();
   }
 }
 function brByBuildValue(){return String((g('brByBuildInput')&&g('brByBuildInput').value)||'').trim();}

@@ -55,7 +55,8 @@ ADMIN_USERS = {
     "vmadasu",
     "rkatkoor",
     "mittaln",
-    "sonis"
+    "sonis",
+    "hnakkala"
 }
 
 # ---------------------------------------------------------------------------

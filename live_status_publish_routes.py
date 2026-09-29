@@ -1454,12 +1454,22 @@ def api_mtbf_editor_context():
         # ── Auto Gen5 / Gen4.5 ──────────────────────────────────────────────
         if bu == 'AUTO':
             try:
-                from live_status_view_api import _load_adas_mtbf, _get_target_domains
+                from live_status_view_api import _load_adas_mtbf, _get_target_domains, _adas_mtbf_json_path
                 domains = _get_target_domains(target)
                 if not view:
                     view = domains[0] if domains else 'ADAS'
+                sp_options = _mtbf_editor_auto_sp_options(target, view)
+                if not sp:
+                    active_sp = ''
+                    try:
+                        active_sp = next((str(item.get('cpl') or '').strip() for item in (_get_sp_siblings(target) or []) if item.get('active')), '')
+                    except Exception:
+                        active_sp = ''
+                    known_sp_values = {str(item.get('value') or '').strip() for item in sp_options}
+                    sp = active_sp if active_sp and (not known_sp_values or active_sp in known_sp_values) else (sp_options[0].get('value') if sp_options else '')
                 data = _load_adas_mtbf(target, view, sp)
                 rows = data.get('rows') or []
+                json_path = _adas_mtbf_json_path(target, view, sp)
                 columns = [
                     {'key': 'date',            'label': 'Date',            'type': 'date',   'required': True},
                     {'key': 'meta_id',         'label': 'Meta ID',         'type': 'text',   'required': True},
@@ -1475,7 +1485,8 @@ def api_mtbf_editor_context():
                 ]
                 return jsonify({
                     'ok': True, 'target': target, 'bu': bu,
-                    'schema': 'auto_gen5', 'view': view, 'domains': domains, 'sp': sp,
+                    'schema': 'auto_gen5', 'view': data.get('view') or view, 'domains': domains, 'sp': sp,
+                    'sp_options': sp_options, 'json_path': json_path,
                     'columns': columns, 'rows': rows[-30:], 'total_rows': len(rows),
                     'updated_at': data.get('updated_at') or '',
                 })
@@ -1565,71 +1576,468 @@ def api_mtbf_editor_context():
         return jsonify({'ok': False, 'error': str(exc)}), 500
 
 
+def _mtbf_editor_blank(value):
+    return value is None or str(value).strip() == ''
+
+
+def _mtbf_editor_first(row, aliases, default=''):
+    if not isinstance(row, dict):
+        return default
+    for key in aliases:
+        if key in row and not _mtbf_editor_blank(row.get(key)):
+            return row.get(key)
+    norm = lambda s: re.sub(r'[^a-z0-9]+', '', str(s or '').lower())
+    lookup = {norm(k): v for k, v in row.items()}
+    for key in aliases:
+        nk = norm(key)
+        if nk in lookup and not _mtbf_editor_blank(lookup[nk]):
+            return lookup[nk]
+    return default
+
+
+def _mtbf_editor_num(value, default=0.0):
+    try:
+        text = str(value if value is not None else '').replace(',', '').strip()
+        if not text or text.lower() in {'na', 'n/a', 'none', 'null', '-', '--'}:
+            return default
+        match = re.search(r'-?\d+(?:\.\d+)?', text)
+        return float(match.group(0)) if match else default
+    except Exception:
+        return default
+
+
+def _mtbf_editor_apply_formulas(row):
+    row = dict(row or {})
+    hours = _mtbf_editor_num(_mtbf_editor_first(row, ['hours', 'total_hours', 'runtime_hours']))
+    system = int(_mtbf_editor_num(_mtbf_editor_first(row, ['system_crashes', 'system crashes'])))
+    ssr = int(_mtbf_editor_num(_mtbf_editor_first(row, ['ssr_crashes', 'ssr crashes'])))
+    process = int(_mtbf_editor_num(_mtbf_editor_first(row, ['process_crashes', 'process crashes'])))
+    total = int(_mtbf_editor_num(_mtbf_editor_first(row, ['total_crashes', 'crashes', 'crash_count'])))
+    overall = int(_mtbf_editor_num(_mtbf_editor_first(row, ['overall_crashes', 'all_crashes'])))
+    qc = int(_mtbf_editor_num(_mtbf_editor_first(row, ['qc_crashes', 'qc crash count'])))
+    if system or ssr:
+        total = system + ssr
+        row['total_crashes'] = total
+    if system or ssr or process:
+        overall = system + ssr + process
+        row['overall_crashes'] = overall
+    if hours and total and _mtbf_editor_blank(row.get('mtbf')):
+        row['mtbf'] = round(hours / total, 2)
+    if hours and overall and _mtbf_editor_blank(row.get('overallMTBF')):
+        row['overallMTBF'] = round(hours / overall, 2)
+    if hours and qc and _mtbf_editor_blank(row.get('qc_mtbf')):
+        row['qc_mtbf'] = round(hours / qc, 2)
+    if not row.get('build') and row.get('meta_id'):
+        row['build'] = row.get('meta_id')
+    if not row.get('meta_id') and row.get('build'):
+        row['meta_id'] = row.get('build')
+    return row
+
+
+def _mtbf_editor_row_key(row):
+    if not isinstance(row, dict):
+        return None
+    rid = str(row.get('id') or '').strip()
+    if rid:
+        return ('id', rid)
+    build = str(_mtbf_editor_first(row, ['meta_id', 'build', 'build_id', 'metabuild', 'Meta ID', 'Build']) or '').strip().lower()
+    date_val = str(_mtbf_editor_first(row, ['date', 'week', 'jira_date', 'run_date']) or '').strip()[:10]
+    if build and date_val:
+        return ('build_date', build, date_val)
+    if build:
+        return ('build', build)
+    return None
+
+
+def _mtbf_editor_upsert_rows(rows, new_row, original_row=None, edit_index=None):
+    rows = [dict(r) for r in (rows or []) if isinstance(r, dict)]
+    original_key = _mtbf_editor_row_key(original_row)
+    new_key = _mtbf_editor_row_key(new_row)
+    for idx, existing in enumerate(rows):
+        old_key = _mtbf_editor_row_key(existing)
+        if old_key and (old_key == original_key or old_key == new_key):
+            rows[idx] = dict(existing, **new_row)
+            return rows, 'updated', idx
+    if edit_index is not None and not (original_key or new_key):
+        try:
+            idx = int(edit_index)
+            if 0 <= idx < len(rows):
+                rows[idx] = dict(rows[idx], **new_row)
+                return rows, 'updated', idx
+        except Exception:
+            pass
+    rows.append(new_row)
+    return rows, 'appended', len(rows) - 1
+
+
+def _mtbf_editor_sp_label(sp_key):
+    text = str(sp_key or '').strip()
+    if text.isdigit() and len(text) > 1:
+        return '.'.join(text)
+    return text
+
+
+def _mtbf_editor_auto_sp_options(target, view):
+    try:
+        import os as _os
+        import re as _re
+        from live_status_view_api import _adas_mtbf_folder, _canonical_mtbf_domain_name
+        folder = _adas_mtbf_folder(target)
+        view_clean = _canonical_mtbf_domain_name(view or 'ADAS', target)
+        view_slug = str(view_clean or '').lower()
+        out, seen = [], set()
+        if _os.path.isdir(folder):
+            pat = _re.compile(r'^mtbf_' + _re.escape(view_slug) + r'_(\d{2,8})\.json$', _re.I)
+            for fname in _os.listdir(folder):
+                match = pat.match(fname)
+                if not match:
+                    continue
+                key = match.group(1)
+                if key in seen:
+                    continue
+                seen.add(key)
+                label = _mtbf_editor_sp_label(key)
+                out.append({'value': label, 'key': key, 'label': f'{label} ({fname})', 'filename': fname})
+        return sorted(out, key=lambda item: item.get('key') or item.get('value') or '')
+    except Exception:
+        return []
+
+
+@live_status_publish_bp.route('/api/mtbf_editor/save', methods=['POST'])
+@login_required
+def api_mtbf_editor_save():
+    """Save the MTBF editor row into the selected target/view/SP JSON file."""
+    if not _target_group_access():
+        return jsonify({'ok': False, 'error': 'Access denied'}), 403
+
+    payload = request.get_json(force=True, silent=True) or {}
+    target = str(payload.get('target') or '').strip().lower()
+    row = payload.get('row') or {}
+    if not target:
+        return jsonify({'ok': False, 'error': 'target is required'}), 400
+    if not isinstance(row, dict) or not row:
+        return jsonify({'ok': False, 'error': 'row data is required'}), 400
+
+    bu = str(payload.get('bu') or get_bu_for_target(target) or '').strip().upper()
+    schema = str(payload.get('schema') or '').strip().lower()
+    view = str(payload.get('view') or payload.get('domain') or '').strip()
+    sp = str(payload.get('sp') or '').strip()
+    source_mode = str(payload.get('source_mode') or 'manual').strip()
+    original_row = row.get('_edit_original') if isinstance(row.get('_edit_original'), dict) else None
+    edit_index = row.get('_edit_index')
+    clean_row = {k: v for k, v in row.items() if not str(k).startswith('_')}
+    clean_row = _mtbf_editor_apply_formulas(clean_row)
+    if source_mode:
+        clean_row.setdefault('source_mode', source_mode)
+    clean_row['updated_by'] = str(getattr(current_user, 'id', '') or '').strip()
+    from datetime import datetime as _dt
+    clean_row['updated_at'] = _dt.utcnow().isoformat() + 'Z'
+
+    try:
+        if bu == 'AUTO' or 'auto' in schema:
+            from live_status_view_api import (
+                _load_adas_mtbf,
+                _save_adas_mtbf,
+                _adas_row_from_payload,
+                _get_target_domains,
+                _adas_mtbf_json_path,
+            )
+            domains = _get_target_domains(target)
+            if not view:
+                view = domains[0] if domains else 'ADAS'
+            data = _load_adas_mtbf(target, view, sp) or {}
+            rows = data.get('rows') if isinstance(data.get('rows'), list) else []
+            normalised = _adas_row_from_payload(clean_row, rows)
+            rows, action, row_index = _mtbf_editor_upsert_rows(rows, normalised, original_row=original_row, edit_index=edit_index)
+            data['rows'] = rows
+            saved = _save_adas_mtbf(target, view, data, sp)
+            json_path = _adas_mtbf_json_path(target, view, sp)
+            out_rows = saved.get('rows') or []
+            return jsonify({
+                'ok': True,
+                'action': action,
+                'row_index': row_index,
+                'target': target,
+                'bu': bu,
+                'schema': 'auto_gen5',
+                'view': saved.get('view') or view,
+                'sp': sp,
+                'json_path': json_path,
+                'rows': out_rows[-30:],
+                'total_rows': len(out_rows),
+                'updated_at': saved.get('updated_at') or '',
+                'message': f"MTBF row {action} in {saved.get('view') or view}{(' / SP ' + sp) if sp else ''} JSON. Live View and internal MTBF pages now read this JSON.",
+            })
+
+        if bu == 'WBC' or schema == 'wbc_mtbf':
+            import os as _os
+            from wbc_live_view_stats_routes import (
+                _mtbf_json_path as _wbc_mtbf_json_path,
+                _read_json as _wbc_read_json,
+                _write_json as _wbc_write_json,
+                _sync_to_dashboard_mtbf_json,
+            )
+            json_path = _wbc_mtbf_json_path(target)
+            data = _wbc_read_json(json_path, {}) if _os.path.exists(json_path) else {}
+            rows = data.get('chart_rows') or data.get('rows') or []
+            rows, action, row_index = _mtbf_editor_upsert_rows(rows, clean_row, original_row=original_row, edit_index=edit_index)
+            data.update({'target': target, 'view': 'MTBF', 'chart_rows': rows, 'rows': rows, 'updated_at': clean_row['updated_at'], 'edited_json': True, 'saved_json': json_path})
+            _wbc_write_json(json_path, data)
+            _sync_to_dashboard_mtbf_json(target, data, target={'key': target, 'name': target, 'label': get_display_name_for_target(target) or target})
+            return jsonify({
+                'ok': True,
+                'action': action,
+                'row_index': row_index,
+                'target': target,
+                'bu': bu,
+                'schema': 'wbc_mtbf',
+                'view': 'MTBF',
+                'sp': '',
+                'json_path': json_path,
+                'rows': rows[-30:],
+                'total_rows': len(rows),
+                'updated_at': data.get('updated_at') or '',
+                'message': f'MTBF row {action} in WBC JSON and synced to dashboard MTBF JSON.',
+            })
+
+        from dashboard_routes import _load_mtbf_json_payload, _save_mtbf_json_payload, _mtbf_json_path
+        is_compute = bu == 'COMPUTE' or 'compute' in schema
+        if not view:
+            view = 'Glymur' if is_compute else 'MTBF'
+        data = _load_mtbf_json_payload(target, view) or {}
+        rows = data.get('rows') if isinstance(data.get('rows'), list) else []
+        rows, action, row_index = _mtbf_editor_upsert_rows(rows, clean_row, original_row=original_row, edit_index=edit_index)
+        data['rows'] = rows
+        _save_mtbf_json_payload(target, view, data)
+        json_path = _mtbf_json_path(target, view)
+        return jsonify({
+            'ok': True,
+            'action': action,
+            'row_index': row_index,
+            'target': target,
+            'bu': bu,
+            'schema': 'compute_dual_mtbf' if is_compute else 'simple_mtbf',
+            'view': view,
+            'sp': '',
+            'json_path': json_path,
+            'rows': rows[-30:],
+            'total_rows': len(rows),
+            'updated_at': data.get('updated_at') or clean_row['updated_at'],
+            'message': f'MTBF row {action} in {view} JSON. Live View and internal dashboard MTBF now read this JSON.',
+        })
+    except Exception as exc:
+        logger.exception('[MTBF EDITOR SAVE] %s', exc)
+        return jsonify({'ok': False, 'error': str(exc)}), 500
+
+
+def _mtbf_editor_html_escape(value):
+    import html as _html
+    return _html.escape(str(value if value is not None else ''))
+
+
+def _mtbf_editor_mail_table(title, columns, rows, limit=80):
+    rows = [r for r in (rows or []) if isinstance(r, dict)]
+    if not rows:
+        return ''
+    th = ''.join(
+        '<th style="background:#1f6f9f;color:#fff;border:1px solid #1f6f9f;padding:7px 9px;font-size:11px;text-align:left;white-space:nowrap;">'
+        + _mtbf_editor_html_escape(label) + '</th>'
+        for label, _aliases in columns
+    )
+    body = []
+    for idx, row in enumerate(rows[:limit], start=1):
+        cells = []
+        for label, aliases in columns:
+            value = idx if label in {'S.No.', '#'} else _mtbf_editor_first(row, aliases if isinstance(aliases, list) else [aliases])
+            cells.append('<td style="border:1px solid #dbe7f0;padding:7px 9px;font-size:11px;vertical-align:top;">' + _mtbf_editor_html_escape(value) + '</td>')
+        body.append('<tr>' + ''.join(cells) + '</tr>')
+    more = ''
+    if len(rows) > limit:
+        more = '<div style="font-size:11px;color:#64748b;margin:4px 0 10px 0;">Showing first ' + str(limit) + ' of ' + str(len(rows)) + ' rows.</div>'
+    return (
+        '<h3 style="font-family:Segoe UI,Arial,sans-serif;color:#1f6f9f;font-size:15px;margin:18px 0 8px 0;">'
+        + _mtbf_editor_html_escape(title) + '</h3>'
+        + more
+        + '<table cellspacing="0" cellpadding="0" style="border-collapse:collapse;width:100%;font-family:Segoe UI,Arial,sans-serif;margin:0 0 14px 0;">'
+        + '<thead><tr>' + th + '</tr></thead><tbody>' + ''.join(body) + '</tbody></table>'
+    )
+
+
+def _mtbf_editor_text_table(title, columns, rows, limit=80):
+    rows = [r for r in (rows or []) if isinstance(r, dict)]
+    if not rows:
+        return ''
+    lines = ['', title, '\t'.join(label for label, _aliases in columns)]
+    for idx, row in enumerate(rows[:limit], start=1):
+        vals = []
+        for label, aliases in columns:
+            value = idx if label in {'S.No.', '#'} else _mtbf_editor_first(row, aliases if isinstance(aliases, list) else [aliases])
+            vals.append(str(value if value is not None else '').replace('\t', ' ').replace('\n', ' '))
+        lines.append('\t'.join(vals))
+    if len(rows) > limit:
+        lines.append(f'... showing first {limit} of {len(rows)} rows')
+    return '\n'.join(lines)
+
+
+def _mtbf_editor_expand_mapped_rows(rows):
+    expanded = []
+    for row in [r for r in (rows or []) if isinstance(r, dict)]:
+        jiras = row.get('sourceJiras') or row.get('source_jiras') or row.get('jiras') or row.get('jira_display') or []
+        if isinstance(jiras, str):
+            jiras = [x.strip() for x in re.split(r'[,;\s]+', jiras) if x.strip()]
+        if isinstance(jiras, list) and jiras:
+            for item in jiras:
+                merged = dict(row)
+                if isinstance(item, dict):
+                    merged.update(item)
+                    merged.setdefault('jira_ticket', _mtbf_editor_first(item, ['key', 'jira', 'ticket', 'stability_ticket']))
+                else:
+                    merged['jira_ticket'] = str(item)
+                expanded.append(merged)
+        else:
+            expanded.append(row)
+    return expanded
+
+
 @live_status_publish_bp.route('/api/mtbf_editor/compose_mail', methods=['POST'])
 @login_required
 def api_mtbf_editor_compose_mail():
-    """Generate a structured MTBF update mail body.
-
-    POST body (JSON):
-      target      - target key
-      bu          - BU key
-      schema      - schema type
-      view        - view/domain/SP
-      sp          - SP key (optional)
-      row         - dict of MTBF row fields
-      source_mode - 'filter_table' or 'manual'
-      recipient   - optional email recipient
-    """
-    payload     = request.get_json(force=True, silent=True) or {}
-    target      = str(payload.get('target') or '').strip()
-    bu          = str(payload.get('bu') or '').strip().upper()
-    schema      = str(payload.get('schema') or '').strip()
-    view        = str(payload.get('view') or '').strip()
-    sp          = str(payload.get('sp') or '').strip()
-    row         = payload.get('row') or {}
+    """Generate a rich Outlook-friendly MTBF update mail body."""
+    payload = request.get_json(force=True, silent=True) or {}
+    target = str(payload.get('target') or '').strip()
+    bu = str(payload.get('bu') or '').strip().upper()
+    schema = str(payload.get('schema') or '').strip()
+    view = str(payload.get('view') or '').strip()
+    sp = str(payload.get('sp') or '').strip()
+    row = payload.get('row') or {}
+    report = payload.get('report') if isinstance(payload.get('report'), dict) else {}
+    columns = payload.get('columns') if isinstance(payload.get('columns'), list) else []
     source_mode = str(payload.get('source_mode') or 'manual').strip()
-    recipient   = str(payload.get('recipient') or 'pdtbuddy.mtbf@qualcomm.com').strip()
+    recipient = str(payload.get('recipient') or 'pdtbuddy.mtbf@qualcomm.com').strip()
 
     if not target:
         return jsonify({'ok': False, 'error': 'target is required'}), 400
 
     uid = str(getattr(current_user, 'id', '') or '').strip()
-
-    lines = ['PDTBUDDY_MTBF_UPDATE_V1']
-    lines.append(f'target_key: {target}')
-    lines.append(f'bu: {bu}')
-    lines.append(f'schema: {schema}')
-    lines.append(f'view: {view}')
-    if sp:
-        lines.append(f'sp: {sp}')
-    lines.append(f'source_mode: {source_mode}')
-    lines.append(f'requested_by: {uid}')
-    lines.append('')
-    for k, v in (row or {}).items():
-        if v not in (None, ''):
-            lines.append(f'{k}: {v}')
-    lines.append('')
-    lines.append('END_PDTBUDDY_MTBF_UPDATE_V1')
-
-    body = '\n'.join(lines)
-
     try:
         display_name = get_display_name_for_target(target) or target
     except Exception:
         display_name = target
 
-    subject = f'[PDTBuddy] MTBF Update Request - {display_name} / {view}'
+    mtbf_cols = []
+    for col in columns:
+        if isinstance(col, dict):
+            key = str(col.get('key') or '').strip()
+            label = str(col.get('label') or key).strip()
+            if key:
+                mtbf_cols.append((label, [key, label]))
+    if not mtbf_cols:
+        mtbf_cols = [
+            ('Date', ['date', 'week']),
+            ('Build / Meta', ['meta_id', 'build', 'build_id']),
+            ('Hours', ['hours', 'total_hours']),
+            ('System Crashes', ['system_crashes']),
+            ('SSR Crashes', ['ssr_crashes']),
+            ('Process Crashes', ['process_crashes']),
+            ('Total Crashes', ['total_crashes', 'crashes']),
+            ('MTBF', ['mtbf', 'product_mtbf']),
+            ('Overall MTBF', ['overallMTBF', 'overall_mtbf']),
+            ('Comments', ['comments', 'comment']),
+        ]
 
-    import urllib.parse as _up
-    mailto = (
-        f'mailto:{_up.quote(recipient)}?subject={_up.quote(subject)}'
-        f'&body={_up.quote(body)}'
+    cr_cols = [
+        ('S.No.', ['_sno']),
+        ('CR-ID', ['cr', 'mapped_cr', 'cr_id', 'cr_number']),
+        ('Occurrence', ['count', 'occurrence', 'cr_occurrence', 'jira_count']),
+        ('CR Title', ['title', 'cr_title', 'summary']),
+        ('CR Area', ['area', 'cr_area']),
+        ('CR SubSystem', ['subsystem', 'cr_subsystem', 'sub_system']),
+        ('CR Functionality', ['functionality', 'cr_functionality']),
+        ('CR Date', ['cr_date', 'date', 'jira_date', 'first_jira_date']),
+        ('CR Status', ['status', 'cr_status']),
+        ('CR Age', ['age', 'cr_age']),
+    ]
+    mapped_cols = [
+        ('S.No.', ['_sno']),
+        ('CR', ['cr', 'mapped_cr', 'cr_id', 'cr_number']),
+        ('Occurrence', ['count', 'occurrence', 'cr_occurrence', 'jira_count']),
+        ('JIRA', ['jira_ticket', 'key', 'jira', 'stability_ticket', 'ticket']),
+        ('JIRA Title', ['jira_title', 'title', 'summary']),
+        ('Jira Date', ['jira_date', 'date', 'created']),
+    ]
+    open_cols = [
+        ('S.No.', ['_sno']),
+        ('JIRA-Ticket', ['jira_ticket', 'key', 'jira', 'stability_ticket', 'ticket']),
+        ('Occurrence', ['occurrence', 'count', 'cr_occurrence']),
+        ('Jira Title', ['jira_title', 'title', 'summary']),
+        ('Jira Date', ['jira_date', 'date', 'created']),
+        ('Status', ['status', 'jira_status']),
+    ]
+
+    cr_rows = report.get('cr_rows') or report.get('crRows') or []
+    mapped_rows = _mtbf_editor_expand_mapped_rows(report.get('mapped_rows') or report.get('mappedRows') or [])
+    open_rows = report.get('open_rows') or report.get('openRows') or []
+    all_jira_rows = report.get('all_jira_rows') or report.get('allJiraRows') or []
+    if not open_rows and all_jira_rows:
+        open_rows = all_jira_rows
+
+    header_html = (
+        '<div style="font-family:Segoe UI,Arial,sans-serif;color:#0f172a;font-size:12px;line-height:1.45;">'
+        '<p>Hi All,</p>'
+        '<p>Please find the MTBF update and associated CR/JIRA details below.</p>'
+        '<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:10px 12px;margin:12px 0;">'
+        '<b>Target:</b> ' + _mtbf_editor_html_escape(display_name) + ' (' + _mtbf_editor_html_escape(target) + ')'
+        + '<br><b>BU:</b> ' + _mtbf_editor_html_escape(bu or get_bu_for_target(target) or '')
+        + '<br><b>View / Domain:</b> ' + _mtbf_editor_html_escape(view or 'MTBF')
+        + (('<br><b>SP / JSON:</b> ' + _mtbf_editor_html_escape(sp)) if sp else '')
+        + '<br><b>Source:</b> ' + _mtbf_editor_html_escape(source_mode)
+        + '<br><b>Requested By:</b> ' + _mtbf_editor_html_escape(uid)
+        + '</div>'
     )
+    footer_html = '<p style="margin-top:16px;">Regards,<br>' + _mtbf_editor_html_escape(uid or 'PDTBuddy') + '</p></div>'
+    html_body = (
+        header_html
+        + _mtbf_editor_mail_table('MTBF Updated Row', mtbf_cols, [row], limit=1)
+        + _mtbf_editor_mail_table('CR Details', cr_cols, cr_rows, limit=80)
+        + _mtbf_editor_mail_table('JIRA Details (Mapped)', mapped_cols, mapped_rows, limit=120)
+        + _mtbf_editor_mail_table('Open JIRA Details', open_cols, open_rows, limit=120)
+        + footer_html
+    )
+
+    text_parts = [
+        'Hi All,',
+        '',
+        'Please find the MTBF update and associated CR/JIRA details below.',
+        '',
+        f'Target: {display_name} ({target})',
+        f'BU: {bu or get_bu_for_target(target) or ""}',
+        f'View / Domain: {view or "MTBF"}',
+    ]
+    if sp:
+        text_parts.append(f'SP / JSON: {sp}')
+    text_parts.extend([f'Source: {source_mode}', f'Requested By: {uid}'])
+    text_parts.append(_mtbf_editor_text_table('MTBF Updated Row', mtbf_cols, [row], limit=1))
+    text_parts.append(_mtbf_editor_text_table('CR Details', cr_cols, cr_rows, limit=80))
+    text_parts.append(_mtbf_editor_text_table('JIRA Details (Mapped)', mapped_cols, mapped_rows, limit=120))
+    text_parts.append(_mtbf_editor_text_table('Open JIRA Details', open_cols, open_rows, limit=120))
+    text_parts.extend(['', 'Regards,', uid or 'PDTBuddy'])
+    body = '\n'.join([p for p in text_parts if p is not None])
+
+    subject = f'[PDTBuddy] MTBF Update Request - {display_name} / {view or "MTBF"}'
+    import urllib.parse as _up
+    short_body = (
+        'Hi All,\r\n\r\n'
+        'Please press Ctrl+V here to paste the full PDTBuddy MTBF rich report tables copied from PDT Buddy.\r\n\r\n'
+        'Regards'
+    )
+    mailto = f'mailto:{_up.quote(recipient)}?subject={_up.quote(subject)}&body={_up.quote(short_body)}'
 
     return jsonify({
         'ok': True,
         'subject': subject,
         'body': body,
+        'plain_body': body,
+        'html_body': html_body,
         'recipient': recipient,
         'mailto': mailto,
     })
