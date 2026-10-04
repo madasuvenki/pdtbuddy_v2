@@ -197,7 +197,7 @@
 {% block content %}
 <div class="bu-shell-page">
   <div class="bu-simple-page bu-simple-page--embedded">
-    <div class="bu-simple-shell bu-simple-shell--embedded " id="buShell">
+    <div class="bu-simple-shell bu-simple-shell--embedded " id="buShell" data-cr-overview-url="{{ url_for('cr_overview_embed') }}">
       <aside class="bu-sidebar bu-sidebar--embedded" id="buSidebar" style="position:relative;">
         <button type="button" class="bu-sidebar-toggle-pill" id="buSidebarToggle" aria-label="Collapse panel" title="Collapse panel">
           <i class="fas fa-chevron-left" id="buToggleIcon"></i>
@@ -468,6 +468,7 @@
   const sidebar = document.getElementById('buSidebar');
   const toggle  = document.getElementById('buSidebarToggle');
   const icon    = document.getElementById('buToggleIcon');
+  const crOverviewUrl = (shell && shell.dataset && shell.dataset.crOverviewUrl) ? shell.dataset.crOverviewUrl : '/cr_overview/embed';
   if (toggle && shell && sidebar) {
     // Restore saved state — default is EXPANDED
     const savedCollapsed = localStorage.getItem('buSidebarCollapsed') === 'true';
@@ -525,7 +526,7 @@
     } else {
       buSetFrameStatus('', false);
     }
-    try { window.history.replaceState({buildReport:true}, '', {{ url_for('cr_overview_embed') | tojson }} + '?frame=build-report'); } catch (err) {}
+    try { window.history.replaceState({buildReport:true}, '', crOverviewUrl + '?frame=build-report'); } catch (err) {}
     return true;
   }
 
@@ -557,7 +558,7 @@
       if (!url) return;
       const isOverall = btn.classList.contains('bu-nav-btn-overall');
       if (isOverall) {
-        window.top.location.href = {{ url_for('cr_overview_embed') | tojson }};
+        window.top.location.href = crOverviewUrl;
         return;
       }
       window.top.location.href = url;

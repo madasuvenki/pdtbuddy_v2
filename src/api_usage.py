@@ -26,10 +26,12 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 PUBLIC_API_PREFIXES = (
     "/public/",
-    "/api/public/",
 )
 
 PRIVATE_API_PREFIXES = (
+    # Historical URL name says "public", but Orbit APIs require session/token auth
+    # and should follow private API caller tracking/block controls.
+    "/api/public/orbit/",
     "/api/build_report/",
     "/api/jiraquery/",
     "/api/token/verify",
@@ -149,12 +151,14 @@ def _detect_token_name(provided_token: str) -> str:
 
 def _classify_api_type(path: str) -> str:
     """Classify the API call as public, private, or internal."""
-    for prefix in PUBLIC_API_PREFIXES:
-        if path.startswith(prefix):
-            return "public"
+    # Check private first so legacy /api/public/orbit/* auth-protected APIs
+    # are governed by private API caller controls.
     for prefix in PRIVATE_API_PREFIXES:
         if path.startswith(prefix):
             return "private"
+    for prefix in PUBLIC_API_PREFIXES:
+        if path.startswith(prefix):
+            return "public"
     return "internal"
 
 
@@ -233,6 +237,10 @@ def ensure_api_usage_table(cursor) -> None:
     for _col, _def in [
         ("friendly_hostname", "VARCHAR(255) NULL"),
         ("friendly_ip_label", "VARCHAR(255) NULL"),
+        ("is_blocked", "TINYINT(1) NOT NULL DEFAULT 0"),
+        ("blocked_by", "VARCHAR(128) NULL"),
+        ("blocked_at", "DATETIME NULL"),
+        ("block_reason", "TEXT NULL"),
     ]:
         try:
             cursor.execute(
@@ -275,7 +283,8 @@ def _load_alias_map() -> dict:
         ensure_api_usage_table(cur)
         cur.execute(
             "SELECT match_type, match_value, display_name, owner_team, "
-            "friendly_hostname, friendly_ip_label, notes "
+            "friendly_hostname, friendly_ip_label, notes, "
+            "is_blocked, blocked_by, blocked_at, block_reason "
             "FROM pdt_stats_dashboard.api_caller_alias WHERE enabled=1"
         )
         rows = cur.fetchall() or []
@@ -290,6 +299,10 @@ def _load_alias_map() -> dict:
                 "friendly_hostname": str(row.get("friendly_hostname") or ""),
                 "friendly_ip_label": str(row.get("friendly_ip_label") or ""),
                 "notes":             str(row.get("notes") or ""),
+                "is_blocked":        int(row.get("is_blocked") or 0),
+                "blocked_by":        str(row.get("blocked_by") or ""),
+                "blocked_at":        str(row.get("blocked_at") or ""),
+                "block_reason":      str(row.get("block_reason") or ""),
             }
         _ALIAS_CACHE = mapping
         _ALIAS_CACHE_TS = now
@@ -309,10 +322,12 @@ def _resolve_alias_full(
     """Resolve full alias dict for a caller.
 
     Returns a dict with keys: display_name, owner_team, friendly_hostname,
-    friendly_ip_label, notes.  All values are empty strings when no alias found.
+    friendly_ip_label, notes, and block metadata.  All text values are empty
+    strings when no alias found.
     """
     empty = {"display_name": "", "owner_team": "", "friendly_hostname": "",
-             "friendly_ip_label": "", "notes": ""}
+             "friendly_ip_label": "", "notes": "", "is_blocked": 0,
+             "blocked_by": "", "blocked_at": "", "block_reason": ""}
     try:
         aliases = _load_alias_map()
         checks = [
@@ -344,6 +359,43 @@ def _resolve_alias(
 ) -> str:
     """Resolve display_name only (backward-compatible wrapper)."""
     return _resolve_alias_full(fingerprint, source_ip, reverse_dns, origin, referer_host, user_agent).get("display_name", "")
+
+
+def is_private_api_path(path: str) -> bool:
+    """Return True for tracked private API paths."""
+    path = str(path or "")
+    return any(path.startswith(prefix) for prefix in PRIVATE_API_PREFIXES)
+
+
+def caller_block_status(
+    source_ip: str = "",
+    user_agent: str = "",
+    origin: str = "",
+    referer: str = "",
+) -> dict:
+    """Return block status for the passive caller identity.
+
+    Matching uses the same priority as alias resolution: fingerprint, origin,
+    referer_host, hostname, IP, and User-Agent sample. If any matching alias is
+    marked blocked, private API calls from that tool/caller are rejected.
+    """
+    try:
+        referer_host = _extract_referer_host(referer)
+        fp = _caller_fingerprint(source_ip, user_agent, origin, referer_host)
+        rdns = _reverse_dns(source_ip)
+        alias = _resolve_alias_full(fp, source_ip, rdns, origin, referer_host, user_agent)
+        blocked = int(alias.get("is_blocked") or 0) == 1
+        return {
+            "blocked": blocked,
+            "caller_fp": fp,
+            "display_name": alias.get("display_name") or "",
+            "blocked_by": alias.get("blocked_by") or "",
+            "blocked_at": alias.get("blocked_at") or "",
+            "block_reason": alias.get("block_reason") or "",
+        }
+    except Exception as exc:
+        logger.debug("[api_usage] caller_block_status failed: %s", exc)
+        return {"blocked": False, "caller_fp": "", "display_name": ""}
 
 
 # ---------------------------------------------------------------------------
@@ -769,6 +821,7 @@ def get_all_aliases() -> list:
         cur.execute("""
             SELECT id, match_type, match_value, display_name, owner_team,
                    friendly_hostname, friendly_ip_label, notes, enabled,
+                   is_blocked, blocked_by, blocked_at, block_reason,
                    created_at, updated_at
             FROM pdt_stats_dashboard.api_caller_alias
             ORDER BY updated_at DESC
@@ -783,6 +836,65 @@ def get_all_aliases() -> list:
     except Exception as exc:
         logger.error("[api_usage] get_all_aliases failed: %s", exc)
         return []
+
+
+def block_caller_alias(match_type: str, match_value: str, blocked: bool = True,
+                       actor: str = "", reason: str = "",
+                       display_name: str = "") -> bool:
+    """Block or unblock a caller alias.
+
+    If the alias does not exist yet, blocking creates a lightweight alias so an
+    already discovered tool can be revoked immediately from the admin UI.
+    """
+    global _ALIAS_CACHE_TS
+    try:
+        mt = str(match_type or "").strip()[:32]
+        mv = str(match_value or "").strip()[:512]
+        if not mt or not mv:
+            return False
+        from src.utils import get_mysql_connection_db
+        conn = get_mysql_connection_db()
+        if not conn:
+            return False
+        cur = conn.cursor()
+        ensure_api_usage_table(cur)
+        if blocked:
+            dn = str(display_name or f"Blocked {mt}: {mv}")[:255]
+            cur.execute("""
+                INSERT INTO pdt_stats_dashboard.api_caller_alias
+                    (match_type, match_value, display_name, enabled,
+                     is_blocked, blocked_by, blocked_at, block_reason)
+                VALUES (%s, %s, %s, 1, 1, %s, NOW(), %s)
+                ON DUPLICATE KEY UPDATE
+                    enabled=1,
+                    is_blocked=1,
+                    blocked_by=VALUES(blocked_by),
+                    blocked_at=NOW(),
+                    block_reason=VALUES(block_reason),
+                    updated_at=NOW()
+            """, (
+                mt, mv, dn,
+                str(actor or "")[:128] if actor else None,
+                str(reason or "")[:2000] if reason else None,
+            ))
+        else:
+            cur.execute("""
+                UPDATE pdt_stats_dashboard.api_caller_alias
+                SET is_blocked=0,
+                    blocked_by=NULL,
+                    blocked_at=NULL,
+                    block_reason=NULL,
+                    updated_at=NOW()
+                WHERE match_type=%s AND match_value=%s
+            """, (mt, mv))
+        conn.commit()
+        cur.close()
+        conn.close()
+        _ALIAS_CACHE_TS = 0.0
+        return True
+    except Exception as exc:
+        logger.error("[api_usage] block_caller_alias failed: %s", exc)
+        return False
 
 
 def delete_caller_alias(alias_id: int) -> bool:

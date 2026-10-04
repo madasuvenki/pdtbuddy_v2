@@ -38,6 +38,8 @@ def register_feature_blueprints(app: Flask) -> None:
     from excel_sync_routes import excel_sync_bp
     from orbit_public_mtbf_routes import public_mtbf_bp
     from src.uniq_qc_routes import uniq_qc_bp
+    from src.auto_top_crs_routes import auto_top_crs_bp
+    from src.top_crs_routes import top_crs_bp
 
     blueprints = (
         dashboard_bp,
@@ -62,9 +64,11 @@ def register_feature_blueprints(app: Flask) -> None:
         admin_milestone_bp,
         admin_paths_bp,
         cr_compare_bp,
-        pdt_dept_bp,
+                pdt_dept_bp,
         excel_sync_bp,
         uniq_qc_bp,
+        auto_top_crs_bp,
+        top_crs_bp,
     )
 
     for blueprint in blueprints:

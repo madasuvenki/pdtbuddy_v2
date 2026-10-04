@@ -6,7 +6,7 @@ import re
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
-from flask import Blueprint, jsonify, render_template, request, url_for
+from flask import Blueprint, jsonify, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 
 
@@ -506,7 +506,15 @@ def _read_sp_rows(entry: Dict[str, Any]) -> List[Dict[str, Any]]:
         with open(path, "r", encoding="utf-8") as fh:
             data = json.load(fh)
         rows = data.get("rows") if isinstance(data, dict) else data
-        return rows if isinstance(rows, list) else []
+        if not isinstance(rows, list):
+            return []
+        normalized_rows, changed = _normalize_hqx_crash_mtbf_rows(rows)
+        if changed and isinstance(data, dict):
+            try:
+                _write_sp_rows(entry, normalized_rows)
+            except Exception:
+                pass
+        return normalized_rows
     except Exception:
         return []
 
@@ -550,7 +558,7 @@ def append_sp_row(sp: str, row: Dict[str, Any]) -> Dict[str, Any]:
         return {"ok": False, "error": f"SP '{sp}' not found", "available_sps": index}
 
     rows = _read_sp_rows(entry)
-    clean_row = _normalize_crash_mtbf_row(
+    clean_row = _normalize_hqx_crash_mtbf_row(
         {k: v for k, v in (row or {}).items() if k not in _RESERVED_ROW_KEYS}
     )
 
@@ -567,7 +575,7 @@ def append_sp_row(sp: str, row: Dict[str, Any]) -> Dict[str, Any]:
     next_sno = (max(existing_sno) if existing_sno else len(rows)) + 1
     next_excel_row = (max(existing_excel) if existing_excel else next_sno) + 1
 
-    new_row = _normalize_crash_mtbf_row({"excel_row": next_excel_row, "sno": next_sno, **clean_row})
+    new_row = _normalize_hqx_crash_mtbf_row({"excel_row": next_excel_row, "sno": next_sno, **clean_row})
     rows.append(new_row)
     _write_sp_rows(entry, rows)
     return {
@@ -607,7 +615,7 @@ def replace_sp_rows(sp: str, rows_payload: List[Dict[str, Any]]) -> Dict[str, An
     for item in rows_payload:
         if not isinstance(item, dict):
             continue
-        clean_rows.append(_normalize_crash_mtbf_row(
+        clean_rows.append(_normalize_hqx_crash_mtbf_row(
             {k: v for k, v in item.items() if k not in _RESERVED_ROW_KEYS}
         ))
 
@@ -640,11 +648,11 @@ def edit_sp_row(sp: str, sno: Any, row: Dict[str, Any]) -> Dict[str, Any]:
     if idx is None:
         return {"ok": False, "error": f"Row with sno '{sno}' not found for SP '{sp}'."}
 
-    clean_row = _normalize_crash_mtbf_row(
+    clean_row = _normalize_hqx_crash_mtbf_row(
         {k: v for k, v in (row or {}).items() if k not in _RESERVED_ROW_KEYS}
     )
     preserved = {"excel_row": rows[idx].get("excel_row"), "sno": rows[idx].get("sno")}
-    rows[idx] = _normalize_crash_mtbf_row({**preserved, **clean_row})
+    rows[idx] = _normalize_hqx_crash_mtbf_row({**preserved, **clean_row})
     _write_sp_rows(entry, rows)
     return {
         "ok": True,
@@ -700,6 +708,28 @@ _CRASH_KEYS = ["crashes", "Crashes", "CRASHES", "total_crashes", "TOTAL_CRASHES"
 _HOUR_KEYS = ["hours", "Hours", "HOURS", "total_hours"]
 _OVERALL_MTBF_KEYS = ["mtbf", "MTBF", "total_mtbf", "TOTAL_MTBF", "overall_mtbf", "OVERALL_MTBF"]
 _PUBLIC_OVERALL_MTBF_KEYS = ["overallMTBF", "overallmtbf", "overall_mtbf", "OVERALL_MTBF"]
+_HQX_SYSTEM_CRASH_KEYS = _SYSTEM_CRASH_KEYS + [
+    "System Crash", "System crash", "system crash", "System Crashes", "system crashes",
+]
+_HQX_PROCESS_CRASH_KEYS = _PROCESS_CRASH_KEYS + [
+    "Process Crash", "Process crash", "process crash", "Process Crashes", "process crashes",
+]
+_HQX_SSR_CRASH_KEYS = _SSR_CRASH_KEYS + [
+    "SSR Crash", "SSR crash", "ssr crash", "SSR Crashes", "ssr crashes",
+]
+_HQX_CRASH_KEYS = _CRASH_KEYS + ["Total Crashes", "Total crashes", "total crashes"]
+_HQX_HOUR_KEYS = _HOUR_KEYS + [
+    "Total Hours", "Total hours", "total hours", "Test Hours", "Test hours",
+    "test hours", "Tested Hours", "Tested hours", "tested hours",
+]
+_HQX_SYSTEM_MTBF_KEYS = [
+    "system_mtbf", "SYSTEM_MTBF", "System MTBF", "System mtbf",
+    "system mtbf", "SystemMTBF", "systemMTBF",
+]
+_HQX_PUBLIC_OVERALL_MTBF_KEYS = _PUBLIC_OVERALL_MTBF_KEYS + [
+    "Overall MTBF", "Overall mtbf", "overall mtbf", "OverallMTBF", "OVERALLMTBF",
+]
+_HQX_ALL_OVERALL_MTBF_KEYS = _OVERALL_MTBF_KEYS + _HQX_PUBLIC_OVERALL_MTBF_KEYS
 
 
 def _has_numeric_value(row: Dict[str, Any], keys: List[str]) -> bool:
@@ -824,6 +854,99 @@ def _normalize_crash_mtbf_row(row: Dict[str, Any]) -> Dict[str, Any]:
     return out
 
 
+def _set_existing_aliases(out: Dict[str, Any], keys: List[str], value: Any) -> None:
+    for key in keys:
+        if key in out:
+            out[key] = value
+
+
+def _hqx_source_mtbf_value(row: Dict[str, Any]) -> Any:
+    """Return HQX MTBF from source JSON MTBF fields only.
+
+    Do not derive MTBF from hours/crashes for HQX. The Full SP table's
+    ``System MTBF`` and ``overallMTBF`` columns both mirror this source value.
+    """
+    comments = _clean_text(_row_first(row, ["comments", "Comments", "comment", "remarks", "notes"], ""))
+    if "MTBF" in comments.upper() and "NOT PUBLISHED" in comments.upper():
+        return 0
+
+    json_mtbf_keys = _OVERALL_MTBF_KEYS + ["Mtbf"]
+    value = _first_mtbf_value(row, json_mtbf_keys, None)
+    if value not in (None, ""):
+        return value
+
+    fallback_keys = _HQX_PUBLIC_OVERALL_MTBF_KEYS + _HQX_SYSTEM_MTBF_KEYS
+    value = _first_mtbf_value(row, fallback_keys, None)
+    return value if value not in (None, "") else 0
+
+
+def _normalize_hqx_crash_mtbf_row(row: Dict[str, Any]) -> Dict[str, Any]:
+    """Normalize HQX Gen4.5 crash fields and JSON-sourced MTBF aliases.
+
+    HGY deliberately keeps the shared calculation path. For HQX, crash fields may
+    still be canonicalized from sheet-style keys, but ``system_mtbf`` and
+    ``overallmtbf`` must come from the source JSON MTBF field/aliases and must
+    not be calculated from hours/crashes.
+    """
+    out = dict(row or {})
+    source_mtbf = _hqx_source_mtbf_value(out)
+
+    has_system = _has_numeric_value(out, _HQX_SYSTEM_CRASH_KEYS)
+    has_ssr = _has_numeric_value(out, _HQX_SSR_CRASH_KEYS)
+    has_process = _has_numeric_value(out, _HQX_PROCESS_CRASH_KEYS)
+
+    if has_system or has_ssr or has_process:
+        system_crash = _num(_row_first(out, _HQX_SYSTEM_CRASH_KEYS, 0))
+        ssr_crash = _num(_row_first(out, _HQX_SSR_CRASH_KEYS, 0))
+        process_crash = _num(_row_first(out, _HQX_PROCESS_CRASH_KEYS, 0))
+        overall_total = system_crash + ssr_crash + process_crash
+
+        system_crash_value = _display_number(system_crash, 0)
+        ssr_crash_value = _display_number(ssr_crash, 0)
+        process_crash_value = _display_number(process_crash, 0)
+        total_value = _display_number(overall_total, 0)
+
+        out["system_crash"] = system_crash_value
+        out["ssr"] = ssr_crash_value
+        out["process_crash"] = process_crash_value
+        out["crashes"] = total_value
+        _set_existing_aliases(out, _HQX_SYSTEM_CRASH_KEYS, system_crash_value)
+        _set_existing_aliases(out, _HQX_SSR_CRASH_KEYS, ssr_crash_value)
+        _set_existing_aliases(out, _HQX_PROCESS_CRASH_KEYS, process_crash_value)
+        _set_existing_aliases(out, _HQX_CRASH_KEYS, total_value)
+
+    out["system_mtbf"] = source_mtbf
+    _set_existing_aliases(out, _HQX_SYSTEM_MTBF_KEYS, source_mtbf)
+    out["overallmtbf"] = source_mtbf
+    _set_existing_aliases(out, _HQX_PUBLIC_OVERALL_MTBF_KEYS, source_mtbf)
+
+    # Keep legacy MTBF aliases aligned with the source JSON MTBF. This also
+    # clears stale auto-calculated values for rows marked "MTBF not published".
+    wrote_legacy_alias = False
+    for alias in _OVERALL_MTBF_KEYS:
+        if alias in out:
+            wrote_legacy_alias = True
+            out[alias] = source_mtbf
+    if not wrote_legacy_alias:
+        out["mtbf"] = source_mtbf
+
+    return out
+
+
+def _normalize_hqx_crash_mtbf_rows(rows: List[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], bool]:
+    normalized: List[Dict[str, Any]] = []
+    changed = False
+    for row in rows or []:
+        if not isinstance(row, dict):
+            normalized.append(row)
+            continue
+        clean = _normalize_hqx_crash_mtbf_row(row)
+        if clean != row:
+            changed = True
+        normalized.append(clean)
+    return normalized, changed
+
+
 def _public_overall_mtbf(row: Dict[str, Any]) -> Any:
     """Return the public overall MTBF value using a single response key."""
     value = _first_mtbf_value(row, _PUBLIC_OVERALL_MTBF_KEYS, None)
@@ -836,7 +959,7 @@ def _public_overall_mtbf(row: Dict[str, Any]) -> Any:
     return _first_mtbf_value(row, _OVERALL_MTBF_KEYS, "")
 
 
-def _public_safe_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def _public_safe_rows(rows: List[Dict[str, Any]], platform: str = "HQX") -> List[Dict[str, Any]]:
     """Return rows without internal file/path metadata.
 
     The public API intentionally preserves source JSON columns (for example
@@ -854,12 +977,14 @@ def _public_safe_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     }
     safe_rows: List[Dict[str, Any]] = []
     mtbf_aliases = (
-        "mtbf", "MTBF", "total_mtbf", "TOTAL_MTBF",
+        "mtbf", "MTBF", "Mtbf", "total_mtbf", "TOTAL_MTBF",
         "overall_mtbf", "OVERALL_MTBF", "overallMTBF", "overallmtbf",
         "system_mtbf", "SYSTEM_MTBF",
     )
+    platform_key = str(platform or "HQX").upper().strip()
+    normalizer = _normalize_crash_mtbf_row if platform_key == "HGY" else _normalize_hqx_crash_mtbf_row
     for row in (rows or []):
-        public_row = {k: v for k, v in _normalize_crash_mtbf_row(row).items() if k not in internal}
+        public_row = {k: v for k, v in normalizer(row).items() if k not in internal}
         for alias in mtbf_aliases:
             if alias in public_row:
                 normalized_value = _normalize_mtbf_display_value(public_row.get(alias))
@@ -875,8 +1000,10 @@ def _public_safe_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return safe_rows
 
 
-def _program_summary(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
-    rows = [_normalize_crash_mtbf_row(r) for r in (rows or [])]
+def _program_summary(rows: List[Dict[str, Any]], platform: str = "HQX") -> Dict[str, Any]:
+    platform_key = str(platform or "HQX").upper().strip()
+    normalizer = _normalize_crash_mtbf_row if platform_key == "HGY" else _normalize_hqx_crash_mtbf_row
+    rows = [normalizer(r) for r in (rows or [])]
     dated_rows = [r for r in rows if _date_text(r)]
     latest = sorted(dated_rows, key=_date_text)[-1] if dated_rows else (rows[-1] if rows else {})
     total_hours = round(sum(_num(_row_first(r, _HOUR_KEYS)) for r in rows), 2)
@@ -917,8 +1044,8 @@ def _date_text(row: Dict[str, Any]) -> str:
     return str(_row_first(row, ["date", "Date", "report_date", "Report Date"], "") or "")
 
 
-def _latest_public_row(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
-    safe_rows = _public_safe_rows(rows)
+def _latest_public_row(rows: List[Dict[str, Any]], platform: str = "HQX") -> Dict[str, Any]:
+    safe_rows = _public_safe_rows(rows, platform=platform)
     if not safe_rows:
         return {}
     dated_rows = [row for row in safe_rows if _date_text(row)]
@@ -937,8 +1064,8 @@ def _docs_sp_groups(platform: str) -> List[Dict[str, Any]]:
     for entry in index:
         if not isinstance(entry, dict):
             continue
-        rows = _platform_read_sp_rows(platform_key, entry)
-        safe_rows = _public_safe_rows(rows)
+        rows = _platform_read_sp_rows(platform_key, entry) if platform_key == "HGY" else _read_sp_rows(entry)
+        safe_rows = _public_safe_rows(rows, platform=platform_key)
         if not safe_rows:
             continue
 
@@ -946,7 +1073,7 @@ def _docs_sp_groups(platform: str) -> List[Dict[str, Any]]:
         if not sp:
             continue
 
-        latest = _latest_public_row(rows)
+        latest = _latest_public_row(rows, platform=platform_key)
         latest_overall = _public_overall_mtbf(latest)
         detail = {
             "sp":                  sp,
@@ -1004,30 +1131,7 @@ def _base_url() -> str:
 def public_auto_gen45_docs():
     if request.method == "OPTIONS":
         return "", 204
-    base = _base_url()
-    try:
-        available = _read_index()
-        hqx_sps = _docs_sp_groups("HQX")
-        load_error = ""
-    except Exception as exc:
-        available = []
-        hqx_sps = []
-        load_error = str(exc)
-    try:
-        available_hgy = _platform_read_index("HGY")
-        hgy_sps = _docs_sp_groups("HGY")
-    except Exception:
-        available_hgy = []
-        hgy_sps = []
-    return render_template(
-        "public_auto_gen45_api.html",
-        base=base,
-        available=available,
-        available_hgy=available_hgy,
-        hqx_sps=hqx_sps,
-        hgy_sps=hgy_sps,
-        load_error=load_error,
-    )
+    return redirect("/public/apis", code=302)
 
 
 @public_auto_gen45_bp.route("/public/auto-gen45/api/sps", methods=["GET", "OPTIONS"])
@@ -1059,7 +1163,7 @@ def api_public_auto_gen45_sp(sp: str):
         if last_n > 0:
             rows = rows[-last_n:]
         # Strip any internal fields from each row before returning
-        safe_rows = _public_safe_rows(rows)
+        safe_rows = _public_safe_rows(rows, platform="HQX")
         response = {
             "ok": True,
             "sp": entry.get("sp"),
@@ -1068,7 +1172,7 @@ def api_public_auto_gen45_sp(sp: str):
             "rows": safe_rows,
         }
         if _bool_arg("summary", True):
-            response["summary"] = _program_summary(rows)
+            response["summary"] = _program_summary(rows, platform="HQX")
         return jsonify(response)
     except Exception as exc:
         return jsonify({"ok": False, "rows": [], "row_count": 0}), 500
@@ -1291,7 +1395,7 @@ def api_public_hgy_sp(sp: str):
         last_n = request.args.get("last_n", 0, type=int)
         if last_n and last_n > 0:
             rows = rows[:last_n]
-        safe_rows = _public_safe_rows(rows)
+        safe_rows = _public_safe_rows(rows, platform="HGY")
         response = {
             "ok": True,
             "sp": entry.get("sp"),
@@ -1302,7 +1406,7 @@ def api_public_hgy_sp(sp: str):
             "rows": safe_rows,
         }
         if _bool_arg("summary", True):
-            response["summary"] = _program_summary(rows)
+            response["summary"] = _program_summary(rows, platform="HGY")
         return jsonify(response)
     except Exception as exc:
         return jsonify({"ok": False, "error": str(exc)}), 500
@@ -1369,7 +1473,7 @@ def api_public_hgy_add_build(sp: str):
     _platform_write_audit("HGY", "add_build", entry["sp"], entry.get("program", sp), actor)
     return jsonify({"ok": True, "sp": entry["sp"], "platform": "HGY",
                     "row_count": len(rows), "rows": rows,
-                    "row": clean, "summary": _program_summary(rows)})
+                    "row": clean, "summary": _program_summary(rows, platform="HGY")})
 
 
 @public_auto_gen45_bp.route("/public/auto-gen45/api/hgy/sp/<string:sp>/save_table",
@@ -1402,7 +1506,7 @@ def api_public_hgy_save_table(sp: str):
     _platform_write_audit("HGY", "save_table", entry["sp"], entry.get("program", sp), actor)
     return jsonify({"ok": True, "sp": entry["sp"], "platform": "HGY",
                     "row_count": len(clean), "rows": clean,
-                    "summary": _program_summary(clean)})
+                    "summary": _program_summary(clean, platform="HGY")})
 
 
 @public_auto_gen45_bp.route("/public/auto-gen45/api/hgy/sp/<string:sp>/edit_build",
@@ -1437,7 +1541,7 @@ def api_public_hgy_edit_build(sp: str):
                                   entry["sp"], entry.get("program", sp), actor)
             return jsonify({"ok": True, "sp": entry["sp"], "platform": "HGY",
                             "row_count": len(rows), "rows": rows,
-                            "row": updated, "summary": _program_summary(rows)})
+                            "row": updated, "summary": _program_summary(rows, platform="HGY")})
     return jsonify({"ok": False, "error": f"Row sno={sno} not found"}), 404
 
 
@@ -1471,7 +1575,7 @@ def api_public_hgy_delete_build(sp: str):
                           entry["sp"], entry.get("program", sp), actor)
     return jsonify({"ok": True, "sp": entry["sp"], "platform": "HGY",
                     "row_count": len(new_rows), "rows": new_rows,
-                    "summary": _program_summary(new_rows)})
+                    "summary": _program_summary(new_rows, platform="HGY")})
 
 
 @public_auto_gen45_bp.route("/public/auto-gen45/api/hgy/sp/<string:sp>/remove",

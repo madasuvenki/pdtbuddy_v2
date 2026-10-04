@@ -41,7 +41,7 @@ import os
 import re
 from typing import Any, Dict, List, Optional
 
-from flask import Blueprint, jsonify, render_template_string, request
+from flask import Blueprint, jsonify, redirect, render_template_string, request
 
 public_mtbf_bp = Blueprint("public_mtbf_bp", __name__)
 
@@ -160,35 +160,75 @@ def _load_adas_mtbf(target_name: str, view: str = "MTBF", sp: str = "") -> Dict[
 
 
 def _load_mtbf(target_name: str) -> Dict[str, Any]:
-    """Load base MTBF JSON for any target (no SP scope)."""
-    # Try ADAS MTBF folder first (used by live_status_publish_edit)
-    domains = _get_target_domains(target_name)
-    for view in (domains or ["MTBF"]):
-        data = _load_adas_mtbf(target_name, view, "")
-        if data and data.get("rows"):
-            return data
-    # Fallback: dashboard JSON backend
+    """Load base MTBF JSON for any target (no SP scope).
+
+    Supports alias resolution:
+      - explicit registry mapping: Maili.LA.1.0 -> Maili via data_source_target
+      - safe fallback alias stripping: Maili.LA.1.0 -> Maili when the mapping has
+        not been saved yet or an older broken mapping still points to the alias.
+    """
+    target_clean = str(target_name or "").strip()
+
+    candidates: List[str] = []
+
+    def _add_candidate(value: Any) -> None:
+        v = str(value or "").strip()
+        if v and v.lower() not in {x.lower() for x in candidates}:
+            candidates.append(v)
+
+    # 1) Explicit registry alias → data source mapping
     try:
-        from dashboard_routes import _load_mtbf_json_payload
-        data = _load_mtbf_json_payload(target_name, "MTBF")
-        if data and data.get("rows"):
-            return data
+        from src.api_registry import get_data_source_target
+        _add_candidate(get_data_source_target(target_clean))
     except Exception:
         pass
-    # Fallback: WBC JSON cache
-    try:
-        from wbc_live_view_stats_routes import (
-            _mtbf_json_path as _wbc_mtbf_path,
-            _read_json,
-            _coerce_wbc_mtbf_payload,
-        )
-        path = _wbc_mtbf_path(target_name)
-        raw = _read_json(path, {})
-        if raw.get("chart_rows") or raw.get("rows"):
-            return _coerce_wbc_mtbf_payload(raw)
-    except Exception:
-        pass
-    return {"rows": [], "target": target_name, "view": "MTBF"}
+
+    # 2) Direct target name
+    _add_candidate(target_clean)
+
+    # 3) Alias fallback: Maili.LA.1.0 / Poros.LA.1.0 / Mavros.LA.1.0 -> Maili/Poros/Mavros
+    if "." in target_clean:
+        _add_candidate(target_clean.split(".", 1)[0])
+
+    for data_target in candidates:
+        # Try ADAS MTBF folder first (used by live_status_publish_edit)
+        domains = _get_target_domains(data_target)
+        for view in (domains or ["MTBF"]):
+            data = _load_adas_mtbf(data_target, view, "")
+            if data and data.get("rows"):
+                data.setdefault("data_source_target", data_target)
+                data.setdefault("requested_target", target_clean)
+                return data
+
+        # Fallback: dashboard JSON backend (static/mtbf_json/<target>/mtbf_mtbf.json)
+        try:
+            from dashboard_routes import _load_mtbf_json_payload
+            data = _load_mtbf_json_payload(data_target, "MTBF")
+            if data and data.get("rows"):
+                data.setdefault("data_source_target", data_target)
+                data.setdefault("requested_target", target_clean)
+                return data
+        except Exception:
+            pass
+
+        # Fallback: WBC JSON cache
+        try:
+            from wbc_live_view_stats_routes import (
+                _mtbf_json_path as _wbc_mtbf_path,
+                _read_json,
+                _coerce_wbc_mtbf_payload,
+            )
+            path = _wbc_mtbf_path(data_target)
+            raw = _read_json(path, {})
+            if raw.get("chart_rows") or raw.get("rows"):
+                data = _coerce_wbc_mtbf_payload(raw)
+                data.setdefault("data_source_target", data_target)
+                data.setdefault("requested_target", target_clean)
+                return data
+        except Exception:
+            pass
+
+    return {"rows": [], "target": target_clean, "view": "MTBF", "data_source_targets_tried": candidates}
 
 
 def _discover_sps_for_target(target_name: str) -> List[Dict[str, Any]]:
@@ -288,57 +328,287 @@ def _all_targets_with_bu(bus: Optional[List[str]] = None) -> List[Dict[str, str]
         return []
 
 
+def _seed_public_mtbf_registry(targets: List[Dict[str, str]]) -> None:
+    """Seed non-Autogen public MTBF targets as pending registry entries."""
+    try:
+        from src.api_registry import seed_public_mtbf_targets
+        seed_public_mtbf_targets(targets, actor="public_mtbf_discovery")
+    except Exception:
+        pass
+
+
+def _approved_target_items(bus: Optional[List[str]] = None) -> List[Dict[str, str]]:
+    """Return only admin-approved public MTBF targets."""
+    targets = _all_targets_with_bu(bus)
+    _seed_public_mtbf_registry(targets)
+    try:
+        from src.api_registry import get_public_mtbf_targets
+        approved = get_public_mtbf_targets(approved_only=True)
+    except Exception:
+        approved = set()
+    return [item for item in targets if str(item.get("target") or "").strip().lower() in approved]
+
+
+def _scope_has_mobile(scope: Any) -> bool:
+    """Return True when an API registry BU scope includes MOBILE."""
+    tokens = [p.strip().upper() for p in re.split(r"[/,;|]+", str(scope or "")) if p.strip()]
+    return "MOBILE" in tokens
+
+
+def _extract_public_mtbf_target(endpoint: Any) -> str:
+    """Extract target alias from a target-level public MTBF endpoint."""
+    text = str(endpoint or "").strip()
+    match = re.search(r"/public/mtbf/([^/?#]+)/MTBF(?:$|[/?#])", text, re.IGNORECASE)
+    return match.group(1).strip() if match else ""
+
+
+def _mobile_sp_label(target_alias: str, data_source_target: str) -> str:
+    """Return the Mobile SP/release label exposed by an approved alias."""
+    alias = str(target_alias or "").strip()
+    source = str(data_source_target or "").strip()
+    for prefix in (source, source.split(".", 1)[0] if "." in source else ""):
+        if prefix and alias.lower().startswith(prefix.lower() + "."):
+            return alias[len(prefix) + 1:] or alias
+    if "." in alias:
+        return alias.split(".", 1)[1] or alias
+    return alias
+
+
+def _latest_overall_mtbf(row: Dict[str, Any]) -> Optional[float]:
+    """Return explicit or calculated overall MTBF for a latest MTBF row."""
+    for key in ("overallmtbf", "overallMTBF", "overall_mtbf", "overall_mtbf_value"):
+        raw = row.get(key)
+        if raw not in (None, ""):
+            return _safe_float(raw)
+
+    hours = _safe_float(row.get("hours"))
+    system_crashes = _safe_int(row.get("system_crashes"))
+    ssr_crashes = _safe_int(row.get("ssr_crashes"))
+    process_crashes = _safe_int(row.get("process_crashes"))
+    overall_crashes = system_crashes + ssr_crashes + process_crashes
+    if overall_crashes <= 0:
+        overall_crashes = _safe_int(
+            row.get("overall_crashes")
+            or row.get("total_crashes")
+            or row.get("crash")
+            or row.get("crashes")
+        )
+    if hours > 0 and overall_crashes > 0:
+        return round(hours / overall_crashes, 2)
+    return None
+
+
+def _approved_mobile_mtbf_entries() -> List[Dict[str, str]]:
+    """Return admin-approved Mobile target aliases from the public API registry.
+
+    Mobile entries such as ``Maili.LA.1.0`` and ``Poros.LA.1.0`` are approved as
+    target-level MTBF aliases. This helper intentionally reads approved registry
+    rows instead of scanning every file on disk so the public summary only shows
+    SP/release aliases that PDTBuddy admins have published.
+    """
+    try:
+        from src.api_registry import get_approved_public_apis, get_data_source_target
+        approved_apis = get_approved_public_apis() or []
+    except Exception:
+        approved_apis = []
+        get_data_source_target = None  # type: ignore[assignment]
+
+    entries: List[Dict[str, str]] = []
+    seen: set = set()
+    for api in approved_apis:
+        if not _scope_has_mobile(api.get("bu_scope")):
+            continue
+
+        endpoint = str(api.get("endpoint_pattern") or "").strip()
+        api_key = str(api.get("api_key") or "").strip()
+        target_alias = _extract_public_mtbf_target(endpoint)
+        if not target_alias and api_key.startswith("public_mtbf_"):
+            target_alias = str(api.get("target_name") or "").strip()
+
+        if (
+            not target_alias
+            or "{" in target_alias
+            or target_alias.strip().lower() in {"api", "mobile"}
+        ):
+            continue
+        if not api_key.startswith("public_mtbf_") and not target_alias:
+            continue
+
+        data_source_target = target_alias
+        try:
+            if get_data_source_target is not None:
+                resolved = str(get_data_source_target(target_alias) or "").strip()
+                if resolved:
+                    data_source_target = resolved
+        except Exception:
+            pass
+        if data_source_target.lower() == target_alias.lower() and "." in data_source_target:
+            data_source_target = data_source_target.split(".", 1)[0]
+
+        dedupe_key = target_alias.lower()
+        if dedupe_key in seen:
+            continue
+        seen.add(dedupe_key)
+        entries.append(
+            {
+                "target": target_alias,
+                "data_source_target": data_source_target,
+                "endpoint": endpoint or f"/public/mtbf/{target_alias}/MTBF",
+                "api_name": str(api.get("api_name") or f"Public MTBF - {target_alias}"),
+            }
+        )
+
+    return sorted(entries, key=lambda item: (item.get("data_source_target", ""), item.get("target", "")))
+
+
+def _mobile_sp_summary_payload() -> List[Dict[str, Any]]:
+    """Build SP/release latest-MTBF summaries for approved Mobile targets."""
+    grouped: Dict[str, Dict[str, Any]] = {}
+
+    for item in _approved_mobile_mtbf_entries():
+        target_alias = str(item.get("target") or "").strip()
+        if not target_alias:
+            continue
+
+        try:
+            data = _load_mtbf(target_alias)
+        except Exception:
+            data = {"rows": []}
+
+        data_source_target = str(data.get("data_source_target") or item.get("data_source_target") or target_alias).strip()
+        if data_source_target.lower() == target_alias.lower() and "." in data_source_target:
+            data_source_target = data_source_target.split(".", 1)[0]
+        product_name = data_source_target or target_alias
+        sp_label = _mobile_sp_label(target_alias, product_name)
+
+        rows = _sort_rows(data.get("rows") or [])
+        latest = rows[-1] if rows else {}
+        latest_public = _public_row(latest) if latest else {}
+
+        endpoint = str(item.get("endpoint") or f"/public/mtbf/{target_alias}/MTBF").strip()
+        if endpoint and "?" not in endpoint:
+            endpoint = endpoint.rstrip("/") + "?last_n=5&summary=1"
+
+        domain = str(data.get("view") or data.get("domain") or "MTBF").strip() or "MTBF"
+        detail: Dict[str, Any] = {
+            "target": target_alias,
+            "data_source_target": product_name,
+            "sp": sp_label,
+            "cpl": sp_label,
+            "sp_key": _sp_key_from_cpl(sp_label),
+            "domain": domain,
+            "row_count": len(rows),
+            "latest_date": latest_public.get("date") or str(latest.get("date") or ""),
+            "latest_build": latest_public.get("build") or str(latest.get("meta_id") or latest.get("build_id") or ""),
+            "latest_meta_id": latest_public.get("build") or str(latest.get("meta_id") or latest.get("build_id") or ""),
+            "latest_mtbf": latest_public.get("mtbf") if latest_public else _safe_float(latest.get("mtbf") or latest.get("product_mtbf")),
+            "latest_overallmtbf": _latest_overall_mtbf(latest),
+            "endpoint": endpoint,
+        }
+
+        group_key = product_name.lower()
+        if group_key not in grouped:
+            grouped[group_key] = {
+                "target": product_name,
+                "label": product_name,
+                "bu": "MOBILE",
+                "sps": [],
+            }
+        grouped[group_key]["sps"].append(
+            {
+                "cpl": sp_label,
+                "sp": sp_label,
+                "sp_key": detail["sp_key"],
+                "target_alias": target_alias,
+                "endpoint": endpoint,
+                "domains": [domain],
+                "domain_count": 1,
+                "domain_details": [detail],
+            }
+        )
+
+    result = list(grouped.values())
+    for group in result:
+        group["sps"] = sorted(group.get("sps") or [], key=lambda sp: str(sp.get("cpl") or ""))
+    return sorted(result, key=lambda group: str(group.get("label") or group.get("target") or ""))
+
+
+def _target_approval_error(target_name: str):
+    try:
+        from src.api_registry import approval_error_payload
+        payload = approval_error_payload(target_name)
+    except Exception:
+        payload = {
+            "ok": False,
+            "approved": False,
+            "target": str(target_name or "").strip(),
+            "message": "This public MTBF target is not approved by PDTBuddy admin yet.",
+        }
+    return jsonify(payload), 403
+
+
+def _is_public_mtbf_target_approved(target_name: str) -> bool:
+    try:
+        from src.api_registry import is_public_mtbf_target_approved
+        return bool(is_public_mtbf_target_approved(target_name))
+    except Exception:
+        return False
+
+
 # ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
 
+@public_mtbf_bp.route("/public/mtbf/api/mobile-sp-summary", methods=["GET", "OPTIONS"])
+def api_public_mtbf_mobile_sp_summary():
+    """Return approved Mobile SP/release aliases with latest MTBF summaries."""
+    if request.method == "OPTIONS":
+        return "", 204
+    try:
+        targets = _mobile_sp_summary_payload()
+        flat_sps = [
+            {**detail, "product": group.get("target") or ""}
+            for group in targets
+            for sp in (group.get("sps") or [])
+            for detail in (sp.get("domain_details") or [])
+        ]
+        return jsonify(
+            {
+                "ok": True,
+                "bu": "MOBILE",
+                "target_count": len(targets),
+                "approved_sp_count": len(flat_sps),
+                "count": len(flat_sps),
+                "targets": targets,
+                "approved_sps": flat_sps,
+            }
+        )
+    except Exception as exc:
+        return jsonify(
+            {
+                "ok": False,
+                "bu": "MOBILE",
+                "message": f"Unable to build Mobile SP summary: {exc}",
+                "target_count": 0,
+                "approved_sp_count": 0,
+                "count": 0,
+                "targets": [],
+                "approved_sps": [],
+            }
+        ), 500
+
+
 @public_mtbf_bp.route("/public/mtbf/", methods=["GET", "OPTIONS"])
 @public_mtbf_bp.route("/public/mtbf", methods=["GET", "OPTIONS"])
 def public_mtbf_docs():
-    """Human-readable API docs page — auto-updates when new targets/SPs are added."""
+    """Deprecated duplicate docs page. Use the single public API tester."""
     if request.method == "OPTIONS":
         return "", 204
-    base = _base_url()
-    target_rows = []
-    for item in _all_targets_with_bu():
-        try:
-            summary = _target_summary(item["target"])
-            sps = _discover_sps_for_target(item["target"])
-            # Build per-SP domain summaries
-            sp_details = []
-            for sp_entry in sps:
-                dom_details = []
-                for dom in sp_entry.get("domains", []):
-                    try:
-                        dom_data = _load_adas_mtbf(item["target"], dom, sp_entry["cpl"])
-                        dom_rows = _sort_rows(dom_data.get("rows") or [])
-                        latest = dom_rows[-1] if dom_rows else {}
-                        dom_details.append({
-                            "domain":      dom,
-                            "row_count":   len(dom_rows),
-                            "latest_mtbf": _safe_float(latest.get("mtbf") or latest.get("product_mtbf")),
-                            "latest_date": latest.get("date") or "",
-                        })
-                    except Exception:
-                        pass
-                sp_details.append({**sp_entry, "domain_details": dom_details})
-            target_rows.append({**item, **summary, "sps": sp_details})
-        except Exception:
-            target_rows.append({**item, "has_mtbf": False, "row_count": 0,
-                                 "latest_date": "", "latest_build": "", "latest_mtbf": 0.0, "sps": []})
-    iot_targets = [t for t in target_rows if t.get("bu", "").upper() == "IOT"]
-    xr_targets  = [t for t in target_rows if t.get("bu", "").upper() == "XR"]
-    iot_with_mtbf = sum(1 for t in iot_targets if t.get("has_mtbf"))
-    xr_with_mtbf  = sum(1 for t in xr_targets  if t.get("has_mtbf"))
-    return render_template_string(
-        _DOCS_TEMPLATE,
-        base=base,
-        iot_targets=iot_targets,
-        xr_targets=xr_targets,
-        iot_with_mtbf=iot_with_mtbf,
-        xr_with_mtbf=xr_with_mtbf,
-        all_targets=target_rows,
-    )
+    try:
+        _seed_public_mtbf_registry(_all_targets_with_bu())
+    except Exception:
+        pass
+    return redirect("/public/apis", code=302)
 
 
 @public_mtbf_bp.route("/public/mtbf/api/targets", methods=["GET", "OPTIONS"])
@@ -356,8 +626,10 @@ def api_public_mtbf_targets():
     bus = [b.strip().upper() for b in bu_param.split(",") if b.strip()]
     mtbf_only = str(request.args.get("mtbf_only") or "").strip().lower() in ("1", "true", "yes")
     include_sps = str(request.args.get("include_sps") or "").strip().lower() in ("1", "true", "yes")
+    discovered_targets = _all_targets_with_bu(bus)
+    _seed_public_mtbf_registry(discovered_targets)
     result = []
-    for item in _all_targets_with_bu(bus):
+    for item in _approved_target_items(bus):
         try:
             summary = _target_summary(item["target"])
         except Exception:
@@ -388,6 +660,8 @@ def api_public_mtbf_sps(target: str):
     if request.method == "OPTIONS":
         return "", 204
     target_clean = str(target or "").strip().split("/")[0]
+    if not _is_public_mtbf_target_approved(target_clean):
+        return _target_approval_error(target_clean)
     sps = _discover_sps_for_target(target_clean)
     return jsonify({
         "ok":        True,
@@ -413,6 +687,8 @@ def api_public_mtbf_sp_rows(target: str, sp: str):
     if request.method == "OPTIONS":
         return "", 204
     target_clean = str(target or "").strip().split("/")[0]
+    if not _is_public_mtbf_target_approved(target_clean):
+        return _target_approval_error(target_clean)
     domain = _canonical_domain(target_clean, request.args.get("domain") or "") or None
     last_n = _safe_int(request.args.get("last_n") or 0)
     include_summary = str(request.args.get("summary") or "").strip().lower() in ("1", "true", "yes")
@@ -461,6 +737,8 @@ def api_public_mtbf_rows(target: str):
     target_clean = str(target or "").strip().rstrip("/")
     if "/" in target_clean:
         target_clean = target_clean.split("/")[0]
+    if not _is_public_mtbf_target_approved(target_clean):
+        return _target_approval_error(target_clean)
     last_n = _safe_int(request.args.get("last_n") or 0)
     include_summary = str(request.args.get("summary") or "").strip().lower() in ("1", "true", "yes")
     try:
@@ -491,6 +769,8 @@ def api_public_mtbf_latest(target: str):
     if request.method == "OPTIONS":
         return "", 204
     target_clean = str(target or "").strip().split("/")[0]
+    if not _is_public_mtbf_target_approved(target_clean):
+        return _target_approval_error(target_clean)
     try:
         data = _load_mtbf(target_clean)
         rows = _sort_rows(data.get("rows") or [])
@@ -514,6 +794,8 @@ def api_public_mtbf_summary(target: str):
     if request.method == "OPTIONS":
         return "", 204
     target_clean = str(target or "").strip().split("/")[0]
+    if not _is_public_mtbf_target_approved(target_clean):
+        return _target_approval_error(target_clean)
     try:
         summary = _target_summary(target_clean)
         return jsonify({"ok": True, **summary})
@@ -539,8 +821,10 @@ def api_public_mtbf_all():
     last_n = _safe_int(request.args.get("last_n") or 0)
     include_summary = str(request.args.get("summary") or "").strip().lower() in ("1", "true", "yes")
     include_sps = str(request.args.get("include_sps") or "").strip().lower() in ("1", "true", "yes")
+    discovered_targets = _all_targets_with_bu(bus)
+    _seed_public_mtbf_registry(discovered_targets)
     result = []
-    for item in _all_targets_with_bu(bus):
+    for item in _approved_target_items(bus):
         try:
             data = _load_mtbf(item["target"])
             rows = _sort_rows(data.get("rows") or [])
@@ -645,11 +929,11 @@ a{color:#1d4ed8;text-decoration:none}a:hover{text-decoration:underline}
 <div class="wrap">
   <div class="hero">
     <h1>🌐 IoT / XR Public MTBF API</h1>
-    <p>Open REST API — no authentication required. Auto-discovers new targets and SPs. Returns MTBF stability data for IoT and XR targets.</p>
+    <p>Open REST API — no authentication required. Only admin-approved non-Autogen targets are listed and callable.</p>
     <div class="stats">
-      <div class="stat"><div class="n">{{ iot_targets|length }}</div><div class="l">IoT Targets</div></div>
+      <div class="stat"><div class="n">{{ iot_targets|length }}</div><div class="l">Approved IoT</div></div>
       <div class="stat"><div class="n">{{ iot_with_mtbf }}</div><div class="l">IoT w/ MTBF</div></div>
-      <div class="stat"><div class="n">{{ xr_targets|length }}</div><div class="l">XR Targets</div></div>
+      <div class="stat"><div class="n">{{ xr_targets|length }}</div><div class="l">Approved XR</div></div>
       <div class="stat"><div class="n">{{ xr_with_mtbf }}</div><div class="l">XR w/ MTBF</div></div>
     </div>
   </div>
@@ -661,7 +945,7 @@ a{color:#1d4ed8;text-decoration:none}a:hover{text-decoration:underline}
       <span class="ep-method">GET</span>
       <span class="ep-url">{{ base }}/public/mtbf/api/targets</span>
       <button class="copy-btn" onclick="navigator.clipboard.writeText('{{ base }}/public/mtbf/api/targets')">Copy</button>
-      <div class="ep-desc">List all IoT + XR targets and whether they have MTBF data. Auto-discovers new targets.</div>
+      <div class="ep-desc">List only admin-approved IoT + XR targets and whether they have MTBF data.</div>
       <div class="ep-params">Params: <code>?bu=IOT,XR</code> <code>?mtbf_only=1</code> <code>?include_sps=1</code></div>
     </div>
     <div class="ep">
@@ -706,7 +990,7 @@ a{color:#1d4ed8;text-decoration:none}a:hover{text-decoration:underline}
       <div class="ep-desc">Return MTBF data for ALL IoT + XR targets in one call.</div>
       <div class="ep-params">Params: <code>?bu=IOT,XR</code> <code>?last_n=5</code> <code>?summary=1</code> <code>?include_sps=1</code></div>
     </div>
-    <div class="note">🔄 <b>Auto-discovery:</b> When a new PL/target is added to the IOT or XR BU config, it automatically appears in all endpoints. When a new SP is added (new <code>mtbf_&lt;domain&gt;_&lt;sp_key&gt;.json</code> file), it automatically appears in <code>/sps</code> and <code>/sp/&lt;cpl&gt;/MTBF</code> endpoints — no config change needed.</div>
+    <div class="note">� <b>Approval control:</b> New IoT/XR MTBF targets are auto-discovered into the admin registry as pending. They appear in this public page and JSON APIs only after admin approval. SP files are still discovered automatically for approved targets.</div>
   </div>
 
   <!-- IoT Targets -->

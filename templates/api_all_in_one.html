@@ -654,6 +654,25 @@ function toggle(hdr) {
   if (arrow) arrow.textContent = body.classList.contains('open') ? '▲' : '▼';
 }
 
+function _aioClipFallback(s) {
+  var ta = document.createElement('textarea');
+  ta.value = s;
+  ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
+  document.body.appendChild(ta);
+  ta.focus();
+  ta.select();
+  try { document.execCommand('copy'); } catch(e) {}
+  document.body.removeChild(ta);
+}
+function _aioWriteText(s, done) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(s).then(done).catch(function() { _aioClipFallback(s); done(); });
+  } else {
+    _aioClipFallback(s);
+    done();
+  }
+}
+
 function copyCurl(e, path, method) {
   e.stopPropagation();
   const host = window.location.origin;
@@ -664,22 +683,22 @@ function copyCurl(e, path, method) {
   } else {
     cmd = `curl -H "X-PDTBuddy-API-Token: YOUR_TOKEN" "${host}${path}"`;
   }
-  navigator.clipboard.writeText(cmd).then(() => {
-    const btn = e.target;
-    const orig = btn.textContent;
+  const btn = e.target;
+  const orig = btn.textContent;
+  _aioWriteText(cmd, function() {
     btn.textContent = 'copied!';
     setTimeout(() => btn.textContent = orig, 1500);
-  }).catch(() => {});
+  });
 }
 
 function copyPre(btn) {
   const pre = btn.previousElementSibling;
   const text = pre ? pre.innerText : '';
-  navigator.clipboard.writeText(text).then(() => {
-    const orig = btn.textContent;
+  const orig = btn.textContent;
+  _aioWriteText(text, function() {
     btn.textContent = 'copied!';
     setTimeout(() => btn.textContent = orig, 1500);
-  }).catch(() => {});
+  });
 }
 
 function filterSidebar(q) {

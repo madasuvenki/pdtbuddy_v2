@@ -5,7 +5,12 @@ import os
 import re
 from typing import Any, Dict, List, Optional
 
-from flask import Blueprint, jsonify, render_template, render_template_string, request
+from flask import Blueprint, jsonify, redirect, render_template, render_template_string, request
+
+try:
+    from flask_login import current_user as _current_user
+except ImportError:
+    _current_user = None
 
 from live_status_view_api import (
     _MTBF_NONSAFE_IVI_DOMAIN,
@@ -74,7 +79,7 @@ _TARGET_LABELS: Dict[str, str] = {
 def _add_public_auto_gen5_headers(response):
     """Make /public/auto-gen5 endpoints usable by external tools without login/session."""
     try:
-        if request.path.startswith("/public/auto-gen5"):
+        if request.path.startswith("/public/auto-gen5") or request.path.startswith("/public/api/"):
             response.headers["Access-Control-Allow-Origin"] = "*"
             response.headers["Access-Control-Allow-Methods"] = "GET, OPTIONS"
             response.headers["Access-Control-Allow-Headers"] = "Content-Type, Accept"
@@ -82,6 +87,45 @@ def _add_public_auto_gen5_headers(response):
     except Exception:
         pass
     return response
+
+
+@public_auto_gen5_bp.route("/public/api/catalog", methods=["GET", "OPTIONS"])
+def api_public_catalog_json():
+    """Return approved public API catalog as JSON — excludes Auto Gen (AUTO BU) entries.
+
+    No authentication required. CORS-open.
+
+    Query params:
+      ?bu=IOT,XR,MOBILE   filter by BU scope (comma-separated; default: all non-AUTO)
+
+    Response:
+      {"ok": true, "total": N, "apis": [{api_name, endpoint_pattern, bu_scope, ...}]}
+    """
+    if request.method == "OPTIONS":
+        return "", 204
+    try:
+        from src.api_registry import get_approved_public_apis
+        all_apis = get_approved_public_apis() or []
+        bu_filter_raw = (request.args.get("bu") or "").strip().upper()
+        bu_filter = [b.strip() for b in bu_filter_raw.split(",") if b.strip()] if bu_filter_raw else []
+        result = []
+        for api in all_apis:
+            scope = str(api.get("bu_scope") or "").strip().upper()
+            endpoint = str(api.get("endpoint_pattern") or "").strip()
+            # Always exclude Auto Gen entries
+            if scope in ("AUTO", "AUTOMOTIVE") or endpoint.lower().startswith("/public/auto"):
+                continue
+            # Apply optional BU filter
+            if bu_filter and scope not in bu_filter:
+                continue
+            result.append(api)
+        return jsonify({
+            "ok":    True,
+            "total": len(result),
+            "apis":  result,
+        })
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
 
 
 def _clean_text(value: Any) -> str:
@@ -497,108 +541,141 @@ def _seca_file_domain(domain: str, target_name: str) -> str:
     return domain
 
 
+def _public_gen5_docs_sp_groups() -> List[Dict[str, Any]]:
+    """Build old-docs style latest-MTBF SP/domain groups for Gen5 docs."""
+    targets: List[Dict[str, Any]] = []
+    for target_name in _KNOWN_TARGETS:
+        target_sps: List[Dict[str, Any]] = []
+        try:
+            for sp_entry in _discover_sps_for_target(target_name):
+                sp_cpl = sp_entry.get("cpl") or ""
+                if not sp_cpl:
+                    continue
+                domain_details: List[Dict[str, Any]] = []
+                for dom in sp_entry.get("domains") or []:
+                    try:
+                        summary = _sp_domain_summary(target_name, dom, sp_cpl)
+                        if int(summary.get("row_count") or 0) <= 0:
+                            continue
+                        public_domain = _seca_public_domain(str(summary.get("domain") or dom or "").strip(), target_name)
+                        endpoint_sp = str(sp_cpl or "").strip()
+                        detail = dict(summary)
+                        detail["domain"] = public_domain
+                        seca_version = _SECA_TARGET_TO_VERSION.get(target_name)
+                        if seca_version:
+                            detail["endpoint"] = (
+                                f"/public/auto-gen5/sp/seca/{seca_version}/domain/"
+                                f"{public_domain}?last_n=5&summary=true"
+                            )
+                        else:
+                            detail["endpoint"] = (
+                                f"/public/auto-gen5/api/sp/{endpoint_sp}/domain/"
+                                f"{public_domain}?target={target_name}&last_n=5&summary=true"
+                            )
+                        domain_details.append(detail)
+                    except Exception:
+                        pass
+                if domain_details:
+                    target_sps.append(
+                        {
+                            "cpl": sp_cpl,
+                            "sp_key": sp_entry.get("sp_key") or _sp_key(sp_cpl),
+                            "domains": [d.get("domain") for d in domain_details],
+                            "domain_count": len(domain_details),
+                            "domain_details": domain_details,
+                        }
+                    )
+        except Exception:
+            target_sps = []
+        if target_sps:
+            targets.append(
+                {
+                    "target": target_name,
+                    "label": _TARGET_LABELS.get(target_name, target_name),
+                    "sps": target_sps,
+                }
+            )
+    return targets
+
+
+def _public_auto_mtbf_docs_payload() -> Dict[str, Any]:
+    """Return summary tables shown in BU tabs of /public/apis."""
+    payload: Dict[str, Any] = {
+        "gen5_targets": _public_gen5_docs_sp_groups(),
+        "gen45_hqx": [],
+        "gen45_hgy": [],
+        "mobile_targets": [],
+    }
+    try:
+        from auto_gen45_public_routes import _docs_sp_groups
+
+        payload["gen45_hqx"] = _docs_sp_groups("HQX")
+        payload["gen45_hgy"] = _docs_sp_groups("HGY")
+    except Exception:
+        pass
+    try:
+        from orbit_public_mtbf_routes import _mobile_sp_summary_payload
+
+        payload["mobile_targets"] = _mobile_sp_summary_payload()
+    except Exception:
+        pass
+    return payload
+
+
 @public_auto_gen5_bp.route("/public/apis", methods=["GET", "OPTIONS"])
 @public_auto_gen5_bp.route("/public/all-apis", methods=["GET", "OPTIONS"])
 @public_auto_gen5_bp.route("/public/auto-gen5", methods=["GET", "OPTIONS"])
 def public_auto_gen5_docs():
     if request.method == "OPTIONS":
         return "", 204
+    if request.path.rstrip("/") != "/public/apis":
+        return redirect("/public/apis", code=302)
+
+    # Detect whether the visitor is a logged-in internal user.
+    is_internal_user = bool(
+        _current_user is not None
+        and getattr(_current_user, "is_authenticated", False)
+    )
+
+    public_apis = []
+    private_apis: List[Dict[str, Any]] = []
+    auto_mtbf_docs = _public_auto_mtbf_docs_payload()
     try:
-        hqx_domains = [_domain_summary("nord_hqx", d) for d in _ordered_domains("nord_hqx")]
+        from src.api_registry import (
+            get_approved_private_apis,
+            get_approved_public_apis,
+            seed_builtin_private_apis,
+            seed_builtin_public_apis,
+            seed_public_mtbf_targets,
+        )
+
+        actor = "public_api_catalog"
+        seed_builtin_public_apis(actor=actor)
+        seed_builtin_private_apis(actor=actor)
+        try:
+            from orbit_public_mtbf_routes import _all_targets_with_bu
+
+            seed_public_mtbf_targets(_all_targets_with_bu(), actor=actor)
+        except Exception:
+            pass
+        public_apis = get_approved_public_apis()
+        if is_internal_user:
+            private_apis = get_approved_private_apis()
     except Exception:
-        hqx_domains = []
-    try:
-        hgy_domains = [_domain_summary("nord_hgy", d) for d in _ordered_domains("nord_hgy")]
-    except Exception:
-        hgy_domains = []
-    try:
-        hqx_sps_raw = _discover_sps_for_target("nord_hqx")
-        hqx_sps = []
-        for sp in hqx_sps_raw:
-            details = []
-            for dom in sp["domains"]:
-                try:
-                    detail = _sp_domain_summary("nord_hqx", dom, sp["cpl"])
-                    if int(detail.get("row_count") or 0) > 0:
-                        details.append(detail)
-                except Exception:
-                    pass
-            if details:
-                hqx_sps.append({**sp, "domains": [d["domain"] for d in details], "domain_details": details})
-    except Exception:
-        hqx_sps = []
-    try:
-        hgy_sps_raw = _discover_sps_for_target("nord_hgy")
-        hgy_sps = []
-        for sp in hgy_sps_raw:
-            details = []
-            for dom in sp["domains"]:
-                try:
-                    detail = _sp_domain_summary("nord_hgy", dom, sp["cpl"])
-                    if int(detail.get("row_count") or 0) > 0:
-                        details.append(detail)
-                except Exception:
-                    pass
-            if details:
-                hgy_sps.append({**sp, "domains": [d["domain"] for d in details], "domain_details": details})
-    except Exception:
-        hgy_sps = []
-    # SECA LE IVI 1.0 target (folder: SECA_LE_IVI_1_0) — IVI exposed as NONSAFE-IVI
-    try:
-        seca_domains = [_domain_summary("seca_le_ivi_1_0", d) for d in _ordered_domains("seca_le_ivi_1_0")]
-    except Exception:
-        seca_domains = []
-    try:
-        seca_sps_raw = _discover_sps_for_target("seca_le_ivi_1_0")
-        seca_sps = []
-        for sp in seca_sps_raw:
-            details = []
-            for dom in sp["domains"]:
-                try:
-                    detail = _sp_domain_summary("seca_le_ivi_1_0", dom, sp["cpl"])
-                    if int(detail.get("row_count") or 0) > 0:
-                        detail["domain"] = _seca_public_domain(detail["domain"], "seca_le_ivi_1_0")
-                        details.append(detail)
-                except Exception:
-                    pass
-            if details:
-                seca_sps.append({**sp, "domains": [d["domain"] for d in details], "domain_details": details})
-    except Exception:
-        seca_sps = []
-    # SECA QE IVI 1.0 target (folder: SECA_QE_IVI_1_0) — IVI exposed as NONSAFE-IVI
-    try:
-        qe_ivi_domains = [_domain_summary("seca_qe_ivi_1_0", d) for d in _ordered_domains("seca_qe_ivi_1_0")]
-    except Exception:
-        qe_ivi_domains = []
-    try:
-        qe_ivi_sps_raw = _discover_sps_for_target("seca_qe_ivi_1_0")
-        qe_ivi_sps = []
-        for sp in qe_ivi_sps_raw:
-            details = []
-            for dom in sp["domains"]:
-                try:
-                    detail = _sp_domain_summary("seca_qe_ivi_1_0", dom, sp["cpl"])
-                    if int(detail.get("row_count") or 0) > 0:
-                        detail["domain"] = _seca_public_domain(detail["domain"], "seca_qe_ivi_1_0")
-                        details.append(detail)
-                except Exception:
-                    pass
-            if details:
-                qe_ivi_sps.append({**sp, "domains": [d["domain"] for d in details], "domain_details": details})
-    except Exception:
-        qe_ivi_sps = []
+        public_apis = []
+        private_apis = []
+
     return render_template(
-        "public_auto_gen5_api.html",
-        base=_base_url(),
-        base_ip=_base_url_ip(),
-        hqx_domains=hqx_domains,
-        hgy_domains=hgy_domains,
-        hqx_sps=hqx_sps,
-        hgy_sps=hgy_sps,
-        seca_domains=seca_domains,
-        seca_sps=seca_sps,
-        qe_ivi_domains=qe_ivi_domains,
-        qe_ivi_sps=qe_ivi_sps,
+        "dashboard_docs.html",
+        is_internal_user=is_internal_user,
+        docs_is_admin=is_internal_user and (
+            getattr(_current_user, "role", "user") == "admin"
+            if _current_user is not None else False
+        ),
+        public_apis=public_apis,
+        private_apis=private_apis,
+        auto_mtbf_docs=auto_mtbf_docs,
+        private_callers=[],
     )
 
 

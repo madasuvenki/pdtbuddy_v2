@@ -1,5 +1,114 @@
 # Progress: PDTBuddy
 
+## 2026-10-04 - Mobile Public MTBF SP Summary on `/public/apis`
+- Added a Mobile public MTBF SP/release summary flow for approved Mobile registry entries such as `Maili.LA.1.0` and `Poros.LA.1.0`.
+- `orbit_public_mtbf_routes.py` now has:
+  - `_approved_mobile_mtbf_entries()` to read only approved MOBILE public MTBF entries from the registry,
+  - alias/data-source handling so `Maili.LA.1.0` / `Poros.LA.1.0` can load data from `Maili` / `Poros`,
+  - `_mobile_sp_summary_payload()` to produce target-card-compatible `sps[].domain_details[]` data,
+  - `GET /public/mtbf/api/mobile-sp-summary` returning `targets`, flattened `approved_sps`, `target_count`, and `approved_sp_count`.
+- `auto_gen5_public_routes.py` now includes `mobile_targets` in the `auto_mtbf_docs` payload passed to `templates/dashboard_docs.html`.
+- `src/api_registry.py` now seeds the built-in approved public entry:
+  - `public_mobile_sp_summary`
+  - `/public/mtbf/api/mobile-sp-summary`
+  - BU scope `MOBILE`
+- `templates/dashboard_docs.html` now shows **Mobile Latest MTBF Summary** by default when the Mobile BU tab is selected, using the same compact SP/domain table style as Automotive.
+- Validation passed:
+  - Python 3 compile for `orbit_public_mtbf_routes.py`, `auto_gen5_public_routes.py`, and `src/api_registry.py`.
+  - Jinja parse for `templates/dashboard_docs.html`.
+  - Runtime helper smoke test returned `VALIDATION_OK Maili LA.1.0`.
+
+## 2026-10-03 - Public API Docs Consolidated to Single External Tester Page
+- Consolidated visible external/public API documentation into one page: `/public/apis`.
+- `templates/dashboard_docs.html` is now a public API catalog + live response tester:
+  - shows approved public registry entries only,
+  - uses a full-width page layout,
+  - places the BU chooser at the top of the Public APIs & MTBF tab,
+  - organizes APIs by BU tabs only (`Automotive`, IoT, XR, WBC, Compute, Mobile, Telematics, General/dynamic scopes) and removes the user-facing `All APIs` tab,
+  - each BU tab shows related APIs with per-endpoint **Test** actions,
+  - restores old public-docs style latest MTBF summary tables inside the Automotive BU tab for Auto Gen5, Auto Gen4.5 HQX, and Auto Gen4.5 HGY,
+  - latest MTBF tables now match the earlier compact card/table style: colored target header, target badge, `SP (CPL)`, Domain, Rows, Latest MTBF, `overallMTBF`, Latest Date, and clickable Endpoint,
+  - endpoint links load the selected API into the response tester, with SECA rows using clean `/public/auto-gen5/sp/seca/<version>/domain/<domain>` endpoints,
+  - supports search/filtering,
+  - provides copy URL/cURL helpers,
+  - sends GET requests and pretty-prints response JSON,
+  - hides private/internal API docs, private caller details, and private token/key material.
+- Promoted Documents & Resources into a top-level tab next to **Public APIs & MTBF**:
+  - Architecture,
+  - Architecture Outputs,
+  - Dashboard Architecture,
+  - Dashboard Guide,
+  - Dashboard Help,
+  - CR Overview Help,
+  - Chatbot Help,
+  - Revision History,
+  - admin-only System Docs / Live Status Technical Docs when the viewer is admin.
+- Legacy human-doc URLs now redirect to `/public/apis`:
+  - `/public/auto-gen5`
+  - `/public/all-apis`
+  - `/public/auto-gen45`
+  - `/public/mtbf`
+  - `/public/mtbf/`
+  - `/dashboard/docs`
+  - `/api/docs`
+  - `/docs/api`
+  - `/api/public/orbit/docs`
+- Public JSON APIs remain available and unchanged for Auto Gen5, Auto Gen4.5, public MTBF, and Orbit API routes.
+- `auto_gen5_public_routes.py` now seeds the built-in public catalog and discovered target-level MTBF registry rows before rendering `/public/apis`.
+- `src/api_registry.py` built-in public seed list was expanded so the approved public catalog is no longer limited to only a few entries:
+  - Gen5 catalog/domain/SP/search/all/SECA/build-wise examples,
+  - Gen4.5 HQX/HGY catalog/SP/search examples,
+  - generic public MTBF catalog/all/latest/summary examples.
+- Dynamic target-level MTBF rows remain admin-controlled/pending by default.
+- `app.py` Admin API Registry data now returns explicit counts for:
+  - public total,
+  - approved public,
+  - pending/revoked,
+  - built-in/catalog endpoints,
+  - target-level MTBF keys,
+  - approved target-level MTBF keys.
+- `templates/admin_api_registry.html` now links to `/public/apis`, labels rows as **Catalog endpoint** vs **Target approval**, and separates built-in catalog counts from target-level approval counts so approved keys do not appear artificially low.
+- Validation passed:
+  - `uv run python -m py_compile app.py auto_gen5_public_routes.py auto_gen45_public_routes.py orbit_public_mtbf_routes.py orbit_public_api_routes.py src\api_registry.py`
+  - Jinja parse for `templates/dashboard_docs.html` and `templates/admin_api_registry.html` returned `PUBLIC_API_DOCS_JINJA_OK`
+  - follow-up BU-tab Jinja parse returned `DASHBOARD_DOCS_BU_TABS_JINJA_OK`
+  - final Jinja parse after Architecture Outputs / Dashboard Architecture links returned `DASHBOARD_DOCS_FINAL_JINJA_OK`
+  - Auto public latest-MTBF table validation passed:
+    - `uv run python -m py_compile auto_gen5_public_routes.py auto_gen45_public_routes.py`
+    - Jinja parse returned `AUTO_PUBLIC_MTBF_TABLES_VALIDATION_OK`
+    - docs payload check returned `AUTO_MTBF_DOCS_PAYLOAD_OK 4 6 4`
+  - top-level Documents & Resources tab Jinja parse returned `DASHBOARD_DOCS_TOP_DOCS_TAB_OK`
+  - final full-page/top-BU/no-All-APIs validation returned `DASHBOARD_DOCS_FINAL_FULL_PAGE_BU_OK [('no_all_apis', True), ('full_width_wrap', True), ('top_bu_chooser', True), ('docs_top_tab', True)]`
+  - old-style MTBF target-card table validation passed:
+    - Python compile for `auto_gen5_public_routes.py` and `auto_gen45_public_routes.py`
+    - Jinja parse for `templates/dashboard_docs.html`
+    - template markers confirmed target cards, `SP (CPL)`, `overallMTBF`, and no `All APIs` label
+    - runtime payload check returned `PUBLIC_DOCS_SECA_PAYLOAD_ENDPOINTS_OK True`
+  - static source check confirmed duplicate human-doc routes now redirect to `/public/apis` while JSON endpoints remain.
+
+## 2026-10-03 - Top CRs Comments + Crash Type Override UI
+- Implemented end-to-end Top CRs crash-type override and comments persistence.
+- `src/top_crs_store.py` now supports DB-backed comments (`comments_text`, `comments_updated_by`, `comments_updated_at`) with lightweight migration for existing user-state tables and history action support.
+- `src/top_crs_routes.py` now exposes `POST /api/top_crs/configs/<id>/comments`, applies persisted crash-type overrides before filtering, returns comments metadata in row payloads, and keeps PPT export aligned after removing the "Last seen ML and RB META ID" column.
+- `templates/top_crs.html` now includes:
+  - crash-type dropdown per row,
+  - **Save Type** button,
+  - editable **Comments** column,
+  - comments save button,
+  - persisted comments/override metadata display,
+  - PPT scenario collection that excludes comments cells.
+- Fixed the accidental leading `c` before the template `{% extends "bu_shell_layout.html" %}` directive.
+- Follow-up for Top 5 / Top 10 count behavior:
+  - Backend Top CR candidates now sort by `Last Seen` first, then occurrence, then crash severity.
+  - Rows API overfetches candidates (`candidate_count`) so browser-side Open/Built/date/duplicate filters can still fill the selected Top 5/Top 10.
+  - Frontend caps each visible status group to the selected Top N after filtering.
+  - All Last Seen dates are selected by default so older latest-seen CRs are included when needed.
+- Validation passed:
+  - `py -3 -m py_compile src/top_crs_store.py src/top_crs_routes.py`
+  - Jinja parse for `templates/top_crs.html`
+  - output: `TOP_CRS_VALIDATION_OK`
+  - follow-up output: `TOP_CRS_LAST_SEEN_TOPN_OK`
+
 ## 2026-09-23 - Private API Docs Build Report Token Try-It Follow-up
 - Added Build Report by-build API documentation to the private API reference page:
   - `/api/build_report/build_lookup`

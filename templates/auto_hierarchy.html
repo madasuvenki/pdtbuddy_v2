@@ -561,6 +561,35 @@
   .ah-tgt-grid { grid-template-columns: 1fr; }
 }
 
+/* ============================================================
+   AUTOMOTIVE TOP CRs CTA  (QIPLPDT-11137)
+============================================================ */
+.ah-topcrs-cta {
+  display: flex; align-items: center; gap: 14px;
+  margin-top: 16px; padding: 14px 18px;
+  border-radius: 16px; text-decoration: none;
+  background: linear-gradient(135deg,#c2410c 0%,#ea580c 55%,#f59e0b 100%);
+  box-shadow: 0 10px 28px rgba(194,65,12,.24);
+  border: 1px solid rgba(234,88,12,.35);
+  transition: transform .18s, box-shadow .18s;
+}
+.ah-topcrs-cta:hover { transform: translateY(-2px); box-shadow: 0 16px 36px rgba(194,65,12,.34); text-decoration: none; }
+.ah-topcrs-cta-icon {
+  display: flex; align-items: center; justify-content: center;
+  width: 40px; height: 40px; border-radius: 12px;
+  background: rgba(255,255,255,.18); color: #fff; font-size: 18px; flex-shrink: 0;
+}
+.ah-topcrs-cta-copy { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.ah-topcrs-cta-title { color: #fff; font-size: 14px; font-weight: 900; letter-spacing: -.01em; }
+.ah-topcrs-cta-sub { color: rgba(255,255,255,.9); font-size: 11px; font-weight: 600; }
+.ah-topcrs-cta-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 16px; border-radius: 999px; flex-shrink: 0;
+  background: rgba(255,255,255,.2); border: 1px solid rgba(255,255,255,.3);
+  color: #fff; font-size: 12px; font-weight: 800; white-space: nowrap;
+}
+.ah-topcrs-cta:hover .ah-topcrs-cta-btn { background: rgba(255,255,255,.3); }
+
     /* ── Premium Live Status Banner (compact) ── */
   .plsw-hero{position:relative;display:flex;align-items:center;gap:10px;width:100%;box-sizing:border-box;margin:0 0 14px;padding:8px 14px;border-radius:12px;background:linear-gradient(135deg,#1d4ed8 0%,#7c3aed 52%,#06b6d4 100%);border:1px solid rgba(99,102,241,.28);box-shadow:0 4px 14px rgba(79,70,229,.18);overflow:hidden;text-decoration:none}
   .plsw-hero-before{display:none}
@@ -667,12 +696,11 @@
 
     <div class="ah-exp-body">
 
-      {# PROGRAM LEVEL #}
+            {# PROGRAM LEVEL #}
       <div class="ah-level-row">
         <div class="ah-level-label">Program</div>
         <div class="ah-pill-group" id="prog-pills">
           {# Program pills rendered by JS from TREE #}
-        </div>
         </div>
       </div>
 
@@ -706,8 +734,8 @@
         </div>
       </div>
 
-    </div>{# /.ah-exp-body #}
-  </div>{# /.ah-explorer #}
+        </div>{# /.ah-exp-body #}
+    </div>{# /.ah-explorer #}
 
   <!-- {# BOTTOM INFO PANEL #}
   <div class="ah-info-panel" id="info-panel">
@@ -740,8 +768,9 @@
 
     {% endif %}
 
-    </div>{# /.right column #}
+        </div>{# /.right column #}
   </div>{# /.ah-main-layout #}
+
 
 </div>{# /.ah-wrap #}
 </div>{# /.ah-page #}

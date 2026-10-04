@@ -1,0 +1,1396 @@
+{% extends "bu_shell_layout.html" %}
+{% block shell_extra_css %}
+<style>
+/* ── Page layout ── */
+.tc-page{min-height:100vh;padding:18px 20px 28px;background:radial-gradient(circle at 0% 0%,rgba(79,70,229,.10),transparent 42%),radial-gradient(circle at 100% 0%,rgba(56,189,248,.10),transparent 42%),#f8fbff;}
+.tc-wrap{width:min(1900px,calc(100vw - 40px));margin:0 auto;}
+.tc-head{display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap;}
+.tc-title{display:flex;align-items:center;gap:10px;margin:0;color:#312e81;font-size:clamp(1.15rem,1.8vw,1.7rem);font-weight:900;letter-spacing:-.03em;}
+.tc-sub{margin:2px 0 0;color:#64748b;font-size:12px;font-weight:700;}
+.tc-actions{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+.tc-btn{display:inline-flex;align-items:center;gap:7px;padding:8px 15px;border-radius:999px;border:0;text-decoration:none;font-size:11px;font-weight:900;cursor:pointer;box-shadow:0 6px 18px rgba(79,70,229,.20);transition:.18s transform,.18s box-shadow;}
+.tc-btn:hover{transform:translateY(-1px);text-decoration:none;box-shadow:0 10px 24px rgba(79,70,229,.30);}
+.tc-btn.primary{background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;}
+.tc-btn.ppt{background:linear-gradient(135deg,#c2410c,#ea580c);color:#fff;box-shadow:0 6px 18px rgba(194,65,12,.22);}
+.tc-btn.ghost{background:#fff;color:#4338ca;border:1px solid #c7d2fe;}
+.tc-btn.success{background:linear-gradient(135deg,#059669,#10b981);color:#fff;}
+.tc-btn.danger{background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;}
+.tc-btn[disabled]{opacity:.5;cursor:not-allowed;transform:none;box-shadow:none;}
+
+/* ── Controls bar ── */
+.tc-controls{background:#fff;border:1px solid #e0e7ff;border-radius:18px;box-shadow:0 10px 30px rgba(79,70,229,.08);padding:16px 18px;margin-bottom:16px;display:flex;flex-wrap:wrap;gap:22px;align-items:flex-end;}
+.tc-field{display:flex;flex-direction:column;gap:6px;}
+.tc-label{font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.1em;color:#6b7280;}
+.tc-select{min-width:230px;padding:9px 12px;border-radius:10px;border:1.5px solid #c7d2fe;background:#fff;font-size:13px;font-weight:700;color:#1e293b;cursor:pointer;}
+.tc-select:focus{outline:none;border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.15);}
+.tc-seg{display:inline-flex;border:1.5px solid #c7d2fe;border-radius:10px;overflow:hidden;}
+.tc-seg button{border:0;background:#fff;color:#4338ca;font-size:12px;font-weight:800;padding:9px 18px;cursor:pointer;transition:.15s;}
+.tc-seg button.active{background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;}
+.tc-crash-group{display:flex;gap:8px;flex-wrap:wrap;}
+.tc-chip{display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:999px;font-size:12px;font-weight:800;cursor:pointer;border:1.5px solid #e2e8f0;background:#fff;user-select:none;transition:.15s;}
+.tc-chip input{cursor:pointer;}
+.tc-chip.system.on{border-color:#fca5a5;background:#fee2e2;color:#991b1b;}
+.tc-chip.ssr.on{border-color:#fcd34d;background:#fef3c7;color:#92400e;}
+.tc-chip.process.on{border-color:#c4b5fd;background:#ede9fe;color:#5b21b6;}
+
+/* ── Tabs ── */
+.tc-tabs{display:flex;gap:0;border-bottom:2px solid #e0e7ff;margin-bottom:0;}
+.tc-tab{padding:10px 22px;font-size:12px;font-weight:800;color:#64748b;cursor:pointer;border:none;background:none;border-bottom:3px solid transparent;margin-bottom:-2px;transition:.15s;}
+.tc-tab.active{color:#4338ca;border-bottom-color:#4f46e5;}
+.tc-tab-badge{display:inline-flex;align-items:center;justify-content:center;background:#ef4444;color:#fff;border-radius:999px;font-size:9px;font-weight:900;padding:1px 6px;margin-left:5px;}
+
+/* ── Card ── */
+.tc-card{background:#fff;border:1px solid #e0e7ff;border-radius:18px;box-shadow:0 12px 36px rgba(79,70,229,.08);overflow:hidden;}
+.tc-card-top{display:flex;align-items:center;gap:8px;padding:11px 16px;background:linear-gradient(90deg,#f5f3ff,#eff6ff);border-bottom:1px solid #e0e7ff;color:#4338ca;font-size:12px;font-weight:900;}
+.tc-card-top .count{margin-left:auto;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;border-radius:999px;padding:3px 12px;font-size:11px;}
+.tc-table-wrap{overflow-x:auto;}
+table.tc-table{width:100%;border-collapse:collapse;font-size:12px;}
+table.tc-table th{background:#f1f5f9;color:#334155;font-weight:800;text-transform:uppercase;letter-spacing:.03em;font-size:10px;padding:9px 10px;text-align:left;border-bottom:2px solid #e2e8f0;white-space:nowrap;vertical-align:bottom;}
+table.tc-table td{padding:9px 10px;border-bottom:1px solid #eef2f7;color:#1e293b;vertical-align:top;font-size:13px;}
+table.tc-table tr:hover td{background:#f8fafc;}
+.tc-crash-tag{display:inline-block;padding:2px 9px;border-radius:999px;font-size:10px;font-weight:900;text-transform:uppercase;}
+.tc-crash-tag.system{background:#fee2e2;color:#991b1b;}
+.tc-crash-tag.ssr{background:#fef3c7;color:#92400e;}
+.tc-crash-tag.process{background:#ede9fe;color:#5b21b6;}
+.tc-crash-tag.other{background:#e2e8f0;color:#475569;}
+.tc-crash-select{padding:3px 6px;border-radius:6px;border:1px solid #c7d2fe;background:#fff;color:#334155;font-size:10px;font-weight:800;cursor:pointer;max-width:92px;}
+.tc-crash-select:focus{outline:none;border-color:#6366f1;box-shadow:0 0 0 2px rgba(99,102,241,.15);}
+.tc-empty{padding:44px 20px;text-align:center;color:#94a3b8;font-size:13px;font-weight:700;}
+.tc-empty i{font-size:30px;display:block;margin-bottom:10px;opacity:.5;}
+.tc-spinner{width:26px;height:26px;border:3px solid #e0e7ff;border-top-color:#6366f1;border-radius:999px;margin:0 auto 10px;animation:tcSpin .8s linear infinite;}
+@keyframes tcSpin{to{transform:rotate(360deg)}}
+.tc-scenario-cell{font-size:10px;line-height:1.4;min-width:150px;min-height:22px;outline:none;cursor:text;color:#1e293b;padding:2px 4px;border-radius:4px;border:1px dashed transparent;}
+.tc-scenario-cell:hover{border-color:#c7d2fe;}
+.tc-scenario-cell:empty::before{content:attr(data-ph);color:#cbd5e1;font-style:italic;}
+.tc-scenario-cell:focus{background:#fffbeb;box-shadow:inset 0 0 0 2px #fcd34d;border-radius:4px;border-color:#fcd34d;color:#1e293b;}
+.tc-parent{display:block;margin-top:2px;font-size:9px;font-weight:700;color:#94a3b8;white-space:nowrap;}
+.tc-parent b{color:#64748b;}
+.tc-dup-note{display:block;margin-top:1px;font-size:9px;font-weight:700;color:#b45309;}
+.tc-scenario-meta{display:block;margin-top:3px;font-size:9px;color:#94a3b8;}
+.tc-save-btn{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:6px;border:1px solid #c7d2fe;background:#f5f3ff;color:#4338ca;font-size:9px;font-weight:800;cursor:pointer;margin-top:4px;transition:.15s;}
+.tc-save-btn:hover{background:#ede9fe;}
+.tc-save-btn.saving{opacity:.6;cursor:not-allowed;}
+.tc-remove-btn{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:6px;border:1px solid #fca5a5;background:#fff5f5;color:#dc2626;font-size:9px;font-weight:800;cursor:pointer;transition:.15s;}
+.tc-remove-btn:hover{background:#fee2e2;}
+.tc-restore-btn{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:6px;border:1px solid #6ee7b7;background:#f0fdf4;color:#059669;font-size:9px;font-weight:800;cursor:pointer;transition:.15s;}
+.tc-restore-btn:hover{background:#d1fae5;}
+.tc-removed-badge{display:inline-block;padding:2px 8px;border-radius:999px;background:#fee2e2;color:#dc2626;font-size:9px;font-weight:900;}
+.tc-seen-other{font-size:10px;color:#7c3aed;font-weight:700;}
+/* ── Status sections ── */
+.tc-section-hdr{display:flex;align-items:center;gap:10px;padding:9px 16px;background:linear-gradient(90deg,#f8fafc,#f1f5f9);border-bottom:1px solid #e2e8f0;}
+.tc-section-toggle{display:inline-flex;align-items:center;gap:7px;font-size:11px;font-weight:900;cursor:pointer;user-select:none;color:#334155;}
+.tc-section-toggle input{cursor:pointer;accent-color:#6366f1;width:14px;height:14px;}
+.tc-section-count{margin-left:auto;font-size:10px;font-weight:800;padding:2px 10px;border-radius:999px;background:#e2e8f0;color:#475569;}
+.tc-section-open .tc-section-hdr{background:linear-gradient(90deg,#fff5f5,#fef2f2);}
+.tc-section-open .tc-section-count{background:#fee2e2;color:#991b1b;}
+.tc-section-built .tc-section-hdr{background:linear-gradient(90deg,#f0fdf4,#dcfce7);}
+.tc-section-built .tc-section-count{background:#d1fae5;color:#065f46;}
+
+/* ── Admin modal ── */
+.tc-modal-overlay{display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:9000;align-items:center;justify-content:center;}
+.tc-modal-overlay.open{display:flex;}
+.tc-modal{background:#fff;border-radius:20px;box-shadow:0 24px 64px rgba(15,23,42,.25);width:min(860px,calc(100vw - 32px));max-height:90vh;overflow:hidden;display:flex;flex-direction:column;}
+.tc-modal-head{display:flex;align-items:center;gap:10px;padding:18px 22px;border-bottom:1px solid #e0e7ff;background:linear-gradient(90deg,#f5f3ff,#eff6ff);}
+.tc-modal-head h2{margin:0;font-size:15px;font-weight:900;color:#312e81;flex:1;}
+.tc-modal-close{background:none;border:none;font-size:18px;color:#64748b;cursor:pointer;padding:4px 8px;border-radius:6px;}
+.tc-modal-close:hover{background:#f1f5f9;}
+.tc-modal-body{padding:20px 22px;overflow-y:auto;flex:1;}
+.tc-form-row{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px;}
+.tc-form-group{display:flex;flex-direction:column;gap:5px;flex:1;min-width:180px;}
+.tc-form-label{font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;color:#6b7280;}
+.tc-form-input{padding:9px 12px;border-radius:10px;border:1.5px solid #c7d2fe;font-size:13px;font-weight:600;color:#1e293b;background:#fff;}
+.tc-form-input:focus{outline:none;border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.15);}
+.tc-source-section{margin-bottom:18px;}
+.tc-source-section h3{font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;color:#4338ca;margin:0 0 8px;display:flex;align-items:center;gap:6px;}
+.tc-table-list{max-height:200px;overflow-y:auto;border:1.5px solid #e0e7ff;border-radius:10px;padding:6px;}
+.tc-table-item{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:6px;cursor:pointer;transition:.12s;}
+.tc-table-item:hover{background:#f5f3ff;}
+.tc-table-item input[type=checkbox]{cursor:pointer;accent-color:#6366f1;}
+.tc-table-item label{font-size:11px;font-weight:600;color:#334155;cursor:pointer;flex:1;}
+.tc-table-item .tc-label-input{font-size:10px;padding:3px 7px;border-radius:6px;border:1px solid #c7d2fe;color:#334155;width:140px;}
+.tc-modal-foot{padding:14px 22px;border-top:1px solid #e0e7ff;display:flex;gap:10px;justify-content:flex-end;background:#f8fafc;}
+.tc-toast{position:fixed;bottom:24px;right:24px;z-index:9999;background:#1e293b;color:#fff;padding:10px 18px;border-radius:12px;font-size:12px;font-weight:700;box-shadow:0 8px 24px rgba(15,23,42,.25);display:none;align-items:center;gap:8px;}
+.tc-toast.show{display:flex;}
+.tc-toast.ok{background:linear-gradient(135deg,#059669,#10b981);}
+.tc-toast.err{background:linear-gradient(135deg,#dc2626,#ef4444);}
+
+/* ── Remove reason modal ── */
+.tc-reason-modal{display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:9100;align-items:center;justify-content:center;}
+.tc-reason-modal.open{display:flex;}
+.tc-reason-box{background:#fff;border-radius:16px;box-shadow:0 16px 48px rgba(15,23,42,.22);width:min(440px,calc(100vw - 32px));padding:22px;}
+.tc-reason-box h3{margin:0 0 12px;font-size:14px;font-weight:900;color:#312e81;}
+.tc-reason-box textarea{width:100%;padding:10px 12px;border-radius:10px;border:1.5px solid #c7d2fe;font-size:12px;resize:vertical;min-height:80px;box-sizing:border-box;}
+.tc-reason-box textarea:focus{outline:none;border-color:#6366f1;}
+.tc-reason-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:12px;}
+</style>
+{% endblock %}
+
+{% block shell_inner_content %}
+{% set active_bu_key = "TOP_CRS" %}
+<div class="tc-page">
+  <div class="tc-wrap">
+
+    <!-- Header -->
+    <div class="tc-head">
+      <div>
+        <h1 class="tc-title"><i class="fas fa-trophy" style="color:#7c3aed;"></i> Top CRs</h1>
+        <p class="tc-sub">Config-driven Top 5 / Top 10 CRs. Scenario editable. Remove CRs to Non-list with audit trail.</p>
+      </div>
+      <div class="tc-actions">
+        {% if is_admin %}
+        <button class="tc-btn primary" onclick="tcOpenAdminModal(null)"><i class="fas fa-plus"></i> Add Top CRs</button>
+        {% endif %}
+        <button id="tcDownloadBtn" class="tc-btn ppt" onclick="tcDownloadPpt()" disabled><i class="fas fa-file-powerpoint"></i> Download PPT</button>
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="tc-controls">
+      <div class="tc-field">
+        <span class="tc-label"><i class="fas fa-building"></i> BU Filter</span>
+        <select id="tcBuFilter" class="tc-select" style="min-width:140px;" onchange="tcOnBuFilterChange()">
+          <option value="">All BUs</option>
+          {% for bu in bu_list %}
+          <option value="{{ bu }}">{{ bu }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="tc-field">
+        <span class="tc-label"><i class="fas fa-layer-group"></i> Config</span>
+        <select id="tcConfig" class="tc-select" onchange="tcOnConfigChange()">
+          <option value="">— Select a config —</option>
+          {% for c in configs %}
+          <option value="{{ c.id }}" data-bu="{{ (c.bu or '') | upper }}">{{ c.display_name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      {% if is_admin %}
+      <div class="tc-field" id="tcEditBtnWrap" style="display:none;">
+        <span class="tc-label">&nbsp;</span>
+        <button class="tc-btn ghost" onclick="tcOpenAdminModal(tcCurrentConfigId)"><i class="fas fa-edit"></i> Edit Config</button>
+      </div>
+      {% endif %}
+
+      <div class="tc-field">
+        <span class="tc-label"><i class="fas fa-list-ol"></i> Show</span>
+        <div class="tc-seg" id="tcTopSeg">
+          <button data-top="5" class="active" onclick="tcSetTop(5)">Top 5</button>
+          <button data-top="10" onclick="tcSetTop(10)">Top 10</button>
+        </div>
+      </div>
+
+      <div class="tc-field">
+        <span class="tc-label"><i class="fas fa-bug"></i> Crash Type</span>
+        <div class="tc-crash-group">
+          <label id="tcCrash_all" onclick="tcSetCrashType('all')" style="border:1.5px solid #c7d2fe;background:#ede9fe;color:#4338ca;font-weight:900;cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:999px;font-size:12px;user-select:none;transition:.15s;">All</label>
+          <label id="tcCrash_system" onclick="tcSetCrashType('system')" style="border:1.5px solid #e2e8f0;background:#fff;color:#64748b;opacity:0.55;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:999px;font-size:12px;user-select:none;transition:.15s;">System</label>
+          <label id="tcCrash_ssr" onclick="tcSetCrashType('ssr')" style="border:1.5px solid #e2e8f0;background:#fff;color:#64748b;opacity:0.55;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:999px;font-size:12px;user-select:none;transition:.15s;">SSR</label>
+          <label id="tcCrash_process" onclick="tcSetCrashType('process')" style="border:1.5px solid #e2e8f0;background:#fff;color:#64748b;opacity:0.55;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:999px;font-size:12px;user-select:none;transition:.15s;">Process</label>
+          <label class="tc-chip" id="tcChipDups" style="border-color:#e2e8f0;background:#f8fafc;color:#64748b;opacity:0.5;" onclick="tcToggleDups()"><i class="fas fa-copy"></i> Show Dups</label>
+        </div>
+      </div>
+
+      <div class="tc-field">
+        <span class="tc-label"><i class="fas fa-filter"></i> Status Groups</span>
+        <div class="tc-crash-group">
+          <label class="tc-chip" id="tcChipOpenCtrl" style="border-color:#fca5a5;background:#fee2e2;color:#991b1b;" onclick="tcToggleSection('open',!tcShowOpen)">
+            <i class="fas fa-exclamation-circle"></i> Open/Analysis
+            <span id="tcOpenCount" style="background:#dc2626;color:#fff;border-radius:999px;padding:1px 7px;font-size:9px;margin-left:3px;">0</span>
+          </label>
+          <label class="tc-chip" id="tcChipBuiltCtrl" style="border-color:#6ee7b7;background:#d1fae5;color:#065f46;" onclick="tcToggleSection('built',!tcShowBuilt)">
+            <i class="fas fa-check-circle"></i> Built/Fix/Ready
+            <span id="tcBuiltCount" style="background:#059669;color:#fff;border-radius:999px;padding:1px 7px;font-size:9px;margin-left:3px;">0</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="tc-field">
+        <span class="tc-label">&nbsp;</span>
+        <button class="tc-btn primary" onclick="tcReload()"><i class="fas fa-sync"></i> Refresh</button>
+      </div>
+    </div>
+
+    <!-- Last Seen date filter (shown after data loads) -->
+    <div id="tcDateFilterWrap" style="display:none;background:#fff;border:1px solid #e0e7ff;border-radius:14px;box-shadow:0 4px 14px rgba(79,70,229,.06);padding:11px 16px;margin-bottom:12px;display:none;align-items:center;flex-wrap:wrap;gap:10px;">
+      <span style="font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;color:#6b7280;white-space:nowrap;"><i class="fas fa-calendar-alt" style="color:#6366f1;"></i> Last Seen:</span>
+      <div id="tcDateChips" style="display:flex;flex-wrap:wrap;gap:6px;flex:1;"></div>
+      <button onclick="tcSelectAllDates()" style="padding:4px 11px;border-radius:999px;border:1px solid #c7d2fe;background:#f5f3ff;color:#4338ca;font-size:10px;font-weight:800;cursor:pointer;">All</button>
+      <button onclick="tcClearAllDates()" style="padding:4px 11px;border-radius:999px;border:1px solid #e2e8f0;background:#f8fafc;color:#64748b;font-size:10px;font-weight:800;cursor:pointer;">None</button>
+    </div>
+
+    <!-- Tabs + Card -->
+    <div class="tc-card">
+      <div class="tc-card-top">
+        <i class="fas fa-table"></i>
+        <span id="tcCardTitle">Top CRs</span>
+        <div style="display:flex;gap:8px;align-items:center;margin-left:auto;">
+          <span class="count" id="tcCount">0</span>
+        </div>
+      </div>
+
+      <div class="tc-tabs" id="tcTabs">
+        <button class="tc-tab active" data-tab="top" onclick="tcSwitchTab('top')">
+          <i class="fas fa-trophy"></i> Top CRs
+        </button>
+        <button class="tc-tab" data-tab="nonlist" onclick="tcSwitchTab('nonlist')">
+          <i class="fas fa-eye-slash"></i> Non-list / Removed
+          <span class="tc-tab-badge" id="tcNonlistBadge" style="display:none;">0</span>
+        </button>
+      </div>
+
+      <!-- Top CRs tab -->
+      <div id="tcTabTop">
+
+        <!-- ── Open / Analysis section (first priority) ── -->
+        <!-- hidden sync inputs for JS compatibility -->
+        <input type="hidden" id="tcShowOpenCb" value="1">
+        <input type="hidden" id="tcShowBuiltCb" value="1">
+        <div id="tcOpenSection">
+          <div id="tcOpenTableWrap">
+            <div class="tc-table-wrap">
+              <table class="tc-table">
+                <thead><tr>
+                  <th style="width:44px;">S.No</th><th>CR ID</th>
+                  <th>Jira count<br>(Cumulative)</th><th>PDT<br>Priority</th>
+                  <th>Crash Type</th><th>CR age</th>
+                  <th style="min-width:260px;">CR Title</th><th>CR Area</th>
+                  <th>Last seen ML and<br>RB META ID</th><th>RB/ML</th>
+                  <th>CR date</th><th>Last Seen</th><th>CR Status</th>
+                  <th style="min-width:220px;">Debug Notes</th>
+                  <th style="min-width:160px;">Scenario</th>
+                  <th style="min-width:180px;">Comments</th>
+                  <th id="tcSeenOtherTh" style="display:none;min-width:120px;">CR Seen<br>Other Target</th>
+                  <th style="min-width:80px;">Actions</th>
+                </tr></thead>
+                <tbody id="tcOpenBody">
+                  <tr><td colspan="19" class="tc-empty" style="padding:20px;"><i class="fas fa-layer-group"></i> Select a config.</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div id="tcOpenSlideNav" style="display:none;padding:10px 18px;border-top:1px solid #eef2f7;align-items:center;justify-content:space-between;gap:12px;background:#fafbff;">
+              <button onclick="tcPrevSection('open')" id="tcOpenPrevBtn" style="display:inline-flex;align-items:center;gap:6px;padding:7px 16px;border-radius:999px;border:1.5px solid #fca5a5;background:#fff;color:#dc2626;font-size:11px;font-weight:800;cursor:pointer;">
+                <i class="fas fa-chevron-left"></i> Prev
+              </button>
+              <span id="tcOpenIndicator" style="font-size:12px;font-weight:800;color:#dc2626;"></span>
+              <button onclick="tcNextSection('open')" id="tcOpenNextBtn" style="display:inline-flex;align-items:center;gap:6px;padding:7px 16px;border-radius:999px;border:1.5px solid #fca5a5;background:#fff;color:#dc2626;font-size:11px;font-weight:800;cursor:pointer;">
+                Next <i class="fas fa-chevron-right"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Built / Fix / Ready section ── -->
+        <div id="tcBuiltSection" style="border-top:2px solid #e0e7ff;display:none;">
+          <div id="tcBuiltTableWrap">
+            <div class="tc-table-wrap">
+              <table class="tc-table">
+                <thead><tr>
+                  <th style="width:44px;">S.No</th><th>CR ID</th>
+                  <th>Jira count<br>(Cumulative)</th><th>PDT<br>Priority</th>
+                  <th>Crash Type</th><th>CR age</th>
+                  <th style="min-width:260px;">CR Title</th><th>CR Area</th>
+                  <th>Last seen ML and<br>RB META ID</th><th>RB/ML</th>
+                  <th>CR date</th><th>Last Seen</th><th>CR Status</th>
+                  <th style="min-width:220px;">Debug Notes</th>
+                  <th style="min-width:160px;">Scenario</th>
+                  <th style="min-width:180px;">Comments</th>
+                  <th style="min-width:100px;">Ready Date<br><span style="font-weight:600;color:#94a3b8;font-size:8px;">(Orbit)</span></th>
+                  <th id="tcSeenOtherThB" style="display:none;min-width:120px;">CR Seen<br>Other Target</th>
+                  <th style="min-width:80px;">Actions</th>
+                </tr></thead>
+                <tbody id="tcBuiltBody">
+                  <tr><td colspan="19" class="tc-empty" style="padding:20px;"><i class="fas fa-layer-group"></i> Select a config.</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div id="tcBuiltSlideNav" style="display:none;padding:10px 18px;border-top:1px solid #eef2f7;align-items:center;justify-content:space-between;gap:12px;background:#fafbff;">
+              <button onclick="tcPrevSection('built')" id="tcBuiltPrevBtn" style="display:inline-flex;align-items:center;gap:6px;padding:7px 16px;border-radius:999px;border:1.5px solid #6ee7b7;background:#fff;color:#059669;font-size:11px;font-weight:800;cursor:pointer;">
+                <i class="fas fa-chevron-left"></i> Prev
+              </button>
+              <span id="tcBuiltIndicator" style="font-size:12px;font-weight:800;color:#059669;"></span>
+              <button onclick="tcNextSection('built')" id="tcBuiltNextBtn" style="display:inline-flex;align-items:center;gap:6px;padding:7px 16px;border-radius:999px;border:1.5px solid #6ee7b7;background:#fff;color:#059669;font-size:11px;font-weight:800;cursor:pointer;">
+                Next <i class="fas fa-chevron-right"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Non-list tab -->
+      <div id="tcTabNonlist" style="display:none;">
+        <div class="tc-table-wrap">
+          <table class="tc-table">
+            <thead>
+              <tr>
+                <th>CR ID</th>
+                <th>Removed By</th>
+                <th>Removed At</th>
+                <th>Reason</th>
+                {% if is_admin %}<th>Restore</th>{% endif %}
+              </tr>
+            </thead>
+            <tbody id="tcNonlistBody">
+              <tr><td colspan="{% if is_admin %}5{% else %}4{% endif %}" class="tc-empty"><i class="fas fa-check-circle"></i>No removed CRs.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="tc-toast" id="tcToast"></div>
+
+<!-- Remove reason modal -->
+<div class="tc-reason-modal" id="tcReasonModal">
+  <div class="tc-reason-box">
+    <h3><i class="fas fa-eye-slash" style="color:#dc2626;"></i> Remove CR from Top List</h3>
+    <p style="font-size:12px;color:#64748b;margin:0 0 10px;">CR <b id="tcReasonCrId"></b> will be moved to Non-list. Others can still see it there.</p>
+    <textarea id="tcReasonText" placeholder="Reason (optional)…"></textarea>
+    <div class="tc-reason-actions">
+      <button class="tc-btn ghost" onclick="tcCloseReasonModal()">Cancel</button>
+      <button class="tc-btn danger" onclick="tcConfirmRemove()"><i class="fas fa-eye-slash"></i> Remove</button>
+    </div>
+  </div>
+</div>
+
+<!-- Admin config modal -->
+<div class="tc-modal-overlay" id="tcAdminModal">
+  <div class="tc-modal">
+    <div class="tc-modal-head">
+      <i class="fas fa-cog" style="color:#6366f1;font-size:16px;"></i>
+      <h2 id="tcModalTitle">Add Top CRs Config</h2>
+      <button class="tc-modal-close" onclick="tcCloseAdminModal()">&#x2715;</button>
+    </div>
+    <div class="tc-modal-body">
+      <input type="hidden" id="tcModalConfigId" value="">
+
+      <div class="tc-form-row">
+        <div class="tc-form-group">
+          <label class="tc-form-label">BU (required — select first)</label>
+          <select id="tcModalBu" class="tc-form-input" onchange="tcOnModalBuChange()">
+            <option value="">— Select BU first —</option>
+            {% for bu in bu_list %}
+            <option value="{{ bu }}">{{ bu }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="tc-form-group">
+          <label class="tc-form-label">DB Schema (auto)</label>
+          <input type="text" id="tcModalSchema" class="tc-form-input" value="" placeholder="Auto-filled after BU selection" readonly style="background:#f8fafc;color:#475569;">
+          <span style="font-size:10px;color:#64748b;font-weight:700;">Schema is resolved from selected BU, then tables load automatically.</span>
+        </div>
+        <div class="tc-form-group" style="min-width:100px;max-width:120px;">
+          <label class="tc-form-label">Enabled</label>
+          <select id="tcModalEnabled" class="tc-form-input">
+            <option value="1">Yes</option>
+            <option value="0">No</option>
+          </select>
+        </div>
+      </div>
+      <div class="tc-form-row">
+        <div class="tc-form-group">
+          <label class="tc-form-label">Config Key (unique slug)</label>
+          <input type="text" id="tcModalKey" class="tc-form-input" placeholder="e.g. nord_hgy_top_crs">
+        </div>
+        <div class="tc-form-group">
+          <label class="tc-form-label">Display Name</label>
+          <input type="text" id="tcModalName" class="tc-form-input" placeholder="e.g. Nord HGY Top CRs">
+        </div>
+      </div>
+
+      <!-- Source tables -->
+      <div class="tc-source-section">
+        <h3><i class="fas fa-database" style="color:#6366f1;"></i> Top CR Source Tables (unique_crs)</h3>
+        <p style="font-size:11px;color:#64748b;margin:0 0 6px;">Select one or more tables. CRs are combined (UNION) and ranked by most recent activity.</p>
+        <input type="text" placeholder="🔍 Search tables…" oninput="tcFilterTableList('tcModalUniqTables',this.value)"
+          style="width:100%;padding:6px 10px;border-radius:8px;border:1.5px solid #c7d2fe;font-size:11px;margin-bottom:6px;box-sizing:border-box;outline:none;">
+        <div id="tcModalUniqTables" class="tc-table-list">
+          <div style="color:#94a3b8;font-size:11px;padding:8px;">Load schema to see tables…</div>
+        </div>
+      </div>
+
+      <div class="tc-source-section">
+        <h3><i class="fas fa-ticket-alt" style="color:#0891b2;"></i> JIRA Source Tables (jiras) <span style="font-weight:600;color:#94a3b8;font-size:10px;">(for RB/ML)</span></h3>
+        <input type="text" placeholder="🔍 Search tables…" oninput="tcFilterTableList('tcModalJirasTables',this.value)"
+          style="width:100%;padding:6px 10px;border-radius:8px;border:1.5px solid #c7d2fe;font-size:11px;margin-bottom:6px;box-sizing:border-box;outline:none;">
+        <div id="tcModalJirasTables" class="tc-table-list">
+          <div style="color:#94a3b8;font-size:11px;padding:8px;">Load schema to see tables…</div>
+        </div>
+      </div>
+
+      <div class="tc-source-section">
+        <h3><i class="fas fa-search" style="color:#d97706;"></i> CR Seen Other Target Tables <span style="font-weight:600;color:#94a3b8;font-size:10px;">(optional — adds extra column)</span></h3>
+        <p style="font-size:11px;color:#64748b;margin:0 0 6px;">If a CR from the Top list also appears in these tables, the "CR Seen Other Target" column will show the label.</p>
+        <input type="text" placeholder="🔍 Search tables…" oninput="tcFilterTableList('tcModalSeenTables',this.value)"
+          style="width:100%;padding:6px 10px;border-radius:8px;border:1.5px solid #c7d2fe;font-size:11px;margin-bottom:6px;box-sizing:border-box;outline:none;">
+        <div id="tcModalSeenTables" class="tc-table-list">
+          <div style="color:#94a3b8;font-size:11px;padding:8px;">Load schema to see tables…</div>
+        </div>
+      </div>
+
+      <div id="tcModalError" style="display:none;background:#fee2e2;color:#991b1b;border-radius:8px;padding:10px 14px;font-size:12px;font-weight:700;margin-top:8px;"></div>
+    </div>
+    <div class="tc-modal-foot">
+      <button class="tc-btn ghost" onclick="tcCloseAdminModal()">Cancel</button>
+      <button class="tc-btn primary" onclick="tcSaveConfig()" id="tcModalSaveBtn"><i class="fas fa-save"></i> Save Config</button>
+    </div>
+  </div>
+</div>
+
+<script type="application/json" id="tcBuSchemaMapJson">{{ bu_schema_map | tojson | safe }}</script>
+<div id="tcTopCrsBoot" data-is-admin="{{ '1' if is_admin else '0' }}" style="display:none;"></div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+let tcTop = 5;
+let tcCrashType = 'all'; // radio: 'all' | 'system' | 'ssr' | 'process'
+let tcCurrentConfigId = null;
+let tcCurrentComboKey = null;
+let tcCurrentTab = 'top';
+let tcHasSeen = false;
+let tcIsAdmin = document.getElementById('tcTopCrsBoot')?.dataset.isAdmin === '1';
+// Slide + date filter state
+let tcAllRows = [];
+let tcFilteredRows = [];
+let tcOpenRows = [];
+let tcBuiltRows = [];
+let tcCurrentSlide = 0;
+let tcOpenSlide = 0;
+let tcBuiltSlide = 0;
+let tcShowOpen = true;
+let tcShowBuilt = false; // default: Built/Fix/Ready hidden; user can enable
+let tcShowDups  = false; // default: hide duplicate CRs
+const TC_ROWS_PER_SLIDE = 5;
+let tcCheckedDates = new Set(); // empty = all checked
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+(function(){
+  const _d=document.createElement('div');
+  window.tcEsc=function(s){
+    _d.textContent=String(s==null?'':s);
+    return _d.innerHTML;
+  };
+})();
+function tcDash(v){ const s=tcEsc(v); return s?s:'<span style="color:#cbd5e1;">—</span>'; }
+
+function tcToast(msg, type='ok'){
+  const el=document.getElementById('tcToast');
+  el.textContent=msg; el.className='tc-toast show '+(type==='ok'?'ok':'err');
+  clearTimeout(el._t); el._t=setTimeout(()=>el.classList.remove('show'),3000);
+}
+
+// ── Top / Crash toggles ────────────────────────────────────────────────────
+function tcSetTop(n){
+  tcTop=n;
+  document.querySelectorAll('#tcTopSeg button').forEach(b=>b.classList.toggle('active',String(b.dataset.top)===String(n)));
+  tcReload();
+}
+function tcSetCrashType(type){
+  tcCrashType=type;
+  const _active={
+    all:'border:1.5px solid #c7d2fe;background:#ede9fe;color:#4338ca;font-weight:900;',
+    system:'border:1.5px solid #fca5a5;background:#fee2e2;color:#991b1b;font-weight:900;',
+    ssr:'border:1.5px solid #fcd34d;background:#fef3c7;color:#92400e;font-weight:900;',
+    process:'border:1.5px solid #c4b5fd;background:#ede9fe;color:#5b21b6;font-weight:900;',
+  };
+  const _base='border:1.5px solid #e2e8f0;background:#fff;color:#64748b;opacity:0.55;font-weight:800;';
+  ['all','system','ssr','process'].forEach(t=>{
+    const el=document.getElementById('tcCrash_'+t);
+    if(el) el.setAttribute('style',(t===type?_active[t]:_base)+'cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:999px;font-size:12px;user-select:none;transition:.15s;');
+  });
+  tcReload();
+}
+function tcSelectedCrashTypes(){
+  // 'all' → send empty array so backend skips crash-type filtering entirely
+  // (includes system + ssr + process + other)
+  return tcCrashType==='all'?[]:[tcCrashType];
+}
+
+// ── BU filter ──────────────────────────────────────────────────────────────
+function tcOnBuFilterChange(){
+  const bu=document.getElementById('tcBuFilter').value.toUpperCase();
+  const cfgSel=document.getElementById('tcConfig');
+  Array.from(cfgSel.options).forEach(opt=>{
+    if(!opt.value){ opt.style.display=''; return; }
+    const optBu=(opt.getAttribute('data-bu')||'').toUpperCase();
+    opt.style.display=(!bu||optBu===bu)?'':'none';
+  });
+  // If current selection is now hidden, reset it
+  const cur=cfgSel.options[cfgSel.selectedIndex];
+  if(cur&&cur.style.display==='none'){
+    cfgSel.value='';
+    tcCurrentConfigId=null;
+    const editWrap=document.getElementById('tcEditBtnWrap');
+    if(editWrap) editWrap.style.display='none';
+    tcCurrentComboKey=null;
+    tcReload();
+  }
+}
+
+// ── Config change ──────────────────────────────────────────────────────────
+function tcOnConfigChange(){
+  const sel=document.getElementById('tcConfig');
+  tcCurrentConfigId=sel.value?parseInt(sel.value):null;
+  const editWrap=document.getElementById('tcEditBtnWrap');
+  if(editWrap) editWrap.style.display=tcCurrentConfigId?'':'none';
+  tcCurrentComboKey=null;
+  tcReload();
+}
+
+// ── Tab switch ─────────────────────────────────────────────────────────────
+function tcSwitchTab(tab){
+  tcCurrentTab=tab;
+  document.querySelectorAll('.tc-tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
+  document.getElementById('tcTabTop').style.display=tab==='top'?'':'none';
+  document.getElementById('tcTabNonlist').style.display=tab==='nonlist'?'':'none';
+  if(tab==='nonlist' && tcCurrentConfigId && tcCurrentComboKey) tcLoadNonlist();
+}
+
+// ── Main reload ────────────────────────────────────────────────────────────
+async function tcReload(){
+  if(!tcCurrentConfigId){
+    ['tcOpenBody','tcBuiltBody'].forEach(id=>{
+      const b=document.getElementById(id);
+      if(b) b.innerHTML='<tr><td colspan="19" class="tc-empty"><i class="fas fa-layer-group"></i>Select a config to view the top CRs.</td></tr>';
+    });
+    document.getElementById('tcCount').textContent='0';
+    document.getElementById('tcDownloadBtn').disabled=true;
+    document.getElementById('tcCardTitle').textContent='Top CRs';
+    return;
+  }
+  const colCount=tcHasSeen?19:18;
+  ['tcOpenBody','tcBuiltBody'].forEach(id=>{
+    const b=document.getElementById(id);
+    if(b) b.innerHTML=`<tr><td colspan="${colCount}" class="tc-empty"><div class="tc-spinner"></div>Loading…</td></tr>`;
+  });
+  document.getElementById('tcDownloadBtn').disabled=true;
+
+  const params=new URLSearchParams({
+    top:tcTop,
+    crash_types:tcSelectedCrashTypes().join(',')
+  });
+  try{
+    const resp=await fetch(`/api/top_crs/configs/${tcCurrentConfigId}/rows?${params}`,{headers:{'X-Requested-With':'XMLHttpRequest'}});
+    const data=await resp.json();
+    if(!data.ok){
+      ['tcOpenBody','tcBuiltBody'].forEach(id=>{
+        const b=document.getElementById(id);
+        if(b) b.innerHTML=`<tr><td colspan="19" class="tc-empty"><i class="fas fa-triangle-exclamation"></i>${tcEsc(data.error||'Failed to load.')}</td></tr>`;
+      });
+      return;
+    }
+    tcCurrentComboKey=data.combo_key;
+    tcHasSeen=!!data.has_seen_other;
+    const seenTh=document.getElementById('tcSeenOtherTh');
+    if(seenTh) seenTh.style.display=tcHasSeen?'':'none';
+
+    const rows=data.rows||[];
+    const cfgName=document.querySelector('#tcConfig option:checked').textContent.trim();
+    document.getElementById('tcCardTitle').textContent=cfgName+' — Top '+data.top;
+    document.getElementById('tcCount').textContent=rows.length;
+
+    if(!rows.length){
+      ['tcOpenBody','tcBuiltBody'].forEach(id=>{
+        const b=document.getElementById(id);
+        if(b) b.innerHTML=`<tr><td colspan="${colCount}" class="tc-empty"><i class="fas fa-inbox"></i>No CRs found.</td></tr>`;
+      });
+      document.getElementById('tcDownloadBtn').disabled=true;
+      return;
+    }
+
+    // Store all candidate rows, then render capped Top 5/10 rows.
+    // Date chips are built from the displayed rows only.
+    tcAllRows = rows;
+    tcCurrentSlide = 0;
+    tcCheckedDates = new Set(); // reset = all checked
+    tcApplyFilter();
+    document.getElementById('tcDownloadBtn').disabled=false;
+    tcLoadNonlistCount();
+  }catch(e){
+    ['tcOpenBody','tcBuiltBody'].forEach(id=>{
+      const b=document.getElementById(id);
+      if(b) b.innerHTML=`<tr><td colspan="19" class="tc-empty"><i class="fas fa-triangle-exclamation"></i>Error loading data.</td></tr>`;
+    });
+  }
+}
+
+// ── Date filter + slide pagination ────────────────────────────────────────
+function tcBuildDateChips(rows){
+  const wrap=document.getElementById('tcDateFilterWrap');
+  const chipsEl=document.getElementById('tcDateChips');
+  const visibleRows=Array.isArray(rows)?rows:[];
+  if(!visibleRows.length){ wrap.style.display='none'; chipsEl.innerHTML=''; return; }
+  // Show only Last Seen dates that belong to the currently listed Top 5/10 rows.
+  const dates=[...new Set(visibleRows.map(r=>r.last_seen||'').filter(Boolean))].sort().reverse();
+  if(!dates.length){ wrap.style.display='none'; chipsEl.innerHTML=''; return; }
+  chipsEl.innerHTML=dates.map((d)=>{
+    const checked=!tcCheckedDates.has(d);
+    const checkedAttr=checked?'checked':'';
+    const chipStyle=checked
+      ?'border:1.5px solid #c7d2fe;background:#f5f3ff;color:#4338ca;'
+      :'border:1.5px solid #e2e8f0;background:#f8fafc;color:#94a3b8;opacity:0.7;';
+    return `<label style="display:inline-flex;align-items:center;gap:5px;padding:4px 11px;border-radius:999px;${chipStyle}font-size:10px;font-weight:800;cursor:pointer;user-select:none;transition:.15s;" id="tcDateChip_${d}">
+      <input type="checkbox" ${checkedAttr} data-date="${tcEsc(d)}" onchange="tcToggleDate('${tcEsc(d)}',this.checked)" style="cursor:pointer;accent-color:#6366f1;">
+      ${tcEsc(d)}
+    </label>`;
+  }).join('');
+  wrap.style.display='flex';
+}
+
+function tcToggleDate(date, checked){
+  if(checked){ tcCheckedDates.delete(date); }
+  else { tcCheckedDates.add(date); } // add to EXCLUDED set
+  tcCurrentSlide=0;
+  tcApplyFilter();
+}
+
+function tcSelectAllDates(){
+  tcCheckedDates.clear();
+  document.querySelectorAll('#tcDateChips input[type=checkbox]').forEach(cb=>{ cb.checked=true; });
+  tcCurrentSlide=0;
+  tcApplyFilter();
+}
+
+function tcClearAllDates(){
+  const dates=[...document.querySelectorAll('#tcDateChips input[type=checkbox]')].map(cb=>cb.getAttribute('data-date'));
+  dates.forEach(d=>tcCheckedDates.add(d));
+  document.querySelectorAll('#tcDateChips input[type=checkbox]').forEach(cb=>{ cb.checked=false; });
+  tcCurrentSlide=0;
+  tcApplyFilter();
+}
+
+// ── Status classification ──────────────────────────────────────────────────
+function tcClassifyStatus(status){
+  const s=(status||'').toLowerCase().replace(/[\s_-]+/g,'');
+  // Do not include Can't Dup / CannotDuplicate style statuses in either
+  // Open/Analysis or Built/Fix/Ready Top CR lists.
+  if(/^(cannotduplicate|cantduplicate|cantdup|cannotreproduce|notreproducible)$/.test(s)) return 'exclude';
+
+  const raw=(status||'').toLowerCase();
+  if(/\b(built|fix|fixed|ready|closed|resolved|verified|done|complete|integrated|merged|submitted|pass|passed)\b/.test(raw)) return 'built';
+  return 'open'; // open, analysis, in progress, new, assigned, etc.
+}
+
+function tcToggleDups(){
+  tcShowDups=!tcShowDups;
+  const chip=document.getElementById('tcChipDups');
+  if(chip){
+    chip.style.opacity=tcShowDups?'1':'0.5';
+    chip.style.borderColor=tcShowDups?'#c4b5fd':'#e2e8f0';
+    chip.style.background=tcShowDups?'#ede9fe':'#f8fafc';
+    chip.style.color=tcShowDups?'#5b21b6':'#64748b';
+  }
+  tcOpenSlide=0; tcBuiltSlide=0;
+  tcApplyFilter();
+}
+
+function tcApplyFilter(){
+  const nonDateBase = tcShowDups ? tcAllRows : tcAllRows.filter(r=>!r.is_dup);
+
+  // Build Last Seen chips only from the currently listed Top 5/10 rows, not
+  // from the larger hidden candidate pool returned by the API.
+  const openChipRows  = nonDateBase.filter(r=>tcClassifyStatus(r.status)==='open').slice(0, tcTop);
+  const builtChipRows = nonDateBase.filter(r=>tcClassifyStatus(r.status)==='built').slice(0, tcTop);
+  tcBuildDateChips([...(tcShowOpen?openChipRows:[]), ...(tcShowBuilt?builtChipRows:[])]);
+
+  tcFilteredRows = tcCheckedDates.size===0
+    ? nonDateBase
+    : nonDateBase.filter(r=>!tcCheckedDates.has(r.last_seen||''));
+
+  // The API intentionally returns extra latest candidates. After browser-side
+  // filters, cap each visible status group to the selected Top N so Top 5/10
+  // fills from Last Seen instead of stopping early at 3–4 visible rows.
+  tcOpenRows  = tcFilteredRows.filter(r=>tcClassifyStatus(r.status)==='open').slice(0, tcTop);
+  tcBuiltRows = tcFilteredRows.filter(r=>tcClassifyStatus(r.status)==='built').slice(0, tcTop);
+
+  const visibleCount=(tcShowOpen?tcOpenRows.length:0)+(tcShowBuilt?tcBuiltRows.length:0);
+  document.getElementById('tcCount').textContent=visibleCount;
+  // Update seen-other header in built table too
+  const seenThB=document.getElementById('tcSeenOtherThB');
+  if(seenThB) seenThB.style.display=tcHasSeen?'':'none';
+  tcOpenSlide=0; tcBuiltSlide=0;
+  tcRenderSection('open');
+  tcRenderSection('built');
+}
+
+function tcRenderSection(section){
+  const rows   = section==='open' ? tcOpenRows : tcBuiltRows;
+  const slide  = section==='open' ? tcOpenSlide : tcBuiltSlide;
+  const bodyId = section==='open' ? 'tcOpenBody'      : 'tcBuiltBody';
+  const navId  = section==='open' ? 'tcOpenSlideNav'  : 'tcBuiltSlideNav';
+  const prevId = section==='open' ? 'tcOpenPrevBtn'   : 'tcBuiltPrevBtn';
+  const nextId = section==='open' ? 'tcOpenNextBtn'   : 'tcBuiltNextBtn';
+  const indId  = section==='open' ? 'tcOpenIndicator' : 'tcBuiltIndicator';
+  const cntId  = section==='open' ? 'tcOpenCount'     : 'tcBuiltCount';
+  const wrapId = section==='open' ? 'tcOpenTableWrap' : 'tcBuiltTableWrap';
+  const show   = section==='open' ? tcShowOpen : tcShowBuilt;
+  const colCount = tcHasSeen ? (section==='built' ? 19 : 18) : (section==='built' ? 18 : 17);
+
+  const cntEl=document.getElementById(cntId);
+  if(cntEl) cntEl.textContent=rows.length+' CR'+(rows.length!==1?'s':'');
+
+  const wrap=document.getElementById(wrapId);
+  if(wrap) wrap.style.display=show?'':'none';
+  if(!show) return;
+
+  const body=document.getElementById(bodyId);
+  const nav=document.getElementById(navId);
+
+  if(!rows.length){
+    if(body) body.innerHTML=`<tr><td colspan="${colCount}" class="tc-empty" style="padding:18px;"><i class="fas fa-inbox"></i> No CRs in this group.</td></tr>`;
+    if(nav) nav.style.display='none';
+    return;
+  }
+
+  const totalSlides=Math.ceil(rows.length/TC_ROWS_PER_SLIDE);
+  const curSlide=Math.max(0,Math.min(slide,totalSlides-1));
+  if(section==='open') tcOpenSlide=curSlide; else tcBuiltSlide=curSlide;
+
+  const start=curSlide*TC_ROWS_PER_SLIDE;
+  const pageRows=rows.slice(start,start+TC_ROWS_PER_SLIDE);
+
+  if(body) body.innerHTML=pageRows.map((r,i)=>{
+    const globalIdx=start+i;
+    const ct=(r.crash_type||'other').toLowerCase();
+    const crIdRaw=r.cr||'';
+    const crId=tcEsc(crIdRaw);
+    // When dup is shown, display as "parent/dup" stacked format
+    const crIdDisplay=(r.is_dup&&r.parent_cr)
+      ?`${tcEsc(r.parent_cr)}/<br><span style="color:#7c3aed;">${crId}</span>`
+      :crId;
+    const parentLine='';
+    const occCell=(r.is_dup&&r.parent_cr)?tcDash(r.occurrence)+`<span class="tc-dup-note">rolls up to ${tcEsc(r.parent_cr)}</span>`:tcDash(r.occurrence);
+    const scenMeta=r.scenario_updated_by?`<span class="tc-scenario-meta">by ${tcEsc(r.scenario_updated_by)}${r.scenario_updated_at?' · '+tcEsc(r.scenario_updated_at.slice(0,16)):''}</span>`:'';
+    const crashMeta=r.crash_type_updated_by?`<span class="tc-scenario-meta">by ${tcEsc(r.crash_type_updated_by)}${r.crash_type_updated_at?' · '+tcEsc(r.crash_type_updated_at.slice(0,16)):''}</span>`:'';
+    const commentsMeta=r.comments_updated_by?`<span class="tc-scenario-meta">by ${tcEsc(r.comments_updated_by)}${r.comments_updated_at?' · '+tcEsc(r.comments_updated_at.slice(0,16)):''}</span>`:'';
+    const seenCell=tcHasSeen?`<td class="tc-seen-other">${tcDash(r.seen_other_target)}</td>`:'';
+    // Deduplicate metas: combine meta_id + last_meta_ids into one unique ordered list
+    const _allMetas=[];const _seenM=new Set();
+    [r.meta_id,...(r.last_meta_ids||[])].forEach(m=>{if(m&&!_seenM.has(m)){_seenM.add(m);_allMetas.push(m);}});
+    const _metaFirst=_allMetas[0]||'';
+    const _metaExtra=_allMetas.slice(1);
+    const metaCellHtml=_metaFirst
+      ?`<span style="font-weight:800;font-size:10px;word-break:break-all;">${tcEsc(_metaFirst)}</span>`
+       +(_metaExtra.length?`<br><button class="tc-meta-expand-btn" data-count="${_metaExtra.length}" onclick="tcToggleMetaExpand(this)" style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:4px;border:1px solid #c7d2fe;background:#f5f3ff;color:#4338ca;font-size:9px;font-weight:800;cursor:pointer;margin-top:3px;">▼ ${_metaExtra.length} more</button><div class="tc-meta-list" style="display:none;font-size:9px;color:#94a3b8;margin-top:3px;line-height:1.6;">${_metaExtra.map(tcEsc).join('<br>')}</div>`:'')
+      :'<span style="color:#cbd5e1;">—</span>';
+    const titleMetaLine=_allMetas.length?`<span style="display:block;font-size:9px;color:#7c3aed;margin-top:3px;line-height:1.4;">🧩 ${_allMetas.slice(0,3).map(tcEsc).join(' → ')}${_allMetas.length>3?` +${_allMetas.length-3} more`:''}</span>`:'';
+    return `<tr>
+      <td>${globalIdx+1}</td>
+      <td style="font-weight:800;color:#4338ca;white-space:nowrap;">${crIdDisplay}</td>
+      <td style="text-align:center;font-weight:700;">
+        ${(r.recent_occurrence&&r.recent_occurrence!==parseInt(r.occurrence||'0'))?
+          `<span style="font-weight:900;color:#1e293b;">${r.recent_occurrence}</span><br><span style="font-size:9px;color:#94a3b8;">(total: ${tcEsc(r.occurrence||'0')})</span>`
+          :occCell}
+      </td>
+      <td style="text-align:center;">${tcDash(r.priority)}</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+          <span class="tc-crash-tag ${ct}">${tcEsc(ct)}</span>
+          <select class="tc-crash-select" data-cr="${crId}" onchange="tcMarkCrashDirty(this)">
+            <option value="system" ${ct==='system'?'selected':''}>System</option>
+            <option value="ssr" ${ct==='ssr'?'selected':''}>SSR</option>
+            <option value="process" ${ct==='process'?'selected':''}>Process</option>
+            <option value="other" ${ct==='other'?'selected':''}>Other</option>
+          </select>
+        </div>
+        ${crashMeta}
+        <button class="tc-save-btn tc-crash-save-btn" data-cr="${crId}" onclick="tcSaveCrashType(this)" style="display:none;">
+          <i class="fas fa-save"></i> Save Type
+        </button>
+      </td>
+      <td style="text-align:center;">${tcDash(r.age)}</td>
+      <td><span style="font-weight:600;">${tcDash(r.title)}</span>${titleMetaLine}</td>
+      <td>${tcDash(r.area)}</td>
+      <td style="font-size:11px;line-height:1.5;">${metaCellHtml}</td>
+      <td style="text-align:center;">${tcDash(r.rb_ml)}</td>
+      <td style="white-space:nowrap;">${tcDash(r.cr_date)}</td>
+      <td style="white-space:nowrap;">${tcDash(r.last_seen)}</td>
+      <td>${tcDash(r.status)}</td>
+      <td style="font-size:10px;line-height:1.4;">${tcDash(r.notes)}</td>
+      <td>
+        <div class="tc-scenario-cell" contenteditable="true"
+             data-cr="${crId}" data-orig="${tcEsc(r.scenario||'')}"
+             oninput="tcMarkDirty(this)"
+             style="outline:none;" data-ph="Add scenario…">${tcEsc(r.scenario||'')}</div>
+        ${scenMeta}
+        <button class="tc-save-btn" data-cr="${crId}" onclick="tcSaveScenario(this)" style="display:none;">
+          <i class="fas fa-save"></i> Save
+        </button>
+      </td>
+      <td>
+        <div class="tc-scenario-cell tc-comments-cell" contenteditable="true"
+             data-cr="${crId}" data-orig="${tcEsc(r.comments||'')}"
+             oninput="tcMarkCommentsDirty(this)"
+             style="outline:none;" data-ph="Add comments…">${tcEsc(r.comments||'')}</div>
+        ${commentsMeta}
+        <button class="tc-save-btn tc-comments-save-btn" data-cr="${crId}" onclick="tcSaveComments(this)" style="display:none;">
+          <i class="fas fa-save"></i> Save
+        </button>
+      </td>
+      ${section==='built'?`<td style="white-space:nowrap;color:#059669;font-weight:700;font-size:10px;">${tcDash(r.ready_date)}</td>`:''}
+      ${seenCell}
+      <td>
+        <button class="tc-remove-btn" data-cr="${crId}" onclick="tcAskRemove('${crId}')">
+          <i class="fas fa-eye-slash"></i> Remove
+        </button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  if(nav){
+    if(totalSlides>1){
+      nav.style.display='flex';
+      const ind=document.getElementById(indId);
+      if(ind) ind.textContent='Slide '+(curSlide+1)+' / '+totalSlides+' ('+rows.length+' CRs)';
+      const prev=document.getElementById(prevId);
+      const next=document.getElementById(nextId);
+      if(prev) prev.disabled=curSlide===0;
+      if(next) next.disabled=curSlide===totalSlides-1;
+    } else {
+      nav.style.display='none';
+    }
+  }
+}
+
+// ── Meta expand toggle ─────────────────────────────────────────────────────
+function tcToggleMetaExpand(btn){
+  const list=btn.nextElementSibling;
+  const isOpen=list&&list.style.display!=='none';
+  if(list) list.style.display=isOpen?'none':'block';
+  btn.innerHTML=isOpen?`▼ ${btn.dataset.count} more`:`▲ hide`;
+}
+
+function tcToggleSection(section, show){
+  if(section==='open') tcShowOpen=show; else tcShowBuilt=show;
+  // Show/hide the entire section div (including border separator)
+  const sectionId=section==='open'?'tcOpenSection':'tcBuiltSection';
+  const sectionEl=document.getElementById(sectionId);
+  if(sectionEl) sectionEl.style.display=show?'':'none';
+  // Sync controls bar chip visual (dim when hidden)
+  const chipId=section==='open'?'tcChipOpenCtrl':'tcChipBuiltCtrl';
+  const chip=document.getElementById(chipId);
+  if(chip) chip.style.opacity=show?'1':'0.4';
+  tcRenderSection(section);
+}
+
+function tcPrevSection(section){
+  if(section==='open'){ if(tcOpenSlide>0){ tcOpenSlide--; tcRenderSection('open'); } }
+  else { if(tcBuiltSlide>0){ tcBuiltSlide--; tcRenderSection('built'); } }
+}
+function tcNextSection(section){
+  const rows=section==='open'?tcOpenRows:tcBuiltRows;
+  const total=Math.ceil(rows.length/TC_ROWS_PER_SLIDE);
+  if(section==='open'){ if(tcOpenSlide<total-1){ tcOpenSlide++; tcRenderSection('open'); } }
+  else { if(tcBuiltSlide<total-1){ tcBuiltSlide++; tcRenderSection('built'); } }
+}
+
+// ── Scenario ───────────────────────────────────────────────────────────────
+function tcMarkDirty(cell){
+  const cr=cell.getAttribute('data-cr');
+  const btn=cell.parentElement.querySelector('.tc-save-btn');
+  if(btn) btn.style.display='inline-flex';
+}
+
+async function tcSaveScenario(btn){
+  const td=btn.closest('td');
+  const cell=td.querySelector('.tc-scenario-cell');
+  const cr=cell.getAttribute('data-cr');
+  const scenario=cell.innerText.trim();
+  btn.classList.add('saving'); btn.disabled=true;
+  try{
+    const resp=await fetch(`/api/top_crs/configs/${tcCurrentConfigId}/scenario`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','X-Requested-With':'XMLHttpRequest'},
+      body:JSON.stringify({combo_key:tcCurrentComboKey,cr_id:cr,scenario})
+    });
+    const data=await resp.json();
+    if(data.ok){
+      tcToast('Scenario saved','ok');
+      btn.style.display='none';
+      cell.setAttribute('data-orig',scenario);
+    } else {
+      tcToast(data.error||'Save failed','err');
+    }
+  }catch(e){ tcToast('Network error','err'); }
+  finally{ btn.classList.remove('saving'); btn.disabled=false; }
+}
+
+function tcMarkCrashDirty(select){
+  const td=select.closest('td');
+  const btn=td ? td.querySelector('.tc-crash-save-btn') : null;
+  if(btn) btn.style.display='inline-flex';
+}
+
+async function tcSaveCrashType(btn){
+  const td=btn.closest('td');
+  const select=td.querySelector('.tc-crash-select');
+  const cr=select.getAttribute('data-cr');
+  const crash_type=select.value;
+  btn.classList.add('saving'); btn.disabled=true;
+  try{
+    const resp=await fetch(`/api/top_crs/configs/${tcCurrentConfigId}/crash_type`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','X-Requested-With':'XMLHttpRequest'},
+      body:JSON.stringify({combo_key:tcCurrentComboKey,cr_id:cr,crash_type})
+    });
+    const data=await resp.json();
+    if(data.ok){
+      tcToast('Crash type saved','ok');
+      btn.style.display='none';
+      const badge=td.querySelector('.tc-crash-tag');
+      if(badge){
+        badge.className=`tc-crash-tag ${crash_type}`;
+        badge.textContent=crash_type.toUpperCase();
+      }
+      tcAllRows.forEach(r=>{ if(String(r.cr||'').toUpperCase()===String(cr||'').toUpperCase()) r.crash_type=crash_type; });
+    } else {
+      tcToast(data.error||'Save failed','err');
+    }
+  }catch(e){ tcToast('Network error','err'); }
+  finally{ btn.classList.remove('saving'); btn.disabled=false; }
+}
+
+function tcMarkCommentsDirty(cell){
+  const btn=cell.parentElement.querySelector('.tc-comments-save-btn');
+  if(btn) btn.style.display='inline-flex';
+}
+
+async function tcSaveComments(btn){
+  const td=btn.closest('td');
+  const cell=td.querySelector('.tc-comments-cell');
+  const cr=cell.getAttribute('data-cr');
+  const comments=cell.innerText.trim();
+  btn.classList.add('saving'); btn.disabled=true;
+  try{
+    const resp=await fetch(`/api/top_crs/configs/${tcCurrentConfigId}/comments`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','X-Requested-With':'XMLHttpRequest'},
+      body:JSON.stringify({combo_key:tcCurrentComboKey,cr_id:cr,comments})
+    });
+    const data=await resp.json();
+    if(data.ok){
+      tcToast('Comments saved','ok');
+      btn.style.display='none';
+      cell.setAttribute('data-orig',comments);
+      tcAllRows.forEach(r=>{ if(String(r.cr||'').toUpperCase()===String(cr||'').toUpperCase()) r.comments=comments; });
+    } else {
+      tcToast(data.error||'Save failed','err');
+    }
+  }catch(e){ tcToast('Network error','err'); }
+  finally{ btn.classList.remove('saving'); btn.disabled=false; }
+}
+
+// ── Remove ─────────────────────────────────────────────────────────────────
+let _tcRemoveCr=null;
+function tcAskRemove(crId){
+  _tcRemoveCr=crId;
+  document.getElementById('tcReasonCrId').textContent=crId;
+  document.getElementById('tcReasonText').value='';
+  document.getElementById('tcReasonModal').classList.add('open');
+}
+function tcCloseReasonModal(){
+  document.getElementById('tcReasonModal').classList.remove('open');
+  _tcRemoveCr=null;
+}
+async function tcConfirmRemove(){
+  if(!_tcRemoveCr) return;
+  const reason=document.getElementById('tcReasonText').value.trim();
+  try{
+    const resp=await fetch(`/api/top_crs/configs/${tcCurrentConfigId}/remove`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','X-Requested-With':'XMLHttpRequest'},
+      body:JSON.stringify({combo_key:tcCurrentComboKey,cr_id:_tcRemoveCr,reason})
+    });
+    const data=await resp.json();
+    if(data.ok){
+      tcToast(`${_tcRemoveCr} moved to Non-list`,'ok');
+      tcCloseReasonModal();
+      tcReload();
+    } else {
+      tcToast(data.error||'Remove failed','err');
+    }
+  }catch(e){ tcToast('Network error','err'); }
+}
+
+// ── Non-list ───────────────────────────────────────────────────────────────
+async function tcLoadNonlistCount(){
+  if(!tcCurrentConfigId||!tcCurrentComboKey) return;
+  try{
+    const resp=await fetch(`/api/top_crs/configs/${tcCurrentConfigId}/nonlist?combo_key=${encodeURIComponent(tcCurrentComboKey)}`,{headers:{'X-Requested-With':'XMLHttpRequest'}});
+    const data=await resp.json();
+    const badge=document.getElementById('tcNonlistBadge');
+    const count=(data.rows||[]).length;
+    if(badge){ badge.textContent=count; badge.style.display=count?'':'none'; }
+  }catch(e){}
+}
+
+async function tcLoadNonlist(){
+  if(!tcCurrentConfigId||!tcCurrentComboKey) return;
+  const body=document.getElementById('tcNonlistBody');
+  body.innerHTML=`<tr><td colspan="${tcIsAdmin?5:4}" class="tc-empty"><div class="tc-spinner"></div>Loading…</td></tr>`;
+  try{
+    const resp=await fetch(`/api/top_crs/configs/${tcCurrentConfigId}/nonlist?combo_key=${encodeURIComponent(tcCurrentComboKey)}`,{headers:{'X-Requested-With':'XMLHttpRequest'}});
+    const data=await resp.json();
+    const rows=data.rows||[];
+    if(!rows.length){
+      body.innerHTML=`<tr><td colspan="${tcIsAdmin?5:4}" class="tc-empty"><i class="fas fa-check-circle"></i>No removed CRs.</td></tr>`;
+      return;
+    }
+    body.innerHTML=rows.map(r=>{
+      const restoreBtn=tcIsAdmin?`<td><button class="tc-restore-btn" onclick="tcRestoreCr('${tcEsc(r.cr_id)}')"><i class="fas fa-undo"></i> Restore</button></td>`:'';
+      return `<tr>
+        <td style="font-weight:800;color:#dc2626;">${tcEsc(r.cr_id)}</td>
+        <td>${tcEsc(r.removed_by||'—')}</td>
+        <td style="white-space:nowrap;">${tcEsc((r.removed_at||'').slice(0,16))}</td>
+        <td style="font-size:10px;">${tcEsc(r.remove_reason||'—')}</td>
+        ${restoreBtn}
+      </tr>`;
+    }).join('');
+  }catch(e){
+    body.innerHTML=`<tr><td colspan="${tcIsAdmin?5:4}" class="tc-empty"><i class="fas fa-triangle-exclamation"></i>Error loading.</td></tr>`;
+  }
+}
+
+async function tcRestoreCr(crId){
+  try{
+    const resp=await fetch(`/api/top_crs/configs/${tcCurrentConfigId}/restore`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','X-Requested-With':'XMLHttpRequest'},
+      body:JSON.stringify({combo_key:tcCurrentComboKey,cr_id:crId})
+    });
+    const data=await resp.json();
+    if(data.ok){ tcToast(`${crId} restored`,'ok'); tcLoadNonlist(); tcLoadNonlistCount(); }
+    else tcToast(data.error||'Restore failed','err');
+  }catch(e){ tcToast('Network error','err'); }
+}
+
+// ── PPT download ───────────────────────────────────────────────────────────
+async function tcDownloadPpt(){
+  if(!tcCurrentConfigId) return;
+  const dlBtn=document.getElementById('tcDownloadBtn');
+  const orig=dlBtn.innerHTML;
+  dlBtn.disabled=true; dlBtn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Building…';
+  try{
+    const params=new URLSearchParams({config_id:tcCurrentConfigId,top:tcTop,crash_types:tcSelectedCrashTypes().join(',')});
+    // Collect current scenario edits from DOM (unsaved in-browser edits)
+    const scenarios={};
+    document.querySelectorAll('.tc-scenario-cell:not(.tc-comments-cell)[data-cr]').forEach(cell=>{
+      const cr=cell.getAttribute('data-cr');
+      if(cr) scenarios[cr]=cell.innerText.trim();
+    });
+    // Pass open/built rows separately so the PPT generates crash-type-separated
+    // slides (System / SSR / Process) with 5 CRs per slide.
+    // Process slides are omitted when the user has filtered to System or SSR only.
+    const resp=await fetch(`/top_crs/download?${params}`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','X-Requested-With':'XMLHttpRequest'},
+      body:JSON.stringify({
+        scenarios,
+        open_rows:  tcOpenRows,
+        built_rows: tcBuiltRows,
+        show_open:  tcShowOpen,
+        show_built: tcShowBuilt,
+        crash_type: tcCrashType,
+      })
+    });
+    if(!resp.ok) throw new Error('download failed');
+    const blob=await resp.blob();
+    const dispo=resp.headers.get('Content-Disposition')||'';
+    const m=dispo.match(/filename="?([^";]+)"?/);
+    const fname=m?m[1]:'Top_CRs.pptx';
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url; a.download=fname;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }catch(e){ alert('Could not generate the PPT. Please try again.'); }
+  finally{ dlBtn.disabled=false; dlBtn.innerHTML=orig; }
+}
+
+// ── BU → schema map (authoritative BU DB mapping from server) ─────────────
+const tcBuSchemaMap = JSON.parse(document.getElementById('tcBuSchemaMapJson')?.textContent || '{}');
+
+function tcResetTableLists(message){
+  const msg=message||'Select BU first to load tables…';
+  ['tcModalUniqTables','tcModalJirasTables','tcModalSeenTables'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.innerHTML=`<div style="color:#94a3b8;font-size:11px;padding:8px;">${tcEsc(msg)}</div>`;
+  });
+}
+
+function tcOnModalBuChange(){
+  const bu = (document.getElementById('tcModalBu').value || '').toUpperCase();
+  const schemaEl=document.getElementById('tcModalSchema');
+  const errEl=document.getElementById('tcModalError');
+  if(errEl) errEl.style.display='none';
+  if(!bu){
+    schemaEl.value='';
+    tcResetTableLists('Select BU first to load DB schema and tables…');
+    return;
+  }
+  const schema = tcBuSchemaMap[bu] || '';
+  if(!schema){
+    schemaEl.value='';
+    tcResetTableLists(`No DB schema configured for BU ${bu}.`);
+    if(errEl){
+      errEl.textContent=`No DB schema configured for BU ${bu}.`;
+      errEl.style.display='block';
+    }
+    return;
+  }
+  schemaEl.value = schema;
+  const configId=document.getElementById('tcModalConfigId').value;
+  if(!configId){
+    const keyEl=document.getElementById('tcModalKey');
+    const nameEl=document.getElementById('tcModalName');
+    if(keyEl && !keyEl.value.trim()) keyEl.value = `${bu.toLowerCase()}_top_crs`;
+    if(nameEl && !nameEl.value.trim()) nameEl.value = `${bu} TOP CRs`;
+  }
+  tcLoadAvailableTables();
+}
+
+// ── Admin modal ────────────────────────────────────────────────────────────
+let _tcAvailTables={unique_crs:[],jiras:[],other:[]};
+
+async function tcOpenAdminModal(configId){
+  document.getElementById('tcAdminModal').classList.add('open');
+  document.getElementById('tcModalError').style.display='none';
+  document.getElementById('tcModalConfigId').value=configId||'';
+  document.getElementById('tcModalTitle').textContent=configId?'Edit Top CRs Config':'Add Top CRs Config';
+  document.getElementById('tcModalKey').disabled=!!configId;
+
+  if(configId){
+    // Load existing config
+    try{
+      const resp=await fetch(`/api/top_crs/configs/${configId}`,{headers:{'X-Requested-With':'XMLHttpRequest'}});
+      const data=await resp.json();
+      if(data.ok){
+        const c=data.config;
+        document.getElementById('tcModalKey').value=c.config_key||'';
+        document.getElementById('tcModalName').value=c.display_name||'';
+        document.getElementById('tcModalBu').value=c.bu||'';
+        document.getElementById('tcModalSchema').value=c.source_schema||'pdt_stats_auto';
+        document.getElementById('tcModalEnabled').value=c.enabled?'1':'0';
+        await tcLoadAvailableTables(c.sources||[]);
+        return;
+      }
+    }catch(e){}
+  }
+  // New config defaults: BU must be selected before schema/tables are loaded.
+  document.getElementById('tcModalKey').value='';
+  document.getElementById('tcModalName').value='';
+  document.getElementById('tcModalBu').value='';
+  document.getElementById('tcModalSchema').value='';
+  document.getElementById('tcModalEnabled').value='1';
+  tcResetTableLists('Select BU first to load DB schema and tables…');
+}
+
+function tcCloseAdminModal(){
+  document.getElementById('tcAdminModal').classList.remove('open');
+}
+
+async function tcLoadAvailableTables(existingSources){
+  existingSources=existingSources||[];
+  const bu=(document.getElementById('tcModalBu').value||'').trim().toUpperCase();
+  const schemaEl=document.getElementById('tcModalSchema');
+  let schema=(schemaEl.value||'').trim();
+
+  if(!bu){
+    schemaEl.value='';
+    tcResetTableLists('Select BU first to load DB schema and tables…');
+    return;
+  }
+
+  if(tcBuSchemaMap[bu]){
+    schema=tcBuSchemaMap[bu];
+    schemaEl.value=schema;
+  }
+
+  if(!schema){
+    tcResetTableLists(`No DB schema configured for BU ${bu}.`);
+    return;
+  }
+
+  ['tcModalUniqTables','tcModalJirasTables','tcModalSeenTables'].forEach(id=>{
+    document.getElementById(id).innerHTML='<div style="color:#94a3b8;font-size:11px;padding:8px;"><i class="fas fa-spinner fa-spin"></i> Loading…</div>';
+  });
+  try{
+    const params=new URLSearchParams({bu, schema});
+    const resp=await fetch(`/api/top_crs/available_tables?${params}`,{headers:{'X-Requested-With':'XMLHttpRequest'}});
+    const data=await resp.json();
+    if(!data.ok){ throw new Error(data.error||'Failed'); }
+    if(data.schema) schemaEl.value=data.schema;
+    _tcAvailTables=data;
+    tcRenderTableList('tcModalUniqTables','unique_crs',data.unique_crs||[],existingSources);
+    tcRenderTableList('tcModalJirasTables','jiras',data.jiras||[],existingSources);
+    // Seen-other: all tables sorted alphabetically, with type badge
+    const seenAll=[
+      ...(data.unique_crs||[]).map(t=>({t,typ:'unique_crs'})),
+      ...(data.jiras||[]).map(t=>({t,typ:'jiras'})),
+      ...(data.other||[]).map(t=>({t,typ:'other'}))
+    ].sort((a,b)=>a.t.localeCompare(b.t));
+    tcRenderSeenTableList('tcModalSeenTables',seenAll,existingSources);
+  }catch(e){
+    ['tcModalUniqTables','tcModalJirasTables','tcModalSeenTables'].forEach(id=>{
+      document.getElementById(id).innerHTML=`<div style="color:#dc2626;font-size:11px;padding:8px;">Failed to load tables: ${tcEsc(String(e))}</div>`;
+    });
+  }
+}
+
+function tcRenderTableList(containerId, sourceType, tables, existingSources){
+  const container=document.getElementById(containerId);
+  if(!tables.length){
+    container.innerHTML='<div style="color:#94a3b8;font-size:11px;padding:8px;">No tables found.</div>';
+    return;
+  }
+  const existingMap={};
+  (existingSources||[]).filter(s=>s.source_type===sourceType&&s.enabled).forEach(s=>{
+    existingMap[s.table_name]={label:s.display_label||''};
+  });
+  container.innerHTML=tables.map(t=>{
+    const checked=existingMap[t]?'checked':'';
+    const labelVal=existingMap[t]?tcEsc(existingMap[t].label||''):'';
+    return `<div class="tc-table-item">
+      <input type="checkbox" id="tbl_${sourceType}_${tcEsc(t)}" data-table="${tcEsc(t)}" data-type="${sourceType}" ${checked}>
+      <label for="tbl_${sourceType}_${tcEsc(t)}">${tcEsc(t)}</label>
+      <input type="text" class="tc-label-input" placeholder="Label (optional)" value="${labelVal}" data-table="${tcEsc(t)}" data-type="${sourceType}">
+    </div>`;
+  }).join('');
+}
+
+// Seen-other table list: sorted alphabetically with type badge
+function tcRenderSeenTableList(containerId, items, existingSources){
+  const container=document.getElementById(containerId);
+  if(!items.length){
+    container.innerHTML='<div style="color:#94a3b8;font-size:11px;padding:8px;">No tables found.</div>';
+    return;
+  }
+  const existingMap={};
+  (existingSources||[]).filter(s=>s.source_type==='seen_other_target'&&s.enabled).forEach(s=>{
+    existingMap[s.table_name]={label:s.display_label||''};
+  });
+  const badgeColors={
+    'unique_crs':'background:#ede9fe;color:#5b21b6;',
+    'jiras':'background:#dbeafe;color:#1d4ed8;',
+    'other':'background:#f1f5f9;color:#475569;'
+  };
+  container.innerHTML=items.map(({t,typ})=>{
+    const checked=existingMap[t]?'checked':'';
+    const labelVal=existingMap[t]?tcEsc(existingMap[t].label||''):'';
+    const badge=`<span style="font-size:8px;font-weight:800;padding:1px 5px;border-radius:4px;${badgeColors[typ]||badgeColors.other}">${typ}</span>`;
+    return `<div class="tc-table-item">
+      <input type="checkbox" id="tbl_seen_${tcEsc(t)}" data-table="${tcEsc(t)}" data-type="seen_other_target" ${checked}>
+      <label for="tbl_seen_${tcEsc(t)}" style="display:flex;align-items:center;gap:5px;">${badge}${tcEsc(t)}</label>
+      <input type="text" class="tc-label-input" placeholder="Label (optional)" value="${labelVal}" data-table="${tcEsc(t)}" data-type="seen_other_target">
+    </div>`;
+  }).join('');
+}
+
+// ── Table list search filter ───────────────────────────────────────────────
+function tcFilterTableList(containerId, query){
+  const q=query.toLowerCase().trim();
+  const container=document.getElementById(containerId);
+  if(!container) return;
+  container.querySelectorAll('.tc-table-item').forEach(item=>{
+    const label=item.querySelector('label');
+    const text=(label?label.textContent:'').toLowerCase();
+    item.style.display=(!q||text.includes(q))?'':'none';
+  });
+}
+
+function tcCollectSources(){
+  const sources=[];
+  document.querySelectorAll('#tcAdminModal input[type=checkbox]:checked').forEach(cb=>{
+    const tbl=cb.getAttribute('data-table');
+    const type=cb.getAttribute('data-type');
+    const schema=document.getElementById('tcModalSchema').value.trim();
+    const labelInput=document.querySelector(`#tcAdminModal input.tc-label-input[data-table="${tbl}"][data-type="${type}"]`);
+    sources.push({
+      source_type:type,
+      table_schema:schema,
+      table_name:tbl,
+      display_label:labelInput?labelInput.value.trim():'',
+      enabled:true
+    });
+  });
+  return sources;
+}
+
+async function tcSaveConfig(){
+  const configId=document.getElementById('tcModalConfigId').value;
+  const key=document.getElementById('tcModalKey').value.trim();
+  const name=document.getElementById('tcModalName').value.trim();
+  const bu=document.getElementById('tcModalBu').value.trim().toUpperCase();
+  const schema=document.getElementById('tcModalSchema').value.trim();
+  const enabled=document.getElementById('tcModalEnabled').value==='1';
+  const errEl=document.getElementById('tcModalError');
+  errEl.style.display='none';
+
+  if(!bu){ errEl.textContent='Select BU first. DB schema and tables load from BU selection.'; errEl.style.display='block'; return; }
+  if(!schema){ errEl.textContent='DB schema is not available for the selected BU.'; errEl.style.display='block'; return; }
+  if(!name){ errEl.textContent='Display name is required.'; errEl.style.display='block'; return; }
+  if(!configId&&!key){ errEl.textContent='Config key is required for new configs.'; errEl.style.display='block'; return; }
+
+  const sources=tcCollectSources();
+  const hasUniq=sources.some(s=>s.source_type==='unique_crs');
+  if(!hasUniq){ errEl.textContent='Select at least one unique_crs source table.'; errEl.style.display='block'; return; }
+
+  const saveBtn=document.getElementById('tcModalSaveBtn');
+  saveBtn.disabled=true; saveBtn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Saving…';
+
+  try{
+    let resp,data;
+    if(configId){
+      resp=await fetch(`/api/top_crs/configs/${configId}`,{
+        method:'PUT',
+        headers:{'Content-Type':'application/json','X-Requested-With':'XMLHttpRequest'},
+        body:JSON.stringify({display_name:name,bu,source_schema:schema,enabled,sources})
+      });
+    } else {
+      resp=await fetch('/api/top_crs/configs',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','X-Requested-With':'XMLHttpRequest'},
+        body:JSON.stringify({config_key:key,display_name:name,bu,source_schema:schema,sources})
+      });
+    }
+    data=await resp.json();
+    if(data.ok){
+      tcToast(configId?'Config updated':'Config created','ok');
+      tcCloseAdminModal();
+      // Reload page to refresh config dropdown
+      setTimeout(()=>window.location.reload(),800);
+    } else {
+      errEl.textContent=data.error||'Save failed.';
+      errEl.style.display='block';
+    }
+  }catch(e){
+    errEl.textContent='Network error: '+String(e);
+    errEl.style.display='block';
+  }finally{
+    saveBtn.disabled=false;
+    saveBtn.innerHTML='<i class="fas fa-save"></i> Save Config';
+  }
+}
+
+// ── Init: sync chip opacity + hide built section by default ──────────────
+(function(){
+  const builtChip=document.getElementById('tcChipBuiltCtrl');
+  if(builtChip) builtChip.style.opacity='0.4';
+})();
+
+// Close modals on overlay click
+document.getElementById('tcAdminModal').addEventListener('click',function(e){
+  if(e.target===this) tcCloseAdminModal();
+});
+document.getElementById('tcReasonModal').addEventListener('click',function(e){
+  if(e.target===this) tcCloseReasonModal();
+});
+</script>
+{% endblock %}

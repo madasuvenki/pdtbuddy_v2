@@ -738,16 +738,16 @@ def _mtbf_json_row_from_payload(payload):
 
 
 def _mtbf_json_to_preview_rows(rows, is_compute=False):
-        # Sort rows by date ascending so table always shows oldest→newest
+        # Sort rows by date descending so table always shows latest→oldest (newest first)
     def _date_sort_key_p(r):
         d = str(r.get('date') or '').strip()
-        if not d: return '9999-99-99'
+        if not d: return '0000-00-00'
         from datetime import datetime as _dtp
         for fmt in ('%m/%d/%Y','%Y-%m-%d','%d/%m/%Y','%m-%d-%Y','%d-%m-%Y'):
             try: return _dtp.strptime(d, fmt).strftime('%Y-%m-%d')
             except ValueError: pass
         return d
-    rows = sorted(rows or [], key=_date_sort_key_p)
+    rows = sorted(rows or [], key=_date_sort_key_p, reverse=True)
 
     out = []
     for i, r in enumerate(rows, start=1):
@@ -9826,7 +9826,11 @@ def api_build_report_export_excel():
         _set_link(ws.cell(excel_row, 2), jira_url)
     _style_body(ws)
 
-    all_jira_headers = ['#', 'JIRA-Ticket', 'Jira Title', 'Jira Date', 'Status']
+    all_jira_headers = [
+        '#', 'JIRA-Ticket', 'Jira Title', 'Jira Date', 'Status',
+        'Final Ticket', 'Final Status', 'CR Title', 'CR Area', 'CR Subsystem',
+        'CR Functionality', 'CR Date', 'Matched Build', 'Related JIRAs'
+    ]
     ws = _safe_sheet('AllJIRAs')
     _write_headers(ws, all_jira_headers)
     for idx, row in enumerate(all_jira_rows if isinstance(all_jira_rows, list) else [], start=1):
@@ -9835,18 +9839,46 @@ def api_build_report_export_excel():
         ticket = _br_export_text(row.get('key') or row.get('ticket') or row.get('JIRA') or row.get('jira') or row.get('JIRA-Ticket'))
         status = _br_export_text(row.get('status') or row.get('Status') or row.get('JIRA Status'))
         note = _br_export_text(row.get('resolution_notes_text') or row.get('final_resolution'))
+        final_ticket = _br_export_text(row.get('final_ticket') or row.get('Final Ticket') or row.get('final_key') or row.get('Final Key'))
+        final_status = _br_export_text(row.get('final_status') or row.get('Final Status'))
+        final_resolution = _br_export_text(row.get('final_resolution') or row.get('Final Resolution'))
+        keys = _br_export_issue_keys(
+            row.get('jira_keys') or row.get('_jira_keys') or row.get('src_keys') or row.get('jiras')
+            or row.get('JIRA Tickets') or row.get('Related JIRAs') or ticket
+        )
         values = [
             idx,
             ticket,
             _br_export_text(row.get('title') or row.get('Jira Title') or row.get('JIRA Title')),
             _br_export_text(row.get('date') or row.get('Jira Date') or row.get('Created')),
             (status + (f' - {note}' if note else '')).strip(),
+            final_ticket,
+            (final_status + (f' - {final_resolution}' if final_resolution else '')).strip(),
+            _br_export_text(row.get('cr_title') or row.get('CR Title')),
+            _br_export_text(row.get('cr_area') or row.get('CR Area')),
+            _br_export_text(row.get('cr_subsystem') or row.get('CR Subsystem') or row.get('CR SubSystem')),
+            _br_export_text(row.get('cr_functionality') or row.get('CR Functionality') or row.get('CR Function')),
+            _br_export_text(row.get('cr_date') or row.get('CR Date')),
+            _br_export_text(row.get('matched_build') or row.get('Matched Build')),
+            ', '.join(keys),
         ]
         ws.append(values)
         excel_row = ws.max_row
-        jira_url = f'https://jira-dc2.qualcomm.com/jira/browse/{ticket}' if ticket else ''
-        _set_link(ws.cell(excel_row, 2), jira_url)
+        if ticket:
+            if ticket.upper().startswith('CR') or _re.match(r'^\d{5,9}$', ticket):
+                _set_link(ws.cell(excel_row, 2), _cr_url(ticket))
+            elif '-' in ticket:
+                _set_link(ws.cell(excel_row, 2), f'https://jira-dc2.qualcomm.com/jira/browse/{ticket}')
+        if final_ticket:
+            if final_ticket.upper().startswith('CR') or _re.match(r'^\d{5,9}$', final_ticket):
+                _set_link(ws.cell(excel_row, 6), _cr_url(final_ticket))
+            elif '-' in final_ticket:
+                _set_link(ws.cell(excel_row, 6), f'https://jira-dc2.qualcomm.com/jira/browse/{final_ticket}')
+        _set_link(ws.cell(excel_row, 14), _br_export_jira_issues_url(keys))
     _style_body(ws)
+    ws.column_dimensions['C'].width = 42
+    ws.column_dimensions['H'].width = 42
+    ws.column_dimensions['N'].width = 38
 
     other_team_headers = ['#', 'CR / Ticket', 'CR Count', 'Reported Team', 'Reported Dept', 'Source JIRAs', 'Other Details', 'Status', 'Assignee', 'CR SI']
     ws = _safe_sheet('Other_Team_Build')

@@ -901,6 +901,12 @@ body:has(.bu-simple-page) .app-bg-gradient {
         {# ── Compare + Docs pills ── #}
         {% if current_user.is_authenticated %}
     <div class="topbar-center">
+      <a href="{{ url_for('top_crs.top_crs_page') }}"
+         class="topbar-compare-pill"
+         style="background:rgba(124,58,237,0.16);color:#5b21b6;border:1px solid rgba(124,58,237,0.32);box-shadow:0 2px 12px rgba(124,58,237,.12),inset 0 1px 0 rgba(255,255,255,.70);backdrop-filter:blur(12px) saturate(1.6);-webkit-backdrop-filter:blur(12px) saturate(1.6);font-weight:900;"
+         title="Top CRs — Config-driven Top 5 / Top 10 CRs">
+        <i class="fas fa-trophy" style="color:#7c3aed;"></i><span>Top CRs</span>
+      </a>
       <a href="{{ url_for('cr_compare_bp.target_compare_page') }}" class="topbar-compare-pill topbar-compare-pill--compare" title="Target Delta Studio" target="_blank" rel="noopener noreferrer">
         <i class="fas fa-columns"></i><span>Target Delta</span>
       </a>

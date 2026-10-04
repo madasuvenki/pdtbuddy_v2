@@ -243,6 +243,36 @@ def _start_api_tracking():
 
 
 @app.before_request
+def _block_revoked_private_api_callers():
+    """Block private API callers that an admin has revoked in API Registry."""
+    try:
+        from src.api_usage import is_private_api_path, caller_block_status
+        path = request.path or ""
+        if not is_private_api_path(path):
+            return
+        forwarded_for = request.headers.get("X-Forwarded-For", "")
+        source_ip = (forwarded_for.split(",")[0].strip() if forwarded_for else request.remote_addr or "")
+        status = caller_block_status(
+            source_ip=source_ip,
+            user_agent=request.headers.get("User-Agent", ""),
+            origin=request.headers.get("Origin", ""),
+            referer=request.headers.get("Referer", ""),
+        )
+        if status.get("blocked"):
+            return jsonify({
+                "ok": False,
+                "success": False,
+                "error": "Private API access for this tool/caller was revoked by PDTBuddy admin.",
+                "caller": status.get("display_name") or status.get("caller_fp") or source_ip,
+                "blocked_by": status.get("blocked_by") or "",
+                "blocked_at": status.get("blocked_at") or "",
+                "reason": status.get("block_reason") or "",
+            }), 403
+    except Exception as exc:
+        logger.debug("[api_usage] private caller block check skipped: %s", exc)
+
+
+@app.before_request
 def _check_session_idle():
     """Auto-logout users idle for more than SESSION_IDLE_TIMEOUT seconds.
     Exemptions: login/logout/static endpoints, and while a report task is running.
@@ -262,6 +292,8 @@ def _check_session_idle():
 
         def _viewer_path_allowed(path: str, method: str) -> bool:
             # External landing and published read-only Live Status/report pages.
+            if path == '/dashboard/docs':
+                return method == 'GET'
             if path == '/live_status_view':
                 return method == 'GET'
             if path.startswith('/live_status_view/') or path.startswith('/live_status/'):
@@ -610,10 +642,9 @@ register_feature_blueprints(app)
 
 @app.route('/api/docs')
 @app.route('/docs/api')
-@login_required
 def api_all_in_one_docs():
-    """Private API reference — focused page with Try It and response examples."""
-    return render_template('private_api_docs.html')
+    """Legacy API docs URLs now redirect to the unified role-aware docs page."""
+    return redirect(url_for('dashboard_docs'))
 
 
 app.view_functions
@@ -1466,13 +1497,17 @@ app.jinja_env.filters['cr_strip_prefix'] = cr_strip_prefix_filter
 dc.ensure_unique_cr_last_update_column()   # migration: add unique_cr_last_update if missing
 dc.update_global_targets_config()
 
-# Auto-create orbit_cr tables on startup (safe — uses CREATE TABLE IF NOT EXISTS)
-try:
-    from src.orbit_cr_db import ensure_orbit_cr_tables as _ensure_orbit_cr_tables
-    _ensure_orbit_cr_tables()
-    logger.info("[APP] orbit_cr tables verified/created.")
-except Exception as _e:
-    logger.info(f"[APP] orbit_cr table setup skipped (non-fatal): {_e}")
+# Orbit CR table creation is intentionally not run during normal startup.
+# It opens pdt_stats_dashboard through src.orbit_cr_db.ensure_orbit_cr_tables();
+# keep startup resilient and run this only when explicitly enabled or via the
+# existing admin endpoint /api/admin/orbit_cr/ensure_tables.
+if str(os.environ.get("ORBIT_CR_AUTO_ENSURE_TABLES", "")).strip().lower() in {"1", "true", "yes", "on"}:
+    try:
+        from src.orbit_cr_db import ensure_orbit_cr_tables as _ensure_orbit_cr_tables
+        _ensure_orbit_cr_tables()
+        logger.info("[APP] orbit_cr tables verified/created.")
+    except Exception as _e:
+        logger.info(f"[APP] orbit_cr table setup skipped (non-fatal): {_e}")
 logger.info(
     "[APP] Startup - Business Units loaded: %s",
     list(dc.get_business_units().keys()),
@@ -4545,6 +4580,706 @@ def admin_api_usage_delete_alias():
         from src.api_usage import delete_caller_alias
         ok = delete_caller_alias(int(alias_id))
         return jsonify({"ok": ok, "message": "Alias deleted." if ok else "Delete failed."})
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+
+@app.route('/admin/api_usage/block_alias', methods=['POST'])
+@login_required
+def admin_api_usage_block_alias():
+    """Block or unblock a discovered private API caller/tool."""
+    if not is_admin():
+        return jsonify({"error": "Unauthorized"}), 403
+    data = request.get_json(silent=True) or {}
+    match_type = str(data.get("match_type") or "").strip()
+    match_value = str(data.get("match_value") or "").strip()
+    blocked = bool(data.get("blocked", True))
+    reason = str(data.get("reason") or "").strip()
+    display_name = str(data.get("display_name") or "").strip()
+    if not match_type or not match_value:
+        return jsonify({"ok": False, "error": "match_type and match_value are required"}), 400
+    try:
+        from src.api_usage import block_caller_alias
+        actor = current_user.get_id() if current_user.is_authenticated else "admin"
+        ok = block_caller_alias(match_type, match_value, blocked=blocked, actor=actor, reason=reason, display_name=display_name)
+        return jsonify({"ok": ok, "message": "Caller blocked." if blocked and ok else "Caller unblocked." if ok else "Update failed."})
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+
+def _api_registry_endpoint_path(endpoint_pattern):
+    text = str(endpoint_pattern or "").strip()
+    if not text:
+        return ""
+    try:
+        if text.lower().startswith(("http://", "https://")):
+            from urllib.parse import urlparse
+
+            parsed = urlparse(text)
+            text = (parsed.path or "") + (("?" + parsed.query) if parsed.query else "")
+    except Exception:
+        pass
+    path = text.split("?", 1)[0].strip()
+    if path and not path.startswith("/"):
+        path = "/" + path
+    return path
+
+
+def _api_registry_sample_path(endpoint_pattern):
+    import re as _re
+
+    path = _api_registry_endpoint_path(endpoint_pattern)
+    return _re.sub(r"\{[^/{}]+\}", "sample", path)
+
+
+def _api_registry_rule_to_pattern(rule_text):
+    import re as _re
+
+    return _re.sub(r"<(?:[^:<>]+:)?([^<>]+)>", r"{\1}", str(rule_text or ""))
+
+
+def _api_registry_rule_matches_sample(rule_text, sample_path):
+    rule_parts = [p for p in str(rule_text or "").strip("/").split("/") if p]
+    sample_parts = [p for p in str(sample_path or "").strip("/").split("/") if p]
+    i = j = 0
+    while i < len(rule_parts) and j < len(sample_parts):
+        seg = rule_parts[i]
+        if seg.startswith("<") and seg.endswith(">"):
+            converter = seg[1:-1].split(":", 1)[0] if ":" in seg else "string"
+            if converter == "path":
+                return True
+        elif seg != sample_parts[j]:
+            return False
+        i += 1
+        j += 1
+    return i == len(rule_parts) and j == len(sample_parts)
+
+
+def _api_registry_route_check(endpoint_pattern):
+    """Check whether a registry endpoint maps to real Flask route code."""
+    import inspect as _inspect
+    import re as _re
+
+    path = _api_registry_endpoint_path(endpoint_pattern)
+    sample_path = _api_registry_sample_path(endpoint_pattern)
+    public_prefix_ok = path.startswith("/public/") or path.startswith("/api/public/")
+    private_token_hint = bool(_re.search(r"(api_token=|access_token=|x-pdtbuddy-api-token|x-jiraquery-api-token|authorization\s*:)", str(endpoint_pattern or ""), _re.I))
+    result = {
+        "path": path,
+        "sample_path": sample_path,
+        "route_exists": False,
+        "get_allowed": False,
+        "public_prefix_ok": public_prefix_ok,
+        "private_token_hint": private_token_hint,
+        "safe_for_public_catalog": False,
+        "route_rule": "",
+        "route_pattern": "",
+        "endpoint_function": "",
+        "source_file": "",
+        "source_line": "",
+        "methods": [],
+        "message": "",
+    }
+    if not path:
+        result["message"] = "Endpoint pattern is required."
+        return result
+    if not public_prefix_ok:
+        result["message"] = "Public catalog entries must use /public/* or /api/public/* routes."
+        return result
+    if private_token_hint:
+        result["message"] = "Endpoint pattern appears to include token/key material; do not publish secrets in public docs."
+        return result
+
+    try:
+        adapter = app.url_map.bind("pdt-buddy.qualcomm.com")
+        endpoint, _values = adapter.match(sample_path, method="GET")
+        rules = [
+            rule for rule in app.url_map.iter_rules(endpoint)
+            if "GET" in (rule.methods or set())
+        ]
+        chosen = next(
+            (rule for rule in rules if _api_registry_rule_matches_sample(str(rule.rule), sample_path)),
+            rules[0] if rules else None,
+        )
+        view_func = app.view_functions.get(endpoint)
+        result["route_exists"] = True
+        result["get_allowed"] = True
+        result["endpoint_function"] = endpoint
+        if chosen:
+            result["route_rule"] = str(chosen.rule)
+            result["route_pattern"] = _api_registry_rule_to_pattern(chosen.rule)
+            result["methods"] = sorted([m for m in (chosen.methods or set()) if m not in ("HEAD", "OPTIONS")])
+        if view_func:
+            try:
+                result["source_file"] = str(_inspect.getsourcefile(view_func) or "")
+                result["source_line"] = str(_inspect.getsourcelines(view_func)[1])
+            except Exception:
+                pass
+        result["safe_for_public_catalog"] = True
+        result["message"] = "Route exists in Flask code and is safe to add to the public catalog."
+    except Exception as exc:
+        result["message"] = f"No GET route matched in Flask code for sample path {sample_path}: {exc}"
+    return result
+
+
+def _api_registry_guess_bu_for_route(route_text):
+    text = str(route_text or "").lower()
+    if "auto-gen" in text or "automotive" in text:
+        return "AUTO"
+    if "wbc" in text:
+        return "WBC"
+    if "mtbf" in text:
+        return "IOT/XR"
+    if "iot" in text:
+        return "IOT"
+    if "xr" in text:
+        return "XR"
+    if "compute" in text:
+        return "COMPUTE"
+    if "mobile" in text:
+        return "MOBILE"
+    return "General"
+
+
+def _api_registry_public_code_routes():
+    import re as _re
+
+    rows = []
+    for rule in sorted(app.url_map.iter_rules(), key=lambda r: str(r.rule)):
+        rule_text = str(rule.rule)
+        if not (rule_text.startswith("/public/") or rule_text.startswith("/api/public/")):
+            continue
+        if "GET" not in (rule.methods or set()):
+            continue
+        pattern = _api_registry_rule_to_pattern(rule_text)
+        check = _api_registry_route_check(pattern)
+        key_base = _re.sub(r"[^a-z0-9]+", "_", pattern.lower()).strip("_") or "public_api"
+        rows.append({
+            "api_key_suggestion": ("public_" + key_base)[:160],
+            "api_name_suggestion": "Public " + pattern.strip("/").replace("/", " ").replace("{", "").replace("}", "").title(),
+            "endpoint_pattern": pattern,
+            "bu_scope": _api_registry_guess_bu_for_route(rule_text),
+            "methods": sorted([m for m in (rule.methods or set()) if m not in ("HEAD", "OPTIONS")]),
+            "endpoint_function": check.get("endpoint_function", ""),
+            "source_file": check.get("source_file", ""),
+            "source_line": check.get("source_line", ""),
+            "route_rule": rule_text,
+        })
+    return rows
+
+
+@app.route('/admin/api_registry')
+@login_required
+def admin_api_registry_page():
+    """Admin page for public API approval and private caller controls."""
+    if not is_admin():
+        abort(403)
+    return render_template('admin_api_registry.html')
+
+
+@app.route('/admin/api_registry/data')
+@login_required
+def admin_api_registry_data():
+    """Return public API registry entries and discovered private callers."""
+    if not is_admin():
+        return jsonify({"error": "Unauthorized"}), 403
+    try:
+        from src.api_registry import get_registry_entries, seed_builtin_private_apis, seed_builtin_public_apis, seed_public_mtbf_targets
+        from src.api_usage import get_all_aliases, get_api_usage_stats
+
+        actor = current_user.get_id() if current_user.is_authenticated else "admin"
+        seeded_builtin = seed_builtin_public_apis(actor=actor)
+        seeded_private = seed_builtin_private_apis(actor=actor)
+        seeded_targets = 0
+        try:
+            from orbit_public_mtbf_routes import _all_targets_with_bu
+
+            seeded_targets = seed_public_mtbf_targets(_all_targets_with_bu(), actor=actor)
+        except Exception:
+            seeded_targets = 0
+
+        days = int(request.args.get("days") or 30)
+        days = max(1, min(days, 90))
+        registry = get_registry_entries(api_type="public", include_pending=True)
+        for row in registry:
+            row["route_check"] = _api_registry_route_check(row.get("endpoint_pattern"))
+        private_registry = get_registry_entries(api_type="private", include_pending=True)
+        code_routes = _api_registry_public_code_routes()
+        bu_scopes = sorted({
+            token
+            for row in registry
+            for token in re.split(r"[/,;|]+", str(row.get("bu_scope") or "General"))
+            if token.strip() and token.strip().upper() != "ALL"
+        }, key=lambda x: x.upper())
+        approved_public = [
+            row for row in registry
+            if str(row.get("is_approved") or "0") in ("1", "true", "True")
+        ]
+        builtin_public = [
+            row for row in registry
+            if not str(row.get("api_key") or "").startswith("public_mtbf_")
+        ]
+        target_public = [
+            row for row in registry
+            if str(row.get("api_key") or "").startswith("public_mtbf_")
+        ]
+        approved_private = [
+            row for row in private_registry
+            if str(row.get("is_approved") or "0") in ("1", "true", "True")
+        ]
+        return jsonify({
+            "ok": True,
+            "registry": registry,
+            "private_registry": private_registry,
+            "code_routes": code_routes,
+            "bu_scopes": bu_scopes,
+            "aliases": get_all_aliases(),
+            "usage": get_api_usage_stats(days=days),
+            "seeded": {
+                "builtin_public_apis": seeded_builtin,
+                "builtin_private_apis": seeded_private,
+                "discovered_mtbf_targets": seeded_targets,
+            },
+            "counts": {
+                "public_total": len(registry),
+                "public_approved": len(approved_public),
+                "public_pending_or_revoked": max(len(registry) - len(approved_public), 0),
+                "builtin_public_catalog": len(builtin_public),
+                "target_level_mtbf": len(target_public),
+                "target_level_mtbf_approved": len([
+                    row for row in target_public
+                    if str(row.get("is_approved") or "0") in ("1", "true", "True")
+                ]),
+                "private_total": len(private_registry),
+                "private_approved": len(approved_private),
+                "private_pending": max(len(private_registry) - len(approved_private), 0),
+            },
+        })
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+
+@app.route('/admin/api_registry/approval', methods=['POST'])
+@login_required
+def admin_api_registry_approval():
+    """Approve or revoke a public API registry entry."""
+    if not is_admin():
+        return jsonify({"error": "Unauthorized"}), 403
+    data = request.get_json(silent=True) or {}
+    api_key = str(data.get("api_key") or "").strip()
+    approved = bool(data.get("approved"))
+    notes = str(data.get("notes") or "").strip()
+    if not api_key:
+        return jsonify({"ok": False, "error": "api_key is required"}), 400
+    try:
+        from src.api_registry import get_registry_entries, set_api_approval
+
+        actor = current_user.get_id() if current_user.is_authenticated else "admin"
+        route_check = {}
+        if approved:
+            # Search both public and private registries
+            all_registry = get_registry_entries(api_type="", include_pending=True)
+            row = next((r for r in all_registry if str(r.get("api_key") or "") == api_key), None)
+            if not row:
+                return jsonify({"ok": False, "error": f"API key '{api_key}' not found."}), 404
+            api_type_found = str(row.get("api_type") or "public")
+            if api_type_found == "public":
+                # Public APIs require route check
+                route_check = _api_registry_route_check(row.get("endpoint_pattern"))
+                if not route_check.get("safe_for_public_catalog"):
+                    return jsonify({
+                        "ok": False,
+                        "error": "Cannot approve: endpoint is not a valid public GET route in current Flask code.",
+                        "route_check": route_check,
+                    }), 400
+            # Private APIs skip route check — they don't need to be public GET routes
+        ok = set_api_approval(api_key, approved=approved, actor=actor, notes=notes)
+        return jsonify({
+            "ok": ok,
+            "route_check": route_check,
+            "message": "API approved." if approved and ok else "API revoked." if ok else "Update failed.",
+        })
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+
+@app.route('/admin/api_registry/check_route', methods=['POST'])
+@login_required
+def admin_api_registry_check_route():
+    """Validate that a proposed public API entry maps to actual Flask route code."""
+    if not is_admin():
+        return jsonify({"error": "Unauthorized"}), 403
+    data = request.get_json(silent=True) or {}
+    endpoint_pattern = str(data.get("endpoint_pattern") or "").strip()
+    route_check = _api_registry_route_check(endpoint_pattern)
+    return jsonify({"ok": True, "route_check": route_check})
+
+
+@app.route('/admin/api_registry/test_mtbf_target', methods=['POST'])
+@login_required
+def admin_api_registry_test_mtbf_target():
+    """Admin-only MTBF preview before approval.
+
+    This bypasses the public approval gate and loads data from the selected
+    data_source_target so an admin can verify an alias before publishing it.
+    Example: target='Maili.LA.1.0', data_source_target='Maili'.
+    """
+    if not is_admin():
+        return jsonify({"error": "Unauthorized"}), 403
+    data = request.get_json(silent=True) or {}
+    target = str(data.get("target") or "").strip()
+    data_source_target = str(data.get("data_source_target") or target).strip()
+    if not target:
+        return jsonify({"ok": False, "error": "target is required"}), 400
+    try:
+        from orbit_public_mtbf_routes import _load_mtbf, _public_row, _sort_rows
+
+        # For admin preview, load from the actual JSON/data target directly.
+        # Do not call the public /public/mtbf route because that intentionally
+        # returns 403 before approval.
+        source = data_source_target or target
+        mtbf_data = _load_mtbf(source)
+        rows = _sort_rows(mtbf_data.get("rows") or [])
+        try:
+            last_n = int(data.get("last_n") or 0)
+        except Exception:
+            last_n = 0
+        if last_n > 0:
+            rows = rows[-last_n:]
+        public_rows = [_public_row(r) for r in rows]
+        return jsonify({
+            "ok": True,
+            "target": target,
+            "data_source_target": source,
+            "json_path": f"static/mtbf_json/{source}/mtbf_mtbf.json",
+            "row_count": len(public_rows),
+            "rows": public_rows,
+            "updated_at": str(mtbf_data.get("updated_at") or ""),
+            "note": "Admin preview bypassed approval and loaded from data_source_target.",
+        })
+    except Exception as exc:
+        return jsonify({
+            "ok": False,
+            "target": target,
+            "data_source_target": data_source_target,
+            "error": str(exc),
+            "rows": [],
+            "row_count": 0,
+        }), 500
+
+
+@app.route('/admin/api_registry/bu_approval', methods=['POST'])
+@login_required
+def admin_api_registry_bu_approval():
+    """Approve/revoke all valid public API entries for one BU scope."""
+    if not is_admin():
+        return jsonify({"error": "Unauthorized"}), 403
+    data = request.get_json(silent=True) or {}
+    bu_scope = str(data.get("bu_scope") or "").strip().upper()
+    approved = bool(data.get("approved"))
+    notes = str(data.get("notes") or "").strip()
+    if not bu_scope:
+        return jsonify({"ok": False, "error": "bu_scope is required"}), 400
+    try:
+        from src.api_registry import _scope_tokens, get_registry_entries, set_api_approval
+
+        actor = current_user.get_id() if current_user.is_authenticated else "admin"
+        registry = get_registry_entries(api_type="public", include_pending=True)
+        matched = [
+            row for row in registry
+            if str(row.get("api_key") or "") != "public_api_catalog"
+            and bu_scope in _scope_tokens(row.get("bu_scope"))
+        ]
+        changed = 0
+        skipped_invalid = []
+        for row in matched:
+            api_key = str(row.get("api_key") or "").strip()
+            if not api_key:
+                continue
+            if approved:
+                route_check = _api_registry_route_check(row.get("endpoint_pattern"))
+                if not route_check.get("safe_for_public_catalog"):
+                    skipped_invalid.append({
+                        "api_key": api_key,
+                        "endpoint_pattern": row.get("endpoint_pattern") or "",
+                        "message": route_check.get("message") or "Route validation failed.",
+                    })
+                    continue
+            if set_api_approval(api_key, approved=approved, actor=actor, notes=notes):
+                changed += 1
+        action = "Approved" if approved else "Revoked"
+        return jsonify({
+            "ok": True,
+            "matched": len(matched),
+            "changed": changed,
+            "skipped_invalid": skipped_invalid,
+            "message": f"{action} {changed} of {len(matched)} {bu_scope} public API entries."
+                       + (f" Skipped {len(skipped_invalid)} route-invalid entries." if skipped_invalid else ""),
+        })
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+
+@app.route('/admin/api_registry/mtbf_targets', methods=['GET'])
+@login_required
+def admin_api_registry_mtbf_targets():
+    """Return MTBF targets for a given BU for the admin Quick Add MTBF API panel.
+
+    Sources (merged, deduplicated):
+    1. orbit_public_mtbf_routes._all_targets_with_bu() — targets with MTBF data files
+    2. dashboard_status table — all active targets for the BU (fallback for BUs without MTBF files yet)
+    3. api_registry — targets already registered (pending or approved)
+    """
+    if not is_admin():
+        return jsonify({"error": "Unauthorized"}), 403
+    bu = str(request.args.get("bu") or "").strip().upper()
+    try:
+        from src.api_registry import get_registry_entries
+
+        # Source 1: orbit MTBF targets (have data files)
+        orbit_targets: dict[str, str] = {}  # target_name_lower -> bu
+        try:
+            from orbit_public_mtbf_routes import _all_targets_with_bu
+            for t in _all_targets_with_bu():
+                t_bu = str(t.get("bu") or "").upper()
+                t_name = str(t.get("target") or "").strip()
+                if t_name and (not bu or t_bu == bu):
+                    orbit_targets[t_name.lower()] = (t_name, t_bu)
+        except Exception:
+            pass
+
+        # Source 2: dashboard_status targets for the BU
+        db_targets: dict[str, str] = {}  # target_name_lower -> (target_name, bu)
+        if bu:
+            try:
+                conn = get_mysql_connection_db()
+                if conn:
+                    cur = conn.cursor(dictionary=True)
+                    cur.execute(
+                        "SELECT target_name, bu FROM pdt_stats_dashboard.dashboard_status "
+                        "WHERE is_active=1 AND UPPER(bu)=%s ORDER BY target_name",
+                        (bu,)
+                    )
+                    for row in (cur.fetchall() or []):
+                        t_name = str(row.get("target_name") or "").strip()
+                        t_bu = str(row.get("bu") or "").upper()
+                        if t_name:
+                            db_targets[t_name.lower()] = (t_name, t_bu)
+                    cur.close()
+                    conn.close()
+            except Exception:
+                pass
+
+        # Merge: orbit first, then db_targets for any not already in orbit
+        merged: dict[str, tuple] = {}
+        merged.update(orbit_targets)
+        for k, v in db_targets.items():
+            if k not in merged:
+                merged[k] = v
+
+        # Source 3: registry entries — only for approval status lookup, NOT for adding new targets
+        # We intentionally do NOT add registry-only alias entries (e.g. Maili.LA.1.0) to the dropdown.
+        # The dropdown only shows real targets from dashboard_status and orbit.
+        registry = get_registry_entries(api_type="public", include_pending=True)
+        registry_targets = {
+            str(r.get("target_name") or "").lower(): r
+            for r in registry
+            if str(r.get("api_key") or "").startswith("public_mtbf_")
+        }
+
+        result = []
+        for key, (t_name, t_bu) in merged.items():
+            reg_row = registry_targets.get(key)
+            result.append({
+                "target": t_name,
+                "bu": t_bu or bu,
+                "endpoint": f"/public/mtbf/{t_name}/MTBF",
+                "api_key": f"public_mtbf_{t_name.lower().replace(' ', '_')}",
+                "in_registry": bool(reg_row),
+                "is_approved": bool(reg_row and str(reg_row.get("is_approved") or "0") in ("1", "true", "True")),
+                "approved_by": str(reg_row.get("approved_by") or "") if reg_row else "",
+            })
+
+        # Sort: unapproved first, then alphabetical
+        result.sort(key=lambda x: (x["is_approved"], x["target"].lower()))
+        return jsonify({"ok": True, "targets": result, "bu": bu, "total": len(result)})
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc), "targets": []}), 500
+
+
+@app.route('/admin/api_registry/approve_mtbf_target', methods=['POST'])
+@login_required
+def admin_api_registry_approve_mtbf_target():
+    """Seed and approve a specific MTBF target for the public API catalog.
+
+    Accepts:
+      target            - the public alias name (e.g. 'Maili.LA.1.0')
+      bu                - BU scope (e.g. 'MOBILE')
+      approved          - True/False
+      data_source_target - the actual JSON data target (e.g. 'Maili'); defaults to target
+    """
+    if not is_admin():
+        return jsonify({"error": "Unauthorized"}), 403
+    data = request.get_json(silent=True) or {}
+    target = str(data.get("target") or "").strip()
+    bu = str(data.get("bu") or "").strip().upper()
+    approved = bool(data.get("approved", True))
+    # data_source_target: the actual JSON file target (defaults to target itself)
+    data_source_target = str(data.get("data_source_target") or target).strip()
+    if not target:
+        return jsonify({"ok": False, "error": "target is required"}), 400
+    try:
+        from src.api_registry import seed_public_mtbf_targets, set_api_approval, _public_mtbf_key, upsert_api_entry
+        actor = current_user.get_id() if current_user.is_authenticated else "admin"
+        # Seed the target entry (creates if not exists, preserves existing approval)
+        seed_public_mtbf_targets([{"target": target, "bu": bu}], actor=actor)
+        # Update data_source_target in the registry entry
+        api_key = _public_mtbf_key(target)
+        upsert_api_entry(
+            api_key=api_key,
+            api_name=f"Public MTBF - {target}",
+            endpoint_pattern=f"/public/mtbf/{target}/MTBF",
+            api_type="public",
+            bu_scope=bu,
+            target_name=target,
+            description=f"Public MTBF API for {target} ({bu})",
+            actor=actor,
+            data_source_target=data_source_target,
+        )
+        # Approve or revoke
+        ok = set_api_approval(api_key, approved=approved, actor=actor,
+                              notes=f"{'Approved' if approved else 'Revoked'} via Admin Quick Add MTBF")
+        action = "approved" if approved else "revoked"
+        return jsonify({
+            "ok": True,
+            "api_key": api_key,
+            "target": target,
+            "bu": bu,
+            "approved": approved,
+            "data_source_target": data_source_target,
+            "message": f"MTBF API for '{target}' {action} successfully. Data loaded from '{data_source_target}'. It will {'appear on' if approved else 'be hidden from'} /public/apis.",
+        })
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+
+@app.route('/admin/api_registry/upsert', methods=['POST'])
+@login_required
+def admin_api_registry_upsert():
+    """Create or update a public/private API registry entry."""
+    if not is_admin():
+        return jsonify({"error": "Unauthorized"}), 403
+    data = request.get_json(silent=True) or {}
+    api_key = str(data.get("api_key") or "").strip()
+    api_name = str(data.get("api_name") or "").strip()
+    endpoint_pattern = str(data.get("endpoint_pattern") or "").strip()
+    if not api_key or not api_name or not endpoint_pattern:
+        return jsonify({"ok": False, "error": "api_key, api_name, and endpoint_pattern are required"}), 400
+    try:
+        from src.api_registry import upsert_api_entry
+
+        api_type = str(data.get("api_type") or "public").strip()
+        route_check = _api_registry_route_check(endpoint_pattern) if api_type == "public" else {}
+        if api_type == "public" and not route_check.get("safe_for_public_catalog"):
+            return jsonify({
+                "ok": False,
+                "error": "Public API entry was not saved because the endpoint is not a valid public GET route in current Flask code.",
+                "route_check": route_check,
+            }), 400
+
+        actor = current_user.get_id() if current_user.is_authenticated else "admin"
+        ok = upsert_api_entry(
+            api_key=api_key,
+            api_name=api_name,
+            endpoint_pattern=endpoint_pattern,
+            api_type=api_type,
+            bu_scope=str(data.get("bu_scope") or "").strip(),
+            target_name=str(data.get("target_name") or "").strip(),
+            description=str(data.get("description") or "").strip(),
+            actor=actor,
+            notes=str(data.get("notes") or "").strip(),
+            data_source_target=str(data.get("data_source_target") or "").strip(),
+        )
+        return jsonify({
+            "ok": ok,
+            "route_check": route_check,
+            "message": "API entry saved as pending. Approve it to show on /public/apis." if ok and api_type == "public" else "API entry saved." if ok else "Save failed.",
+        })
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+
+@app.route('/admin/api_registry/delete', methods=['POST'])
+@login_required
+def admin_api_registry_delete():
+    """Hard-delete a registry entry by api_key. Admin only."""
+    if not is_admin():
+        return jsonify({"error": "Unauthorized"}), 403
+    data = request.get_json(silent=True) or {}
+    api_key = str(data.get("api_key") or "").strip()
+    if not api_key:
+        return jsonify({"ok": False, "error": "api_key is required"}), 400
+    try:
+        from src.utils import get_mysql_connection_db as _get_db
+        from src.api_registry import _TABLE, ensure_api_registry_table
+        conn = _get_db()
+        if not conn:
+            return jsonify({"ok": False, "error": "DB connection failed"}), 500
+        cur = conn.cursor()
+        ensure_api_registry_table(cur)
+        cur.execute(f"DELETE FROM {_TABLE} WHERE api_key=%s", (api_key,))
+        conn.commit()
+        deleted = cur.rowcount > 0
+        cur.close()
+        conn.close()
+        return jsonify({
+            "ok": deleted,
+            "api_key": api_key,
+            "message": f"Entry '{api_key}' deleted." if deleted else f"Entry '{api_key}' not found.",
+        })
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+
+@app.route('/admin/api_registry/update_data_source', methods=['POST'])
+@login_required
+def admin_api_registry_update_data_source():
+    """Update the data_source_target for an existing MTBF registry entry.
+
+    This tells _load_mtbf() which actual JSON file to read from when the
+    public alias differs from the stored data target.
+    e.g. alias='Maili.LA.1.0', data_source_target='Maili'
+    → reads static/mtbf_json/maili/mtbf_mtbf.json
+    """
+    if not is_admin():
+        return jsonify({"error": "Unauthorized"}), 403
+    data = request.get_json(silent=True) or {}
+    api_key = str(data.get("api_key") or "").strip()
+    data_source_target = str(data.get("data_source_target") or "").strip()
+    if not api_key:
+        return jsonify({"ok": False, "error": "api_key is required"}), 400
+    try:
+        from src.utils import get_mysql_connection_db as _get_db
+        from src.api_registry import _TABLE, ensure_api_registry_table
+        conn = _get_db()
+        if not conn:
+            return jsonify({"ok": False, "error": "DB connection failed"}), 500
+        cur = conn.cursor()
+        ensure_api_registry_table(cur)
+        cur.execute(
+            f"UPDATE {_TABLE} SET data_source_target=%s, updated_at=NOW() WHERE api_key=%s",
+            (data_source_target or None, api_key),
+        )
+        conn.commit()
+        changed = cur.rowcount > 0
+        cur.close()
+        conn.close()
+        return jsonify({
+            "ok": changed,
+            "api_key": api_key,
+            "data_source_target": data_source_target,
+            "message": f"data_source_target updated to '{data_source_target}'. The API will now load data from this target's JSON file." if changed else "Entry not found.",
+        })
     except Exception as exc:
         return jsonify({"ok": False, "error": str(exc)}), 500
 
@@ -10757,9 +11492,9 @@ def dashboard_help():
 
 
 @app.route("/dashboard/docs")
-@login_required
 def dashboard_docs():
-    return render_template("dashboard_docs.html")
+    """Legacy logged-in docs URL redirects to the single public API catalog."""
+    return redirect("/public/apis", code=302)
 
 @app.route("/revision-history")
 @login_required

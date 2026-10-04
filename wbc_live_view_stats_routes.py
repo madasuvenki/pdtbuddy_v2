@@ -31,6 +31,31 @@ _LOCAL_ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "
 _WBC_SCHEMA = str(BU_DATABASE_MAPPING.get("WBC") or "pdt_stats_wbc").strip("`")
 
 
+def _wbc_date_sort_key(row: Dict[str, Any]) -> str:
+    """Return a sortable YYYY-MM-DD string from a WBC MTBF row date field.
+
+    Handles mixed formats: YYYY-MM-DD, YYYY/MM/DD, MM-DD-YYYY, MM/DD/YYYY.
+    Returns empty string for unparseable values so they sort first.
+    """
+    raw = str(row.get("date") or "").strip()
+    if not raw:
+        return ""
+    # YYYY-MM-DD or YYYY/MM/DD or YYYY.MM.DD
+    m = re.match(r'^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$', raw)
+    if m:
+        return f"{m.group(1)}-{m.group(2).zfill(2)}-{m.group(3).zfill(2)}"
+    # MM-DD-YYYY or MM/DD/YYYY or MM.DD.YYYY
+    m = re.match(r'^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$', raw)
+    if m:
+        first, second, year = int(m.group(1)), int(m.group(2)), m.group(3)
+        month, day = first, second
+        if first > 12 and second <= 12:
+            day, month = first, second
+        return f"{year}-{str(month).zfill(2)}-{str(day).zfill(2)}"
+    return raw
+
+
+
 def _can_edit() -> bool:
     uid = str(getattr(current_user, "id", "") or "").strip().lower()
     if not uid or uid in VIEWER_OVERRIDE_USERS:
@@ -1715,6 +1740,11 @@ def _save_mtbf_chart_rows(target: Dict[str, str], db_cfg: Dict[str, str], rows: 
     key = target.get("key") or "target"
     data = _load_or_sync_mainline_mtbf(target, db_cfg)
     chart_rows = [_normalize_mtbf_row(r, i + 1) for i, r in enumerate(rows or []) if isinstance(r, dict)]
+    # Sort by date ascending so the latest row is always last (chart_rows[-1])
+    chart_rows = sorted(chart_rows, key=_wbc_date_sort_key)
+    # Re-assign s_no after sort
+    for _i, _r in enumerate(chart_rows, 1):
+        _r["s_no"] = _i
     headers = _mtbf_headers()
     data.update({
         "target": key,
@@ -2229,6 +2259,8 @@ def _target_payload(target_key: str, force_running_report: bool = False) -> Dict
     db_cfg = (cfg.get("targets") or {}).get(target["key"], {})
     data = _load_or_sync_mainline_mtbf(target, db_cfg)
     chart_rows = data.get("chart_rows") or []
+    # Sort by date ascending so chart_rows[-1] is always the latest row
+    chart_rows = sorted(chart_rows, key=_wbc_date_sort_key)
     hours = round(sum(_safe_float(r.get("hours")) for r in chart_rows), 2)
     crashes = sum(_safe_int(r.get("total_crashes")) for r in chart_rows)
     current = {"rows": [], "updated_at": "", "source": "saved_jql_tabs"}

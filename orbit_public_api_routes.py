@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 import traceback
 from datetime import date, datetime
 
-from flask import Blueprint, request, jsonify, render_template
+from flask import Blueprint, request, jsonify, render_template, redirect
 
 orbit_public_api_bp = Blueprint("orbit_public_api_bp", __name__)
 
@@ -503,18 +503,5 @@ def api_public_orbit_cr(cr_id):
 
 @orbit_public_api_bp.route("/api/public/orbit/docs", methods=["GET"])
 def api_public_orbit_docs():
-    """HTML documentation page for the Orbit Public API."""
-    try:
-        return render_template('public_orbit_api.html')
-    except Exception:
-        return jsonify({
-            'api': 'PDTBuddy Orbit Public API',
-            'version': '1.1',
-            'docs_url': '/api/public/orbit/docs',
-            'endpoints': [
-                '/api/public/orbit/crs?target=<target>&pl=<pl>',
-                '/api/public/orbit/all-targets?bu=<bu>',
-                '/api/public/orbit/all-crs?bu=<bu>&pl=<pl>&limit_per_target=<n>',
-                '/api/public/orbit/cr/<cr_id>',
-            ],
-        })
+    """Deprecated duplicate docs page. Use unified docs instead."""
+    return redirect("/public/apis", code=302)

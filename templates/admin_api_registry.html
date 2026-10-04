@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin — API Registry</title>
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+  <link rel="stylesheet" href="/static/css/fontawesome/all.min.css">
+  <style>
+    :root{--ink:#0f172a;--muted:#64748b;--border:#e2e8f0;--bg:#f1f5f9;--card:#fff;--blue:#2563eb;--green:#16a34a;--red:#dc2626;--amber:#d97706;--purple:#7c3aed}
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:system-ui,-apple-system,"Segoe UI",Arial,sans-serif;background:var(--bg);color:var(--ink);font-size:14px}
+    code{font-family:Consolas,"Courier New",monospace}
+    .top{background:linear-gradient(135deg,#0f172a,#312e81,#0f172a);color:#fff;padding:22px 30px;box-shadow:0 4px 24px rgba(15,23,42,.32)}
+    .top-inner{max-width:1300px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+    .title{display:flex;align-items:center;gap:13px}
+    .title-icon{width:44px;height:44px;border-radius:14px;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;color:#c4b5fd}
+    h1{font-size:21px;font-weight:950;letter-spacing:-.02em}
+    .sub{font-size:12px;color:#cbd5e1;margin-top:3px}
+    .btn{border:1px solid var(--border);background:#fff;color:#0f172a;border-radius:10px;padding:8px 12px;font-size:12px;font-weight:900;cursor:pointer;display:inline-flex;align-items:center;gap:7px;text-decoration:none}
+    .btn:hover{filter:brightness(.98)}
+    .btn-blue{background:linear-gradient(135deg,#2563eb,#4f46e5);color:#fff;border:0}
+    .btn-green{background:linear-gradient(135deg,#059669,#16a34a);color:#fff;border:0}
+    .btn-red{background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;border:0}
+    .btn-amber{background:linear-gradient(135deg,#d97706,#f59e0b);color:#fff;border:0}
+    .btn-purple{background:linear-gradient(135deg,#7c3aed,#9333ea);color:#fff;border:0}
+    .wrap{max-width:1300px;margin:0 auto;padding:26px 22px 80px}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-bottom:20px}
+    .stat{background:#fff;border:1px solid var(--border);border-radius:16px;padding:16px;box-shadow:0 2px 10px rgba(15,23,42,.05)}
+    .stat .k{font-size:10px;text-transform:uppercase;letter-spacing:.08em;font-weight:950;color:var(--muted)}
+    .stat .v{font-size:26px;font-weight:950;margin-top:4px}
+    .stat .d{font-size:12px;color:var(--muted);margin-top:3px}
+    .panel{background:#fff;border:1px solid var(--border);border-radius:18px;margin-bottom:20px;box-shadow:0 2px 12px rgba(15,23,42,.06);overflow:hidden}
+    .panel-head{padding:16px 18px;background:linear-gradient(135deg,#f8fafc,#f1f5f9);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+    .panel-title{font-size:15px;font-weight:950;display:flex;align-items:center;gap:9px}
+    .panel-sub{font-size:12px;color:var(--muted);margin-top:2px}
+    .panel-body{padding:18px}
+    .tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+    .tab{padding:8px 14px;border:1px solid var(--border);background:#fff;border-radius:999px;font-size:12px;font-weight:950;cursor:pointer}
+    .tab.active{background:#0f172a;color:#fff;border-color:#0f172a}
+    .tabpane{display:none}
+    .tabpane.active{display:block}
+    table{width:100%;border-collapse:collapse}
+    th{background:#f8fafc;color:#475569;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.06em;font-weight:950;padding:8px 9px;border-bottom:2px solid var(--border)}
+    td{padding:9px;border-bottom:1px solid #f1f5f9;font-size:12px;vertical-align:top;color:#334155}
+    tr:last-child td{border-bottom:0}
+    .table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:13px}
+    .pill{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:999px;font-size:10px;font-weight:950;text-transform:uppercase;letter-spacing:.04em}
+    .pill-green{background:#dcfce7;color:#166534;border:1px solid #bbf7d0}.pill-red{background:#fee2e2;color:#991b1b;border:1px solid #fecaca}
+    .pill-amber{background:#fef3c7;color:#92400e;border:1px solid #fde68a}.pill-blue{background:#dbeafe;color:#1e40af;border:1px solid #bfdbfe}
+    .pill-purple{background:#ede9fe;color:#6d28d9;border:1px solid #ddd6fe}.pill-gray{background:#f1f5f9;color:#475569;border:1px solid #e2e8f0}
+    .actions{display:flex;gap:7px;flex-wrap:wrap}
+    .empty{padding:28px;border:1px dashed #cbd5e1;border-radius:14px;background:#f8fafc;color:#64748b;text-align:center;font-weight:750}
+    .form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+    .form-row{display:flex;flex-direction:column;gap:5px}
+    label{font-size:11px;font-weight:950;text-transform:uppercase;letter-spacing:.06em;color:#475569}
+    input,select,textarea{border:1px solid #cbd5e1;border-radius:10px;padding:9px 10px;font:inherit;font-size:13px;color:#0f172a;background:#fff;outline:none}
+    textarea{min-height:82px;resize:vertical}
+    input:focus,select:focus,textarea:focus{border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.12)}
+    .full{grid-column:1/-1}
+    .toast{position:fixed;right:20px;bottom:20px;z-index:50;display:none;padding:12px 14px;border-radius:12px;background:#0f172a;color:#fff;font-size:13px;font-weight:800;box-shadow:0 12px 30px rgba(15,23,42,.3);max-width:420px}
+    .toast.show{display:block}
+    .note{background:#fff7ed;border:1px solid #fed7aa;color:#7c2d12;border-radius:13px;padding:12px 14px;margin-bottom:14px;font-size:12.5px}
+    .toolbar{display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin-bottom:14px;padding:12px;border:1px solid var(--border);border-radius:14px;background:#f8fafc}
+    .toolbar .form-row{min-width:190px}
+    .route-ok{color:#166534;font-weight:950}.route-bad{color:#991b1b;font-weight:950}
+    .mini{font-size:11px;color:#64748b;margin-top:4px;line-height:1.45}
+    .code-route-list{display:grid;gap:10px;max-height:430px;overflow:auto;border:1px solid var(--border);border-radius:13px;padding:10px;background:#f8fafc}
+    .code-route{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:10px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:start}
+    .route-meta{font-size:11px;color:#64748b;margin-top:4px}
+    .route-check-box{display:none;border:1px solid #bfdbfe;background:#eff6ff;color:#1e3a8a;border-radius:12px;padding:10px;margin-top:8px;font-size:12px}
+    .route-check-box.show{display:block}
+    @media(max-width:800px){.form-grid{grid-template-columns:1fr}.wrap{padding:18px 12px 60px}.top{padding:16px}}
+  </style>
+</head>
+<body>
+  <header class="top">
+    <div class="top-inner">
+      <div class="title">
+        <div class="title-icon"><i class="fas fa-shield-alt"></i></div>
+        <div>
+          <h1>Admin API Registry</h1>
+          <div class="sub">Manage the single external public API catalog · Approve target-level MTBF APIs · Name private API tools</div>
+        </div>
+      </div>
+      <div class="actions">
+        <a class="btn" href="/public/apis" target="_blank"><i class="fas fa-vial"></i> Public API Tester</a>
+        <a class="btn" href="/cr_overview/embed"><i class="fas fa-home"></i> Dashboard</a>
+        <button class="btn btn-blue" onclick="loadData()"><i class="fas fa-sync-alt"></i> Refresh</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div class="note">
+      <b>Policy:</b> external users should use only <code>/public/apis</code>. Only approved public registry rows are visible there.
+      Admins can approve/revoke one API, or approve/revoke a BU scope. Newly added public APIs must map to a real public GET route in Flask code and must not contain private tokens/keys.
+    </div>
+
+    <section class="grid">
+      <div class="stat"><div class="k">Public Registry Entries</div><div class="v" id="statTotal">0</div><div class="d">Catalog + target-level keys</div></div>
+      <div class="stat"><div class="k">Built-in Public Catalog</div><div class="v" id="statBuiltin">0</div><div class="d">Approved JSON endpoints on /public/apis</div></div>
+      <div class="stat"><div class="k">Approved Target MTBF</div><div class="v" id="statTargetApproved">0</div><div class="d">Admin-approved target keys</div></div>
+      <div class="stat"><div class="k">Public Pending / Revoked</div><div class="v" id="statPending">0</div><div class="d">Hidden from external users</div></div>
+      <div class="stat"><div class="k">Private APIs</div><div class="v" id="statPrivateTotal">0</div><div class="d" id="statPrivateDesc">Internal-only APIs pending admin approval</div></div>
+      <div class="stat"><div class="k">Private Tool Aliases</div><div class="v" id="statAliases">0</div><div class="d">Named or blocked callers</div></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <div class="panel-title"><i class="fas fa-sliders-h"></i> Controls</div>
+          <div class="panel-sub">Approve public API visibility by API or BU, add code-validated APIs, and manage private API access restrictions.</div>
+        </div>
+      </div>
+      <div class="panel-body">
+        <div class="tabs">
+          <button class="tab active" onclick="showTab('public', this)">Public API Approval</button>
+          <button class="tab" onclick="showTab('mtbf-add', this)">📡 Add MTBF API</button>
+          <button class="tab" onclick="showTab('private-registry', this)">🔒 Private API Registry</button>
+          <button class="tab" onclick="showTab('private', this)">Private Tool Access</button>
+          <button class="tab" onclick="showTab('create', this)">Add / Validate API</button>
+          <button class="tab" onclick="showTab('discover', this)">Code Routes</button>
+        </div>
+
+        <div class="tabpane active" id="tab-public">
+          <div class="toolbar">
+            <div class="form-row">
+              <label>BU bulk action</label>
+              <select id="bulkBuSelect"><option value="">Loading BU scopes…</option></select>
+            </div>
+            <button class="btn btn-green" type="button" onclick="setBuApproval(true)"><i class="fas fa-check-double"></i> Approve BU</button>
+            <button class="btn btn-red" type="button" onclick="setBuApproval(false)"><i class="fas fa-ban"></i> Revoke BU</button>
+            <span class="mini">Bulk approve validates each endpoint against actual Flask route code before making it visible on <code>/public/apis</code>.</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Status</th><th>API</th><th>Endpoint</th><th>Code Check</th><th>BU</th><th>Target</th><th>Approved By</th><th>Actions</th></tr></thead>
+              <tbody id="publicRows"><tr><td colspan="8">Loading…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="tabpane" id="tab-mtbf-add">
+          <div class="note" style="margin-bottom:12px">
+            <b>Add MTBF API for a BU target.</b> Select a BU, then pick a target from the dropdown. The MTBF endpoint is auto-generated. Click <b>Approve</b> to make it visible on <code>/public/apis</code> immediately, or <b>Revoke</b> to hide it.
+          </div>
+          <div class="toolbar" style="align-items:flex-end;gap:14px">
+            <div class="form-row">
+              <label>Select BU</label>
+              <select id="mtbfBuSelect" onchange="loadMtbfTargets()" style="min-width:160px">
+                <option value="">— Choose BU —</option>
+                <option value="IOT">IoT</option>
+                <option value="XR">XR</option>
+                <option value="MOBILE">Mobile</option>
+                <option value="COMPUTE">Compute</option>
+                <option value="WBC">WBC</option>
+                <option value="MDM_TELEMATICS">MDM Telematics</option>
+                <option value="AUTO_TELEMATICS">Auto Telematics</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <label>Select Target</label>
+              <select id="mtbfTargetSelect" onchange="onMtbfTargetChange()" style="min-width:220px">
+                <option value="">— Choose BU first —</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <label>Endpoint Preview</label>
+              <input id="mtbfEndpointPreview" type="text" readonly style="min-width:280px;background:#f8fafc;color:#64748b" placeholder="/public/mtbf/{target}/MTBF">
+            </div>
+          </div>
+          <div id="mtbfTargetStatus" style="margin-bottom:12px;font-size:13px;color:#64748b"></div>
+          <div class="actions" style="margin-bottom:18px">
+            <button class="btn btn-green" type="button" id="mtbfApproveBtn" onclick="approveMtbfTarget(true)" disabled><i class="fas fa-check-circle"></i> Approve for /public/apis</button>
+            <button class="btn btn-red" type="button" id="mtbfRevokeBtn" onclick="approveMtbfTarget(false)" disabled><i class="fas fa-ban"></i> Revoke</button>
+          </div>
+          <div class="table-wrap" id="mtbfTargetTableWrap" style="display:none">
+            <table>
+              <thead><tr><th>Status</th><th>Target</th><th>BU</th><th>Endpoint</th><th>Approved By</th><th>Actions</th></tr></thead>
+              <tbody id="mtbfTargetRows"></tbody>
+            </table>
+          </div>
+          <div id="mtbfAllTargetsWrap" style="margin-top:18px;display:none">
+            <div style="font-size:13px;font-weight:950;color:#0f172a;margin-bottom:8px"><i class="fas fa-list"></i> All targets for selected BU</div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Status</th><th>Target</th><th>Endpoint</th><th>Approved By</th><th>Actions</th></tr></thead>
+                <tbody id="mtbfAllRows"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="tabpane" id="tab-private-registry">
+          <div class="note" style="margin-bottom:12px">
+            <b>Private APIs</b> are session/token-based APIs for internal PDTBuddy users. They are <b>hidden from external users</b> until admin approves them. Once approved, they appear in the <b>Private APIs tab</b> on <code>/public/apis</code> for logged-in internal users only.
+          </div>
+          <div class="toolbar">
+            <div class="form-row">
+              <label>Filter by BU</label>
+              <select id="privateRegistryBuFilter" onchange="renderPrivateRegistry()">
+                <option value="">All BUs</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <label>Filter by Status</label>
+              <select id="privateRegistryStatusFilter" onchange="renderPrivateRegistry()">
+                <option value="">All</option>
+                <option value="approved">Approved</option>
+                <option value="pending">Pending / Revoked</option>
+              </select>
+            </div>
+            <input type="search" id="privateRegistrySearch" placeholder="Search API name or endpoint…" style="border:1px solid var(--border);border-radius:10px;padding:8px 10px;font:inherit;font-size:13px;min-width:220px" oninput="renderPrivateRegistry()">
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Status</th><th>API Name</th><th>Endpoint</th><th>Auth Type</th><th>BU</th><th>Approved By</th><th>Actions</th></tr></thead>
+              <tbody id="privateRegistryRows"><tr><td colspan="7">Loading…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="tabpane" id="tab-private">
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Status</th><th>Tool Name</th><th>Match</th><th>Owner</th><th>Host/IP Label</th><th>Reason</th><th>Actions</th></tr></thead>
+              <tbody id="aliasRows"><tr><td colspan="7">Loading…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="tabpane" id="tab-create">
+          <form id="entryForm" class="form-grid" onsubmit="saveEntry(event)">
+            <div class="form-row">
+              <label>API Key</label>
+              <input name="api_key" placeholder="public_mtbf_my_target" required>
+            </div>
+            <div class="form-row">
+              <label>Type</label>
+              <select name="api_type">
+                <option value="public">public</option>
+                <option value="private">private</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <label>API Name</label>
+              <input name="api_name" placeholder="Public MTBF - my_target" required>
+            </div>
+            <div class="form-row">
+              <label>Endpoint Pattern</label>
+              <input name="endpoint_pattern" id="newEndpointPattern" placeholder="/public/mtbf/my_target/MTBF" required oninput="clearRouteCheck()">
+            </div>
+            <div class="form-row">
+              <label>BU Scope</label>
+              <input name="bu_scope" placeholder="IOT / XR / COMPUTE">
+            </div>
+            <div class="form-row">
+              <label>Target Name</label>
+              <input name="target_name" placeholder="my_target">
+            </div>
+            <div class="form-row full">
+              <label>Description</label>
+              <textarea name="description" placeholder="What this API exposes and who should use it"></textarea>
+            </div>
+            <div class="form-row full">
+              <label>Notes</label>
+              <textarea name="notes" placeholder="Approval or usage notes"></textarea>
+            </div>
+            <div class="full route-check-box" id="routeCheckBox"></div>
+            <div class="full actions">
+              <button class="btn btn-purple" type="button" onclick="checkNewRoute()"><i class="fas fa-code"></i> Check Actual Route Code</button>
+              <button class="btn btn-blue" type="submit"><i class="fas fa-save"></i> Save Entry as Pending</button>
+              <button class="btn" type="reset" onclick="clearRouteCheck()"><i class="fas fa-eraser"></i> Clear</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="tabpane" id="tab-discover">
+          <div class="note">
+            These are public GET routes discovered from the running Flask app code. Use <b>Add</b> to prefill the validated API form, then save as pending and approve when ready.
+          </div>
+          <div class="code-route-list" id="codeRouteRows">
+            <div class="empty">Loading public routes from code…</div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    let registry = [];
+    let privateRegistry = [];
+    let aliases = [];
+    let codeRoutes = [];
+    let buScopes = [];
+
+    function esc(v){
+      const div = document.createElement('div');
+      div.textContent = String(v ?? '');
+      return div.innerHTML;
+    }
+    function toast(msg){
+      const t=document.getElementById('toast');
+      t.textContent=msg;
+      t.classList.add('show');
+      setTimeout(()=>t.classList.remove('show'), 3200);
+    }
+    function showTab(name, btn){
+      document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+      document.querySelectorAll('.tabpane').forEach(x=>x.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('tab-'+name).classList.add('active');
+    }
+    async function apiPost(url, payload){
+      const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload||{})});
+      const j=await r.json().catch(()=>({ok:false,error:'Invalid server response'}));
+      if(!r.ok || j.ok===false || j.success===false) throw new Error(j.error || j.message || ('HTTP '+r.status));
+      return j;
+    }
+
+    async function loadData(){
+      try{
+        const r=await fetch('/admin/api_registry/data?days=30',{cache:'no-store'});
+        const data=await r.json();
+        if(!data.ok) throw new Error(data.error || 'Load failed');
+        registry=data.registry || [];
+        privateRegistry=data.private_registry || [];
+        aliases=data.aliases || [];
+        codeRoutes=data.code_routes || [];
+        buScopes=data.bu_scopes || [];
+        window.registryCounts = data.counts || {};
+        renderStats();
+        renderBulkBu();
+        renderPublic();
+        renderPrivateRegistry();
+        renderPrivateRegistryBuFilter();
+        renderAliases();
+        renderCodeRoutes();
+      }catch(e){
+        toast('Load failed: '+e.message);
+      }
+    }
+
+    function isApproved(row){
+      return ['1','true','True',1,true].includes(row.is_approved);
+    }
+    function isBlocked(row){
+      return ['1','true','True',1,true].includes(row.is_blocked);
+    }
+    function renderStats(){
+      const counts = window.registryCounts || {};
+      const approved=registry.filter(isApproved).length;
+      document.getElementById('statTotal').textContent=counts.public_total ?? registry.length;
+      document.getElementById('statBuiltin').textContent=counts.builtin_public_catalog ?? registry.filter(r=>!String(r.api_key||'').startsWith('public_mtbf_')).length;
+      document.getElementById('statTargetApproved').textContent=counts.target_level_mtbf_approved ?? registry.filter(r=>String(r.api_key||'').startsWith('public_mtbf_') && isApproved(r)).length;
+      document.getElementById('statPending').textContent=counts.public_pending_or_revoked ?? Math.max(registry.length-approved,0);
+      const privTotal = counts.private_total ?? privateRegistry.length;
+      const privApproved = counts.private_approved ?? privateRegistry.filter(isApproved).length;
+      const privPending = counts.private_pending ?? Math.max(privTotal - privApproved, 0);
+      document.getElementById('statPrivateTotal').textContent=privTotal;
+      document.getElementById('statPrivateDesc').textContent=`${privApproved} approved · ${privPending} pending`;
+      document.getElementById('statAliases').textContent=aliases.length;
+    }
+
+    function renderPrivateRegistryBuFilter(){
+      const sel = document.getElementById('privateRegistryBuFilter');
+      if(!sel) return;
+      const scopes = [...new Set(privateRegistry.flatMap(r => String(r.bu_scope || 'ALL').split(/[\/,;|]+/)).filter(Boolean).map(x => x.trim().toUpperCase()).filter(x => x && x !== 'ALL'))].sort();
+      sel.innerHTML = '<option value="">All BUs</option>' + scopes.map(x => `<option value="${esc(x)}">${esc(x)}</option>`).join('');
+    }
+
+    function privateApiAuthLabel(row){
+      const ep = String(row?.endpoint_pattern || '').toLowerCase();
+      const notes = String(row?.notes || '').toLowerCase();
+      if(notes.includes('post endpoint')) return '<span class="pill pill-purple">POST</span>';
+      if(notes.includes('token required') || notes.includes('x-pdtbuddy-api-token')) return '<span class="pill pill-green">Token</span>';
+      return '<span class="pill pill-blue">Session</span>';
+    }
+
+    function renderPrivateRegistry(){
+      const body = document.getElementById('privateRegistryRows');
+      if(!body) return;
+      const buFilter = (document.getElementById('privateRegistryBuFilter')?.value || '').toUpperCase();
+      const statusFilter = document.getElementById('privateRegistryStatusFilter')?.value || '';
+      const q = (document.getElementById('privateRegistrySearch')?.value || '').toLowerCase().trim();
+      const filtered = privateRegistry.filter(row => {
+        const buTokens = String(row.bu_scope || 'ALL').split(/[\/,;|]+/).map(x => x.trim().toUpperCase());
+        if(buFilter && !buTokens.includes(buFilter) && !buTokens.includes('ALL')) return false;
+        if(statusFilter === 'approved' && !isApproved(row)) return false;
+        if(statusFilter === 'pending' && isApproved(row)) return false;
+        if(q){
+          const hay = [row.api_name, row.endpoint_pattern, row.description, row.notes, row.bu_scope].join(' ').toLowerCase();
+          if(!hay.includes(q)) return false;
+        }
+        return true;
+      });
+      if(!filtered.length){
+        body.innerHTML='<tr><td colspan="7"><div class="empty">No private API entries match the current filter.</div></td></tr>';
+        return;
+      }
+      body.innerHTML=filtered.map(row=>{
+        const approved=isApproved(row);
+        return `<tr>
+          <td>${approved?'<span class="pill pill-green">Approved</span>':'<span class="pill pill-amber">Pending</span>'}</td>
+          <td><b>${esc(row.api_name)}</b><br><code style="font-size:11px">${esc(row.api_key)}</code></td>
+          <td><code>${esc(row.endpoint_pattern)}</code><div style="color:#64748b;font-size:11px">${esc(row.description||'')}</div></td>
+          <td>${privateApiAuthLabel(row)}</td>
+          <td>${row.bu_scope?'<span class="pill pill-blue">'+esc(row.bu_scope)+'</span>':'-'}</td>
+          <td>${esc(row.approved_by || '-')}<br><span style="color:#64748b;font-size:11px">${esc(row.approved_at || '')}</span></td>
+          <td><div class="actions">
+            ${approved
+              ? `<button class="btn btn-red" onclick="setApproval('${esc(row.api_key)}', false)"><i class="fas fa-ban"></i> Revoke</button>`
+              : `<button class="btn btn-green" onclick="setApproval('${esc(row.api_key)}', true)"><i class="fas fa-check"></i> Approve</button>`}
+          </div></td>
+        </tr>`;
+      }).join('');
+    }
+    function renderPublic(){
+      const body=document.getElementById('publicRows');
+      if(!registry.length){
+        body.innerHTML='<tr><td colspan="8"><div class="empty">No API registry entries yet. Refresh this page to seed the built-in public catalog and discovered target-level MTBF keys.</div></td></tr>';
+        return;
+      }
+      body.innerHTML=registry.map(row=>{
+        const approved=isApproved(row);
+        const rc = row.route_check || {};
+        const routeOk = !!rc.safe_for_public_catalog;
+        const routeText = routeOk
+          ? `<span class="route-ok"><i class="fas fa-check-circle"></i> Valid public GET</span><div class="mini">${esc(rc.route_rule || rc.route_pattern || '')}<br>${esc(rc.source_file || '')}${rc.source_line ? ':' + esc(rc.source_line) : ''}</div>`
+          : `<span class="route-bad"><i class="fas fa-triangle-exclamation"></i> Not approved by code check</span><div class="mini">${esc(rc.message || 'Route check unavailable')}</div>`;
+        return `<tr>
+          <td>${approved?'<span class="pill pill-green">Approved</span>':'<span class="pill pill-amber">Hidden</span>'}</td>
+          <td><b>${esc(row.api_name)}</b><br><code>${esc(row.api_key)}</code><br>${String(row.api_key||'').startsWith('public_mtbf_')?'<span class="pill pill-amber">Target approval</span>':'<span class="pill pill-blue">Catalog endpoint</span>'}</td>
+          <td><code>${esc(row.endpoint_pattern)}</code><div style="color:#64748b">${esc(row.description||'')}</div></td>
+          <td>${routeText}</td>
+          <td>${row.bu_scope?'<span class="pill pill-blue">'+esc(row.bu_scope)+'</span>':'-'}</td>
+          <td>${esc(row.target_name || '-')}</td>
+          <td>${esc(row.approved_by || '-')}<br><span style="color:#64748b">${esc(row.approved_at || '')}</span></td>
+          <td><div class="actions">
+            ${approved
+              ? `<button class="btn btn-red" onclick="setApproval('${esc(row.api_key)}', false)"><i class="fas fa-ban"></i> Revoke</button>`
+              : `<button class="btn btn-green" onclick="setApproval('${esc(row.api_key)}', true)"><i class="fas fa-check"></i> Approve</button>`}
+          </div></td>
+        </tr>`;
+      }).join('');
+    }
+    function renderAliases(){
+      const body=document.getElementById('aliasRows');
+      if(!aliases.length){
+        body.innerHTML='<tr><td colspan="7"><div class="empty">No private API caller aliases yet. Use Admin API Stats to name callers, or block directly when a match value is known.</div></td></tr>';
+        return;
+      }
+      body.innerHTML=aliases.map(row=>{
+        const blocked=isBlocked(row);
+        const matchType=esc(row.match_type);
+        const matchValue=esc(row.match_value);
+        const name=esc(row.display_name || `${row.match_type}: ${row.match_value}`);
+        return `<tr>
+          <td>${blocked?'<span class="pill pill-red">Blocked</span>':'<span class="pill pill-green">Allowed</span>'}</td>
+          <td><b>${name}</b><br><span style="color:#64748b">${esc(row.notes||'')}</span></td>
+          <td><span class="pill pill-gray">${matchType}</span><br><code>${matchValue}</code></td>
+          <td>${esc(row.owner_team || '-')}</td>
+          <td>${esc(row.friendly_hostname || row.friendly_ip_label || '-')}</td>
+          <td>${esc(row.block_reason || '-')}</td>
+          <td><div class="actions">
+            ${blocked
+              ? `<button class="btn btn-green" onclick="blockAlias('${matchType}','${matchValue}',false,'${name}')"><i class="fas fa-unlock"></i> Unblock</button>`
+              : `<button class="btn btn-red" onclick="blockAlias('${matchType}','${matchValue}',true,'${name}')"><i class="fas fa-lock"></i> Block</button>`}
+          </div></td>
+        </tr>`;
+      }).join('');
+    }
+
+    function renderBulkBu(){
+      const sel = document.getElementById('bulkBuSelect');
+      if(!sel) return;
+      const scopes = (buScopes && buScopes.length ? buScopes : [...new Set(registry.flatMap(r => String(r.bu_scope || 'General').split(/[\/,;|]+/)).filter(Boolean))])
+        .map(x => String(x).trim().toUpperCase())
+        .filter(x => x && x !== 'ALL');
+      const unique = [...new Set(scopes)].sort();
+      sel.innerHTML = unique.length
+        ? '<option value="">Select BU scope…</option>' + unique.map(x => `<option value="${esc(x)}">${esc(x)}</option>`).join('')
+        : '<option value="">No BU scopes found</option>';
+    }
+
+    function renderCodeRoutes(){
+      const box = document.getElementById('codeRouteRows');
+      if(!box) return;
+      if(!codeRoutes.length){
+        box.innerHTML = '<div class="empty">No /public or /api/public GET routes were discovered in code.</div>';
+        return;
+      }
+      box.innerHTML = codeRoutes.map((r, i) => `
+        <div class="code-route">
+          <div>
+            <b>${esc(r.api_name_suggestion || r.endpoint_pattern)}</b><br>
+            <code>${esc(r.endpoint_pattern)}</code>
+            <div class="route-meta">${esc((r.methods || []).join(', ') || 'GET')} · ${esc(r.endpoint_function || '')} · ${esc(r.source_file || '')}${r.source_line ? ':' + esc(r.source_line) : ''}</div>
+            <div class="route-meta">Suggested key: <code>${esc(r.api_key_suggestion || '')}</code> · BU: ${esc(r.bu_scope || 'General')}</div>
+          </div>
+          <button class="btn btn-purple" type="button" onclick="useCodeRoute(${i})"><i class="fas fa-plus"></i> Add</button>
+        </div>
+      `).join('');
+    }
+
+    async function setBuApproval(approved){
+      const bu = (document.getElementById('bulkBuSelect').value || '').trim();
+      if(!bu){ toast('Select a BU scope first.'); return; }
+      const action = approved ? 'approve' : 'revoke';
+      if(!confirm(`Confirm ${action.toUpperCase()} for all ${bu} public API entries?`)) return;
+      try{
+        const j=await apiPost('/admin/api_registry/bu_approval',{bu_scope:bu,approved,notes:`${action} ${bu} from Admin API Registry`});
+        toast(j.message || 'BU updated');
+        await loadData();
+      }catch(e){toast('BU update failed: '+e.message);}
+    }
+
+    function clearRouteCheck(){
+      const box=document.getElementById('routeCheckBox');
+      if(box){ box.classList.remove('show'); box.innerHTML=''; }
+    }
+
+    async function checkNewRoute(){
+      const endpoint = (document.getElementById('newEndpointPattern').value || '').trim();
+      if(!endpoint){ toast('Enter an endpoint pattern first.'); return; }
+      try{
+        const j=await apiPost('/admin/api_registry/check_route',{endpoint_pattern:endpoint});
+        const rc=j.route_check || {};
+        const ok=!!rc.safe_for_public_catalog;
+        const box=document.getElementById('routeCheckBox');
+        box.classList.add('show');
+        box.innerHTML = `${ok ? '<span class="route-ok"><i class="fas fa-check-circle"></i> Valid public GET route</span>' : '<span class="route-bad"><i class="fas fa-triangle-exclamation"></i> Route cannot be published</span>'}
+          <div class="mini">${esc(rc.message || '')}</div>
+          <div class="mini">Matched: <code>${esc(rc.route_rule || rc.route_pattern || '-')}</code></div>
+          <div class="mini">Source: ${esc(rc.source_file || '-')}${rc.source_line ? ':' + esc(rc.source_line) : ''}</div>`;
+      }catch(e){toast('Route check failed: '+e.message);}
+    }
+
+    function useCodeRoute(index){
+      const r = codeRoutes[index] || {};
+      const form = document.getElementById('entryForm');
+      if(!form) return;
+      form.api_key.value = r.api_key_suggestion || '';
+      form.api_name.value = r.api_name_suggestion || '';
+      form.endpoint_pattern.value = r.endpoint_pattern || '';
+      form.bu_scope.value = r.bu_scope || '';
+      form.target_name.value = '';
+      form.description.value = `Public GET API route discovered from code: ${r.route_rule || r.endpoint_pattern || ''}`;
+      form.notes.value = `Source: ${r.source_file || ''}${r.source_line ? ':' + r.source_line : ''}`;
+      clearRouteCheck();
+      const createBtn = [...document.querySelectorAll('.tab')].find(x => x.textContent.includes('Add / Validate'));
+      if(createBtn) showTab('create', createBtn);
+      setTimeout(checkNewRoute, 50);
+    }
+
+    async function setApproval(apiKey, approved){
+      const notes = approved ? 'Approved from Admin API Registry' : 'Revoked from Admin API Registry';
+      try{
+        const j=await apiPost('/admin/api_registry/approval',{api_key:apiKey,approved,notes});
+        toast(j.message || 'Updated');
+        await loadData();
+      }catch(e){toast('Update failed: '+e.message);}
+    }
+    async function blockAlias(matchType, matchValue, blocked, displayName){
+      let reason='';
+      if(blocked){
+        reason=prompt('Reason for blocking this private API caller/tool:', 'Revoked by admin') || '';
+      }
+      try{
+        const j=await apiPost('/admin/api_usage/block_alias',{match_type:matchType,match_value:matchValue,blocked,reason,display_name:displayName});
+        toast(j.message || 'Updated');
+        await loadData();
+      }catch(e){toast('Update failed: '+e.message);}
+    }
+    async function saveEntry(ev){
+      ev.preventDefault();
+      const form=ev.currentTarget;
+      const payload=Object.fromEntries(new FormData(form).entries());
+      try{
+        const j=await apiPost('/admin/api_registry/upsert', payload);
+        toast(j.message || 'Saved');
+        form.reset();
+        await loadData();
+      }catch(e){toast('Save failed: '+e.message);}
+    }
+
+    // ── MTBF Quick Add ────────────────────────────────────────────────────────
+    let mtbfTargets = [];
+    let selectedMtbfTarget = null;
+
+    async function loadMtbfTargets(){
+      const bu = (document.getElementById('mtbfBuSelect').value || '').trim();
+      const targetSel = document.getElementById('mtbfTargetSelect');
+      const statusEl = document.getElementById('mtbfTargetStatus');
+      const endpointEl = document.getElementById('mtbfEndpointPreview');
+      const approveBtn = document.getElementById('mtbfApproveBtn');
+      const revokeBtn = document.getElementById('mtbfRevokeBtn');
+      const allWrap = document.getElementById('mtbfAllTargetsWrap');
+      const singleWrap = document.getElementById('mtbfTargetTableWrap');
+
+      // Reset
+      targetSel.innerHTML = '<option value="">Loading…</option>';
+      endpointEl.value = '';
+      statusEl.textContent = '';
+      approveBtn.disabled = true;
+      revokeBtn.disabled = true;
+      singleWrap.style.display = 'none';
+      allWrap.style.display = 'none';
+      selectedMtbfTarget = null;
+      mtbfTargets = [];
+
+      if(!bu){ targetSel.innerHTML = '<option value="">— Choose BU first —</option>'; return; }
+
+      try{
+        statusEl.textContent = `Loading targets for ${bu}…`;
+        const r = await fetch(`/admin/api_registry/mtbf_targets?bu=${encodeURIComponent(bu)}`, {cache:'no-store'});
+        const data = await r.json();
+        if(!data.ok) throw new Error(data.error || 'Load failed');
+        mtbfTargets = data.targets || [];
+        if(!mtbfTargets.length){
+          targetSel.innerHTML = '<option value="">No targets found for this BU</option>';
+          statusEl.textContent = `No MTBF targets discovered for BU: ${bu}. Targets are auto-discovered from the dashboard_status table.`;
+          return;
+        }
+        targetSel.innerHTML = '<option value="">— Select target —</option>' +
+          mtbfTargets.map(t => {
+            const label = t.is_approved ? `✅ ${t.target}` : `⏳ ${t.target}`;
+            return `<option value="${esc(t.target)}">${esc(label)}</option>`;
+          }).join('');
+        statusEl.textContent = `${mtbfTargets.length} targets found for ${bu}. ${mtbfTargets.filter(t=>t.is_approved).length} approved.`;
+        // Show all targets table
+        allWrap.style.display = 'block';
+        renderMtbfAllTargets();
+      }catch(e){
+        statusEl.textContent = 'Error: ' + e.message;
+        targetSel.innerHTML = '<option value="">Error loading targets</option>';
+      }
+    }
+
+    function onMtbfTargetChange(){
+      const targetName = (document.getElementById('mtbfTargetSelect').value || '').trim();
+      const endpointEl = document.getElementById('mtbfEndpointPreview');
+      const statusEl = document.getElementById('mtbfTargetStatus');
+      const approveBtn = document.getElementById('mtbfApproveBtn');
+      const revokeBtn = document.getElementById('mtbfRevokeBtn');
+      const singleWrap = document.getElementById('mtbfTargetTableWrap');
+      const singleBody = document.getElementById('mtbfTargetRows');
+
+      if(!targetName){
+        endpointEl.value = '';
+        approveBtn.disabled = true;
+        revokeBtn.disabled = true;
+        singleWrap.style.display = 'none';
+        selectedMtbfTarget = null;
+        return;
+      }
+      selectedMtbfTarget = mtbfTargets.find(t => t.target === targetName) || {target: targetName, bu: '', endpoint: `/public/mtbf/${targetName}/MTBF`, is_approved: false, approved_by: ''};
+      endpointEl.value = selectedMtbfTarget.endpoint || `/public/mtbf/${targetName}/MTBF`;
+      const approved = selectedMtbfTarget.is_approved;
+      statusEl.innerHTML = approved
+        ? `<span style="color:#166534;font-weight:950">✅ ${esc(targetName)} is currently <b>approved</b> and visible on /public/apis.</span>`
+        : `<span style="color:#92400e;font-weight:950">⏳ ${esc(targetName)} is <b>pending</b> — not yet visible on /public/apis.</span>`;
+      approveBtn.disabled = approved;
+      revokeBtn.disabled = !approved;
+      // Show single target detail row
+      singleWrap.style.display = 'block';
+      singleBody.innerHTML = `<tr>
+        <td>${approved ? '<span class="pill pill-green">Approved</span>' : '<span class="pill pill-amber">Pending</span>'}</td>
+        <td><b>${esc(targetName)}</b></td>
+        <td><span class="pill pill-blue">${esc(selectedMtbfTarget.bu || '-')}</span></td>
+        <td><code>${esc(selectedMtbfTarget.endpoint || '')}</code></td>
+        <td>${esc(selectedMtbfTarget.approved_by || '-')}</td>
+        <td><div class="actions">
+          ${approved
+            ? `<button class="btn btn-red" onclick="approveMtbfTarget(false)"><i class="fas fa-ban"></i> Revoke</button>`
+            : `<button class="btn btn-green" onclick="approveMtbfTarget(true)"><i class="fas fa-check-circle"></i> Approve</button>`}
+        </div></td>
+      </tr>`;
+    }
+
+    function renderMtbfAllTargets(){
+      const body = document.getElementById('mtbfAllRows');
+      if(!body) return;
+      if(!mtbfTargets.length){
+        body.innerHTML = '<tr><td colspan="5"><div class="empty">No targets loaded.</div></td></tr>';
+        return;
+      }
+      body.innerHTML = mtbfTargets.map(t => {
+        const approved = t.is_approved;
+        const safeTarget = esc(t.target).replace(/'/g, '&#39;');
+        return `<tr>
+          <td>${approved ? '<span class="pill pill-green">Approved</span>' : '<span class="pill pill-amber">Pending</span>'}</td>
+          <td><b>${esc(t.target)}</b></td>
+          <td><code>${esc(t.endpoint || '')}</code></td>
+          <td>${esc(t.approved_by || '-')}</td>
+          <td><div class="actions">
+            ${approved
+              ? `<button class="btn btn-red" onclick="quickMtbfApprove('${safeTarget}','${esc(t.bu||'')}',false)"><i class="fas fa-ban"></i> Revoke</button>`
+              : `<button class="btn btn-green" onclick="quickMtbfApprove('${safeTarget}','${esc(t.bu||'')}',true)"><i class="fas fa-check-circle"></i> Approve</button>`}
+          </div></td>
+        </tr>`;
+      }).join('');
+    }
+
+    async function approveMtbfTarget(approved){
+      if(!selectedMtbfTarget){ toast('Select a target first.'); return; }
+      await quickMtbfApprove(selectedMtbfTarget.target, selectedMtbfTarget.bu, approved);
+    }
+
+    async function quickMtbfApprove(target, bu, approved){
+      const action = approved ? 'approve' : 'revoke';
+      if(!confirm(`${action.toUpperCase()} MTBF API for target "${target}"?\n\nEndpoint: /public/mtbf/${target}/MTBF\n\n${approved ? 'This will make it visible on /public/apis.' : 'This will hide it from /public/apis.'}`)) return;
+      try{
+        const j = await apiPost('/admin/api_registry/approve_mtbf_target', {target, bu, approved});
+        toast(j.message || (approved ? 'Approved!' : 'Revoked'));
+        // Reload targets for current BU
+        await loadMtbfTargets();
+        // If the approved target was the selected one, re-select it
+        if(selectedMtbfTarget && selectedMtbfTarget.target === target){
+          document.getElementById('mtbfTargetSelect').value = target;
+          onMtbfTargetChange();
+        }
+        // Also refresh main registry data
+        await loadData();
+      }catch(e){
+        toast('Failed: ' + e.message);
+      }
+    }
+
+    loadData();
+  </script>
+</body>
+</html>

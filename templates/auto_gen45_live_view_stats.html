@@ -1558,7 +1558,8 @@ async function loadSpDbData(){
     if(_activePlat==='HGY') return (spPayload&&spPayload._hgy&&spPayload._hgy.rows)||[];
     return (spPayload&&spPayload.rows)||[];
   } function dateVal(r){return r.date||r.week||r.report_date||'';}
-function _latestFirstRows(list){return [...(list||[])].sort((a,b)=>{const da=Date.parse(dateVal(a)||''),db=Date.parse(dateVal(b)||'');return(Number.isFinite(da)&&Number.isFinite(db)&&da!==db)?db-da:0;});}
+function _parseDateTs(r){var raw=String(dateVal(r)||'').trim();if(!raw)return 0;var m=raw.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/);if(m)return new Date(+m[1],+m[2]-1,+m[3]).getTime();m=raw.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})/);if(m)return new Date(+m[3],+m[2]-1,+m[1]).getTime();var d=Date.parse(raw);return Number.isFinite(d)?d:0;}
+function _latestFirstRows(list){return [...(list||[])].sort(function(a,b){return _parseDateTs(b)-_parseDateTs(a);});}
 function latestRow(){const r=_latestFirstRows(rows());return r.length?r[0]:{};}
 function buildLabel(r){return r.build_s||r.builds||r.build||r.meta_id||r.meta||'-';}
 function _hgyIsConfigured(){
@@ -2084,7 +2085,9 @@ function saveMtbfPlMerge(){
   activeMtbfBuild=name;
   _mtbfPlRenderGroups();
   setText('mtbfPlMergeMsg','Group saved. Chart will update when you close.');
+  renderMtbfBuildSelect();
   renderCharts();
+  renderTable();
   renderTable();
 }
 function deleteMtbfPlGroup(name){
@@ -2095,7 +2098,9 @@ function deleteMtbfPlGroup(name){
   localStorage.setItem(_MTBF_PL_ALIAS_STORE,JSON.stringify(saved));
   if(activeMtbfBuild===name)activeMtbfBuild='';
   _mtbfPlRenderGroups();
+  renderMtbfBuildSelect();
   renderCharts();
+  renderTable();
   renderTable();
 }
 function _rowProductLine(r){return _plFromBuild(rawBuildId(r))||_plFromBuild(r.build_id)||_plFromBuild(r.build_s)||_plFromBuild(r.builds)||_plFromBuild(r.build)||'';}
@@ -2125,11 +2130,14 @@ function metaId(r){
 }
 function mtbfTrendMetric(){const el=document.getElementById('mtbfMetricSelect');return (el&&el.value==='overall')?'overall':'system';}
 function mtbfTrendLabel(){return mtbfTrendMetric()==='overall'?'Overall MTBF':'System MTBF';}
-function mtbfTrendValue(r){return mtbfTrendMetric()==='overall'?n(rowOverallMtbfWithSsr(r)):rowSystemMtbfNumber(r);}
+function mtbfTrendValue(r){
+  if(_activePlat==='HQX') return rowJsonMtbfNumberOrNull(r);
+  return mtbfTrendMetric()==='overall'?n(rowOverallMtbfWithSsr(r)):rowSystemMtbfNumber(r);
+}
 function chartRows(){
   const includeZero=!!(document.getElementById('chkIncludeZeroMtbf')&&document.getElementById('chkIncludeZeroMtbf').checked);
   const sourceRows=mtbfDisplayRows();
-  const rawMtbf=(r)=>firstVal(r,['mtbf','MTBF','Mtbf','total_mtbf','TOTAL_MTBF','overall_mtbf','OVERALL_MTBF'],'');
+  const rawMtbf=(r)=>rowJsonMtbfRaw(r);
   const hasMtbf=(v)=>(v!==null&&v!==undefined&&String(v).trim()!==''&&String(v).trim()!=='-');
   const rowMtbf=(r,h,c)=>{
     const raw=rawMtbf(r);
@@ -2191,7 +2199,7 @@ function chartRows(){
   }).reduce((acc,x)=>{
     const jsonMtbf=x.mtbfCount>0?x.mtbfSum/x.mtbfCount:null;
     const computedMtbf=x.crashes>0?x.hours/x.crashes:null;
-    const sourceMtbf=jsonMtbf!=null?jsonMtbf:computedMtbf;
+    const sourceMtbf=jsonMtbf!=null?jsonMtbf:(_activePlat==='HQX'?null:computedMtbf);
     const isZeroMtbf=sourceMtbf==null||!Number.isFinite(sourceMtbf)||sourceMtbf<=0;
     // Unchecked: skip only rows with no positive MTBF value at all.
     if(isZeroMtbf&&!includeZero)return acc;
@@ -2274,8 +2282,13 @@ const PROC_CRASH_KEYS=['process_crash','PROCESS_CRASH','process_crashes','PROCES
 const SSR_CRASH_KEYS=['ssr','SSR','ssr_crash','SSR_CRASH','ssr_crashes','SSR_CRASHES'];
 const CRASH_KEYS=['crashes','Crashes','CRASHES','total_crashes','TOTAL_CRASHES'];
 const HOUR_KEYS=['hours','Hours','HOURS','total_hours'];
-const OVERALL_MTBF_KEYS=['mtbf','MTBF','total_mtbf','TOTAL_MTBF','overall_mtbf','OVERALL_MTBF','overallmtbf','OVERALLMTBF'];
+const JSON_MTBF_KEYS=['mtbf','MTBF','Mtbf','total_mtbf','TOTAL_MTBF','overall_mtbf','OVERALL_MTBF'];
+const OVERALL_MTBF_KEYS=JSON_MTBF_KEYS.concat(['overallmtbf','OVERALLMTBF']);
 function hasFieldVal(r,keys){return keys.some(k=>r&&r[k]!=null&&String(r[k]).trim()!==''&&String(r[k]).trim()!=='-');}
+function hasMtbfRawValue(v){return v!==null&&v!==undefined&&String(v).trim()!==''&&String(v).trim()!=='-'&&String(v).trim()!=='—';}
+function rowJsonMtbfRaw(r){return firstVal(r,JSON_MTBF_KEYS,'');}
+function rowJsonMtbfNumberOrNull(r){const raw=rowJsonMtbfRaw(r);return hasMtbfRawValue(raw)?mtbfNum(raw):null;}
+function rowJsonMtbfNumber(r){const v=rowJsonMtbfNumberOrNull(r);return v==null?0:v;}
 function hasCrashBreakdown(r){return [SYS_CRASH_KEYS,SSR_CRASH_KEYS,PROC_CRASH_KEYS].some(keys=>keys.some(k=>r&&r[k]!=null&&String(r[k]).trim()!==''&&String(r[k]).trim()!=='-'&&String(r[k]).trim()!=='—'&&n(r[k])>0));}
 function rowCrashValue(r,keys){let seen=false,max=0;for(const k of keys){if(!r||r[k]==null)continue;const text=String(r[k]).trim();if(!text||text==='-'||text==='—')continue;seen=true;max=Math.max(max,n(text));}return seen?max:0;}
 function rowSystemCrash(r){return rowCrashValue(r,SYS_CRASH_KEYS);}
@@ -2283,9 +2296,10 @@ function rowProcessCrash(r){return rowCrashValue(r,PROC_CRASH_KEYS);}
 function rowSsrCrash(r){return rowCrashValue(r,SSR_CRASH_KEYS);}
 function rowTotalCrashes(r){return hasCrashBreakdown(r)?(rowSystemCrash(r)+rowSsrCrash(r)+rowProcessCrash(r)):n(firstVal(r,CRASH_KEYS,0));}
 function rowPublishedMtbfNumber(r){const published=mtbfNum(firstVal(r,OVERALL_MTBF_KEYS,0));if(published>0)return published;const h=n(firstVal(r,HOUR_KEYS,0)), c=n(firstVal(r,CRASH_KEYS,0));return h>0&&c>0?h/c:0;}
-function rowSystemMtbfNumber(r){const h=n(firstVal(r,HOUR_KEYS,0)), total=rowSystemCrash(r)+rowSsrCrash(r);if(total>0&&h>0)return h/total;const stored=mtbfNum(firstVal(r,['system_mtbf','SYSTEM_MTBF'],0));if(stored>0)return stored;return rowPublishedMtbfNumber(r);}
+function rowSystemMtbfNumber(r){if(_activePlat==='HQX')return rowJsonMtbfNumber(r);const h=n(firstVal(r,HOUR_KEYS,0)), total=rowSystemCrash(r)+rowSsrCrash(r);if(total>0&&h>0)return h/total;const stored=mtbfNum(firstVal(r,['system_mtbf','SYSTEM_MTBF'],0));if(stored>0)return stored;return rowPublishedMtbfNumber(r);}
 function rowSystemMtbf(r){return fmt(rowSystemMtbfNumber(r),2);}
 function rowOverallMtbfWithSsr(r){
+  if(_activePlat==='HQX') return fmt(rowJsonMtbfNumber(r),2);
   const systemMtbf=rowSystemMtbfNumber(r);
   if(systemMtbf<=0) return 0;
   const proc=rowProcessCrash(r);
@@ -2324,7 +2338,7 @@ function fixedTableColumns(){return[
 
     renderMtbfBuildSelect();
     const _baseRows=mtbfDisplayRows();
-    const _sortedRows=[..._baseRows].sort((a,b)=>{const da=Date.parse(dateVal(a)||''),db=Date.parse(dateVal(b)||'');return(Number.isFinite(da)&&Number.isFinite(db)&&da!==db)?db-da:0;});
+    const _sortedRows=_latestFirstRows(_baseRows);
 
     const filtered=_sortedRows.filter(r=>!q||JSON.stringify(r).toLowerCase().includes(q));setText('mtbfBuildFilterInfo',activeMtbfBuild?`PL: ${activeMtbfBuild} · ${filtered.length}/${rows().length} rows`:`${filtered.length}/${rows().length} rows`);const fixed=fixedTableColumns(), used=new Set(['excel_row','sno','s_no','date','Date','report_date','week','target','target_name','program','software_product','meta_id','meta','build_s','builds','build','build_id','product_flavor','productflavor','flavor','deviceName','device_name','devices','device_count','deviceCount','device','hours','Hours','HOURS','total_hours','crashes','Crashes','CRASHES','total_crashes','mtbf','MTBF','total_mtbf','TOTAL_MTBF','overall_mtbf','OVERALL_MTBF','overallmtbf','OVERALLMTBF','ssr','SSR','ssr_crash','SSR_CRASH','ssr_crashes','SSR_CRASHES','process_crash','PROCESS_CRASH','process_crashes','PROCESS_CRASHES','system_crash','SYSTEM_CRASH','system_crashes','SYSTEM_CRASHES','system_mtbf','SYSTEM_MTBF','comments','Comments','comment','remarks','notes']);const extra=Array.from(new Set(_baseRows.flatMap(r=>Object.keys(r||{})))).filter(k=>!used.has(k)).sort().map(k=>({key:k,label:k,val:r=>r[k]}));const comments=fixed.pop();const cols=fixed.concat(extra).concat([comments]);document.getElementById('tableHead').innerHTML='<tr>'+cols.map(c=>`<th>${esc(c.label)}</th>`).join('')+'</tr>';document.getElementById('tableBody').innerHTML=filtered.length?filtered.map((r,i)=>'<tr>'+cols.map(c=>`<td>${esc(c.val(r,i))}</td>`).join('')+'</tr>').join(''):'<tr><td class="empty" colspan="99">No rows.</td></tr>';}
 // ---------------------------------------------------------------------------
@@ -2339,6 +2353,41 @@ function fixedTableColumns(){return[
   const _MTBF_LEGACY_HIDE_KEYS = new Set(['mtbf','MTBF','total_mtbf','TOTAL_MTBF','overall_mtbf','OVERALL_MTBF']);
   function _addBuildLabel(k){const map={overallmtbf:'Overall MTBF',OVERALLMTBF:'Overall MTBF',system_mtbf:'System MTBF',process_crash:'Process Crash',process_crashes:'Process Crash',system_crash:'System Crash',system_crashes:'System Crash',ssr:'SSR Crash',ssr_crash:'SSR Crash',ssr_crashes:'SSR Crash'};return map[String(k||'')]||map[String(k||'').toLowerCase()]||k.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase());}
   var _abPlat = 'HQX'; // 'HQX' or 'HGY' — set when modal opens
+  function _isMtbfDateField(k){
+    const key = String(k || '').trim().toLowerCase();
+    return key === 'date' || key === 'report_date' || key === 'report date';
+  }
+  function _mtbfDateFromParts(year, month, day){
+    year = Number(year);
+    month = Number(month);
+    day = Number(day);
+    if(!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day))return '';
+    if(year < 1900 || year > 2100 || month < 1 || month > 12 || day < 1 || day > 31)return '';
+    const parsed = new Date(Date.UTC(year, month - 1, day));
+    if(parsed.getUTCFullYear() !== year || parsed.getUTCMonth() !== month - 1 || parsed.getUTCDate() !== day)return '';
+    return String(year).padStart(4,'0') + '-' + String(month).padStart(2,'0') + '-' + String(day).padStart(2,'0');
+  }
+  function _normalizeMtbfDateValue(value){
+    const raw = String(value ?? '').trim();
+    if(!raw)return '';
+    let m = raw.match(/^([0-9]{4})[-/.]([0-9]{1,2})[-/.]([0-9]{1,2})$/);
+    if(m)return _mtbfDateFromParts(m[1], m[2], m[3]);
+    m = raw.match(/^([0-9]{1,2})[-/.]([0-9]{1,2})[-/.]([0-9]{4})$/);
+    if(m){
+      let first = Number(m[1]);
+      let second = Number(m[2]);
+      let month = first;
+      let day = second;
+      // Existing user-entered table values include MM-DD-YYYY, e.g. 08-09-2026.
+      // Also accept unambiguous DD-MM-YYYY when the first number cannot be a month.
+      if(first > 12 && second <= 12){
+        day = first;
+        month = second;
+      }
+      return _mtbfDateFromParts(m[3], month, day);
+    }
+    return '';
+  }
   function _abRows(){
     // Returns rows for the currently selected modal platform
     if(_abPlat==='HGY') return (spPayload&&spPayload._hgy&&spPayload._hgy.rows)||[];
@@ -2401,7 +2450,7 @@ function fixedTableColumns(){return[
     const keys = _abFieldKeys();
     const calcKeys = new Set([].concat(HOUR_KEYS, SYS_CRASH_KEYS, SSR_CRASH_KEYS, PROC_CRASH_KEYS, CRASH_KEYS, ['system_mtbf','SYSTEM_MTBF','overallmtbf','OVERALLMTBF'], OVERALL_MTBF_KEYS));
     document.getElementById('addBuildFields').innerHTML = keys.map(k=>{
-      const isDate = /^date$/i.test(k);
+      const isDate = _isMtbfDateField(k);
       const calcAttr = calcKeys.has(k) ? ' oninput="_abAutoCalc()"' : '';
       return `<div class="field"><label>${esc(_addBuildLabel(k))}</label><input class="input" data-field="${esc(k)}" type="${isDate?'date':'text'}" placeholder="${esc(_addBuildLabel(k))}"${calcAttr}></div>`;
     }).join('');
@@ -2437,16 +2486,32 @@ function fixedTableColumns(){return[
   function _abNormalizeRow(row){
     row=row||{};
     const hasBreak=hasFieldVal(row,SYS_CRASH_KEYS)||hasFieldVal(row,SSR_CRASH_KEYS)||hasFieldVal(row,PROC_CRASH_KEYS);
-    if(!hasBreak)return row;
+    const sourceMtbf=rowJsonMtbfNumberOrNull(row);
+    if(!hasBreak){
+      if(_abPlat==='HQX'&&sourceMtbf!=null){
+        const mtbfValue=_autoNumber(sourceMtbf,2);
+        _setRowAny(row,['system_mtbf','SYSTEM_MTBF'],'system_mtbf',mtbfValue);
+        _setRowAny(row,['overallmtbf','OVERALLMTBF','overall_mtbf','OVERALL_MTBF'],'overallmtbf',mtbfValue);
+      }
+      return row;
+    }
     const hours=n(firstVal(row,HOUR_KEYS,0));
     const systemCrash=n(firstVal(row,SYS_CRASH_KEYS,0));
     const ssrCrash=n(firstVal(row,SSR_CRASH_KEYS,0));
     const processCrash=n(firstVal(row,PROC_CRASH_KEYS,0));
     const systemTotal=systemCrash+ssrCrash;
     const overallTotal=systemTotal+processCrash;
+    _setRowAny(row,CRASH_KEYS,'crashes',_autoNumber(overallTotal,0));
+    if(_abPlat==='HQX'){
+      if(sourceMtbf!=null){
+        const mtbfValue=_autoNumber(sourceMtbf,2);
+        _setRowAny(row,['system_mtbf','SYSTEM_MTBF'],'system_mtbf',mtbfValue);
+        _setRowAny(row,['overallmtbf','OVERALLMTBF','overall_mtbf','OVERALL_MTBF'],'overallmtbf',mtbfValue);
+      }
+      return row;
+    }
     const systemMtbf=(systemTotal>0&&hours>0)?hours/systemTotal:0;
     const overallMtbf=systemMtbf>0?(processCrash>0&&overallTotal>0?hours/overallTotal:systemMtbf):0;
-    _setRowAny(row,CRASH_KEYS,'crashes',_autoNumber(overallTotal,0));
     _setRowAny(row,['system_mtbf','SYSTEM_MTBF'],'system_mtbf',systemMtbf>0?_autoNumber(systemMtbf,2):'0');
     _setRowAny(row,['overallmtbf','OVERALLMTBF','overall_mtbf','OVERALL_MTBF'],'overallmtbf',overallMtbf>0?_autoNumber(overallMtbf,2):'0');
     return row;
@@ -2488,6 +2553,7 @@ function closeAddBuildModal(){document.getElementById('addBuildModal').style.dis
     document.querySelectorAll('#addBuildFields [data-field]').forEach(inp=>{
       const k=inp.getAttribute('data-field');
       let v=r[k]; if(v==null) v='';
+      if(_isMtbfDateField(k)) v = _normalizeMtbfDateValue(v);
       inp.value=String(v);
     });
     _abAutoCalc();
@@ -2505,7 +2571,8 @@ async function addBuildSave(){
     const row={};
     document.querySelectorAll('#addBuildFields [data-field]').forEach(inp=>{
       const k=inp.getAttribute('data-field');
-      const v=inp.value.trim();
+      let v=inp.value.trim();
+      if(_isMtbfDateField(k)) v = _normalizeMtbfDateValue(v) || v;
       if(v!=='') row[k]=v;
     });
     if(!row.date){document.getElementById('addBuildMsg').textContent='Date is required.';document.getElementById('addBuildMsg').style.color='#dc2626';return;}
@@ -2554,13 +2621,23 @@ function editTableRender(rs){
   const box=document.getElementById('editTableBox');
   if(!_editTableKeys.length)_editTableKeys=['date','build_s','product_flavor','devices','hours','crashes','process_crash','system_crash','ssr','system_mtbf','overallmtbf','comments'];
   const head='<tr><th>S.No</th>'+_editTableKeys.map(k=>`<th>${esc(_addBuildLabel(k))}</th>`).join('')+'<th>Delete</th></tr>';
-  const body=rs.length?rs.map((r,i)=>`<tr data-edit-row="${i}"><td style="font-weight:900;color:#64748b">${i+1}</td>`+_editTableKeys.map(k=>`<td><input class="edit-cell" data-field="${esc(k)}" value="${esc(r[k]??'')}"></td>`).join('')+`<td><button class="btn edit-row-delete" onclick="editTableDeleteRow(this)"><i class="fas fa-trash"></i></button></td></tr>`).join(''):'<tr><td class="empty" colspan="99">No rows. Add a blank row.</td></tr>';
+  const body=rs.length?rs.map((r,i)=>`<tr data-edit-row="${i}"><td style="font-weight:900;color:#64748b">${i+1}</td>`+_editTableKeys.map(k=>{
+    const isDate = _isMtbfDateField(k);
+    const rawValue = r[k] ?? '';
+    const cellValue = isDate ? _normalizeMtbfDateValue(rawValue) : rawValue;
+    return `<td><input class="edit-cell" data-field="${esc(k)}" type="${isDate?'date':'text'}" value="${esc(cellValue)}"></td>`;
+  }).join('')+`<td><button class="btn edit-row-delete" onclick="editTableDeleteRow(this)"><i class="fas fa-trash"></i></button></td></tr>`).join(''):'<tr><td class="empty" colspan="99">No rows. Add a blank row.</td></tr>';
   box.innerHTML=`<table class="edit-table"><thead>${head}</thead><tbody id="editTableBody">${body}</tbody></table>`;
 }
 function editTableCollectRows(){
   return Array.from(document.querySelectorAll('#editTableBody tr[data-edit-row]')).map(tr=>{
     const row={};
-    tr.querySelectorAll('[data-field]').forEach(inp=>{ row[inp.getAttribute('data-field')]=inp.value.trim(); });
+    tr.querySelectorAll('[data-field]').forEach(inp=>{
+      const field = inp.getAttribute('data-field');
+      let value = inp.value.trim();
+      if(_isMtbfDateField(field)) value = _normalizeMtbfDateValue(value) || value;
+      row[field]=value;
+    });
     return row;
   });
 }

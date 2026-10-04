@@ -1,336 +1,350 @@
 ============================================ 
+PDTBuddy Production Build 
+BUDDY_PORT=80  BUDDY_HOST=0.0.0.0 
+============================================ 
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+    import os,shutil; e='.env'; b='.env.runbuild_bak'; shutil.copy2(e,b) if os.path.exists(e) else None; lines=[l for l in (open(e).read().splitlines() if os.path.exists(e) else []) if not l.strip().startswith('BUDDY_PORT') and not l.strip().startswith('BUDDY_HOST')]; lines+=['BUDDY_PORT=80','BUDDY_HOST=0.0.0.0']; open(e,'w').write('\n'.join(lines)+'\n'); print('[run_build] .env patched: BUDDY_PORT=80 BUDDY_HOST=0.0.0.0')
+                                                                                                                            ~~~~~~~~~~~~^^
+  File "C:\Python\Python313\Lib\encodings\cp1252.py", line 23, in decode
+    return codecs.charmap_decode(input,self.errors,decoding_table)[0]
+           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeDecodeError: 'charmap' codec can't decode byte 0x9d in position 948: character maps to <undefined>
+ 
+============================================ 
 Building pdtbuddyapp.exe (BuddyApp.spec)... 
 ============================================ 
-156 INFO: PyInstaller: 6.22.3, contrib hooks: 2026.7
-156 INFO: Python: 3.13.12
-184 INFO: Platform: Windows-11-10.0.26100-SP0
-184 INFO: Python environment: C:\Users\slua_0038d920d430\Desktop\PDT_Buddy_V3.7_dont_touch\.venv
-186 INFO: Removing temporary files and cleaning cache in C:\Users\slua_0038d920d430\AppData\Local\pyinstaller
-4394 INFO: Module search paths (PYTHONPATH):
-['C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch',
+122 INFO: PyInstaller: 6.22.3, contrib hooks: 2026.7
+122 INFO: Python: 3.13.12
+143 INFO: Platform: Windows-11-10.0.26100-SP0
+143 INFO: Python environment: C:\Users\slua_0038d920d430\Desktop\PDT_Buddy_V3.7_merge\.venv
+144 INFO: Removing temporary files and cleaning cache in C:\Users\slua_0038d920d430\AppData\Local\pyinstaller
+2711 INFO: Module search paths (PYTHONPATH):
+['C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge',
  'C:\\Python\\Python313\\python313.zip',
  'C:\\Python\\Python313\\DLLs',
  'C:\\Python\\Python313\\Lib',
  'C:\\Python\\Python313',
- 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv',
- 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages',
- 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch',
- 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\win32',
- 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\win32\\lib',
- 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\pythonwin',
- 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch']
-4940 INFO: Appending 'binaries' from .spec
-4941 INFO: Appending 'datas' from .spec
-4955 INFO: checking Analysis
-4955 INFO: Building Analysis because Analysis-00.toc is non existent
-4955 INFO: Looking for Python shared library...
-4955 INFO: Using Python shared library: C:\Python\Python313\python313.dll
-4955 INFO: Running Analysis Analysis-00.toc
-4955 INFO: Target bytecode optimization level: 0
-4955 INFO: Initializing module dependency graph...
-4957 INFO: Initializing module graph hook caches...
-5011 INFO: Analyzing modules for base_library.zip ...
-6720 INFO: Processing standard module hook 'hook-encodings.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-7356 INFO: Processing standard module hook 'hook-math.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-7608 INFO: Processing standard module hook 'hook-heapq.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-8819 INFO: Processing standard module hook 'hook-pickle.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-11123 INFO: Caching module dependency graph...
-11148 INFO: Analyzing C:\Users\slua_0038d920d430\Desktop\PDT_Buddy_V3.7_dont_touch\app.py
-11639 INFO: Processing standard module hook 'hook-platform.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-11686 INFO: Processing standard module hook 'hook-sysconfig.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-11700 INFO: Processing standard module hook 'hook-_ctypes.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-11746 INFO: Processing standard module hook 'hook-difflib.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-11761 INFO: Processing standard module hook 'hook-pandas.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-13609 INFO: Processing standard module hook 'hook-numpy.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-14386 INFO: Processing pre-safe-import-module hook 'hook-typing_extensions.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
-14388 INFO: SetuptoolsInfo: initializing cached setuptools info...
-15430 INFO: Processing standard module hook 'hook-multiprocessing.util.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-15728 INFO: Processing standard module hook 'hook-xml.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-17979 INFO: Processing standard module hook 'hook-webbrowser.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-21527 INFO: Processing standard module hook 'hook-charset_normalizer.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
-22651 INFO: Processing standard module hook 'hook-zoneinfo.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
-25253 INFO: Processing standard module hook 'hook-pandas.io.formats.style.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-29376 INFO: Processing standard module hook 'hook-pandas.plotting.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-30582 INFO: Processing standard module hook 'hook-dateutil.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
-30872 INFO: Processing pre-safe-import-module hook 'hook-six.moves.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
-32546 INFO: Processing standard module hook 'hook-openpyxl.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
-32750 INFO: Processing standard module hook 'hook-lxml.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
-33135 INFO: Processing standard module hook 'hook-lxml.etree.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
-33184 INFO: Processing standard module hook 'hook-xml.etree.cElementTree.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-33376 INFO: Processing standard module hook 'hook-xml.dom.domreg.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-35267 INFO: Processing standard module hook 'hook-PIL.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-35467 INFO: Processing standard module hook 'hook-PIL.Image.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-36234 INFO: Processing standard module hook 'hook-PIL.ImageFilter.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-39795 INFO: Processing standard module hook 'hook-sqlite3.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-40223 INFO: Processing standard module hook 'hook-pandas.io.clipboard.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-42985 INFO: Processing standard module hook 'hook-jinja2.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
-44223 INFO: Processing pre-safe-import-module hook 'hook-importlib_metadata.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
-44225 INFO: Setuptools: 'importlib_metadata' appears to be a setuptools-vendored copy - creating alias to 'setuptools._vendor.importlib_metadata'!
-44244 INFO: Processing standard module hook 'hook-setuptools.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-44305 INFO: Processing pre-safe-import-module hook 'hook-distutils.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
-44414 INFO: Processing pre-safe-import-module hook 'hook-jaraco.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
-44415 INFO: Setuptools: 'jaraco' appears to be a full setuptools-vendored copy - creating alias to 'setuptools._vendor.jaraco'!
-44444 INFO: Processing pre-safe-import-module hook 'hook-more_itertools.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
-44445 INFO: Setuptools: 'more_itertools' appears to be a setuptools-vendored copy - creating alias to 'setuptools._vendor.more_itertools'!
-44715 INFO: Processing standard module hook 'hook-_osx_support.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-44770 INFO: Processing pre-safe-import-module hook 'hook-packaging.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
-45364 INFO: Processing standard module hook 'hook-setuptools._vendor.jaraco.text.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-45367 INFO: Processing pre-safe-import-module hook 'hook-importlib_resources.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
-45392 INFO: Processing pre-safe-import-module hook 'hook-backports.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
-45393 INFO: Setuptools: 'backports' appears to be a full setuptools-vendored copy - creating alias to 'setuptools._vendor.backports'!
-46777 INFO: Processing pre-safe-import-module hook 'hook-tomli.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
-46779 INFO: Setuptools: 'tomli' appears to be a setuptools-vendored copy - creating alias to 'setuptools._vendor.tomli'!
-48100 INFO: Processing pre-safe-import-module hook 'hook-wheel.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
-48101 INFO: Setuptools: 'wheel' appears to be a setuptools-vendored copy - creating alias to 'setuptools._vendor.wheel'!
-48251 INFO: Processing standard module hook 'hook-setuptools._vendor.importlib_metadata.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-48408 INFO: Processing pre-safe-import-module hook 'hook-zipp.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
-48410 INFO: Setuptools: 'zipp' appears to be a setuptools-vendored copy - creating alias to 'setuptools._vendor.zipp'!
-53521 INFO: Processing standard module hook 'hook-urllib3.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
-54842 INFO: Processing standard module hook 'hook-certifi.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
-55908 INFO: Processing standard module hook 'hook-anyio.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
-58199 INFO: Processing standard module hook 'hook-pygments.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-60077 INFO: Processing standard module hook 'hook-rich.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
-63483 INFO: Processing standard module hook 'hook-pydantic.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
-66898 INFO: Processing standard module hook 'hook-websockets.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
-68219 INFO: Processing pre-safe-import-module hook 'hook-platformdirs.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
-68253 INFO: Processing standard module hook 'hook-platformdirs.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
-73010 INFO: Processing standard module hook 'hook-pptx.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
-77859 INFO: Processing standard module hook 'hook-pythoncom.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
-78038 INFO: Processing standard module hook 'hook-pywintypes.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
-78212 INFO: Processing pre-safe-import-module hook 'hook-win32com.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\pre_safe_import_module'
-78402 INFO: Processing standard module hook 'hook-win32com.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
-80430 INFO: Analyzing hidden import 'werkzeug.middleware.proxy_fix'
-80452 INFO: Analyzing hidden import 'mysql.connector.plugins.mysql_native_password'
-80470 INFO: Analyzing hidden import 'mysql.connector.plugins.sha256_password'
-80486 INFO: Analyzing hidden import 'mysql.connector.plugins.mysql_clear_password'
-80500 INFO: Analyzing hidden import 'mysql.connector.aio'
-80933 INFO: Analyzing hidden import 'waitress.runner'
-80947 INFO: Analyzing hidden import 'jira'
-80957 INFO: Processing standard module hook 'hook-jira.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
-83669 INFO: Analyzing hidden import 'auth_service'
-83686 INFO: Analyzing hidden import 'run_ingest'
-83702 INFO: Analyzing hidden import 'mcp_mtbf_server'
-83755 INFO: Analyzing hidden import 'PAuth'
-83764 INFO: Analyzing hidden import 'pyi_rth_syspath'
-83771 INFO: Analyzing hidden import 'src.admin_routes'
-83787 INFO: Analyzing hidden import 'src.auth_routes'
-83811 INFO: Analyzing hidden import 'src.auto_hierarchy_routes'
-83851 INFO: Analyzing hidden import 'src.cr_info_routes'
-83903 INFO: Analyzing hidden import 'src.cr_utils'
-83934 INFO: Analyzing hidden import 'src.cache_utils'
-83954 INFO: Analyzing hidden import 'src.hwpdt_routes'
-83976 INFO: Analyzing hidden import 'src.navigation_routes'
-84002 INFO: Analyzing hidden import 'src.workspace_routes'
-84052 INFO: Analyzing hidden import 'mysql.connector.aio.plugins.authentication_kerberos_client'
-84131 INFO: Analyzing hidden import 'mysql.connector.aio.plugins.authentication_ldap_sasl_client'
-84163 INFO: Analyzing hidden import 'mysql.connector.aio.plugins.authentication_oci_client'
-84184 INFO: Analyzing hidden import 'mysql.connector.aio.plugins.authentication_openid_connect_client'
-84202 INFO: Analyzing hidden import 'mysql.connector.aio.plugins.authentication_webauthn_client'
-84222 INFO: Analyzing hidden import 'mysql.connector.aio.plugins.mysql_clear_password'
-84234 INFO: Analyzing hidden import 'mysql.connector.aio.plugins.mysql_native_password'
-84249 INFO: Analyzing hidden import 'mysql.connector.aio.plugins.sha256_password'
-84263 INFO: Analyzing hidden import 'mysql.connector.django'
-84265 INFO: Analyzing hidden import 'mysql.connector.django.base'
-84407 INFO: Analyzing hidden import 'mysql.connector.django.compiler'
-84418 INFO: Analyzing hidden import 'mysql.connector.locales.eng'
-84431 INFO: Analyzing hidden import 'mysql.connector.locales.eng.client_error'
-84447 INFO: Analyzing hidden import 'mysql.connector.plugins.authentication_kerberos_client'
-84477 INFO: Analyzing hidden import 'mysql.connector.plugins.authentication_ldap_sasl_client'
-84508 INFO: Analyzing hidden import 'mysql.connector.plugins.authentication_oci_client'
-84530 INFO: Analyzing hidden import 'mysql.connector.plugins.authentication_openid_connect_client'
-84548 INFO: Analyzing hidden import 'mysql.connector.plugins.authentication_webauthn_client'
-84570 INFO: Analyzing hidden import 'waitress.__main__'
-84580 INFO: Analyzing hidden import 'ldap3.protocol.rfc4527'
-84593 INFO: Analyzing hidden import 'jira.jirashell'
-84618 INFO: Processing module hooks (post-graph stage)...
-85259 INFO: Processing standard module hook 'hook-lxml.isoschematron.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
-86925 INFO: Processing standard module hook 'hook-PIL.SpiderImagePlugin.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-92104 INFO: Processing standard module hook 'hook-lxml.objectify.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
-92105 INFO: Processing standard module hook 'hook-tzdata.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
-92614 INFO: Performing binary vs. data reclassification (1180 entries)
-95734 INFO: Looking for ctypes DLLs
-95843 INFO: Analyzing run-time hooks ...
-95844 INFO: Including custom run-time hook 'pyi_rth_syspath.py'
-95857 INFO: Including run-time hook 'pyi_rth_inspect.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
-95866 INFO: Including run-time hook 'pyi_rth_setuptools.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
-95877 INFO: Including run-time hook 'pyi_rth_pkgutil.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
-95885 INFO: Including run-time hook 'pyi_rth_multiprocessing.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
-95892 INFO: Including run-time hook 'pyi_rth_pywintypes.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\rthooks'
-95898 INFO: Including run-time hook 'pyi_rth_pythoncom.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\rthooks'
-95933 INFO: Creating base_library.zip...
-95956 INFO: Looking for dynamic libraries
-97923 INFO: Extra DLL search directories (AddDllDirectory): ['C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\numpy.libs', 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\pandas.libs']
-97926 INFO: Extra DLL search directories (PATH): []
-99315 INFO: Warnings written to C:\Users\slua_0038d920d430\Desktop\PDT_Buddy_V3.7_dont_touch\build\BuddyApp\warn-BuddyApp.txt
-99542 INFO: Graph cross-reference written to C:\Users\slua_0038d920d430\Desktop\PDT_Buddy_V3.7_dont_touch\build\BuddyApp\xref-BuddyApp.html
-99783 INFO: checking PYZ
-99784 INFO: Building PYZ because PYZ-00.toc is non existent
-99784 INFO: Building PYZ (ZlibArchive) C:\Users\slua_0038d920d430\Desktop\PDT_Buddy_V3.7_dont_touch\build\BuddyApp\PYZ-00.pyz
-102042 INFO: Building PYZ (ZlibArchive) C:\Users\slua_0038d920d430\Desktop\PDT_Buddy_V3.7_dont_touch\build\BuddyApp\PYZ-00.pyz completed successfully.
-102123 INFO: checking PKG
-102123 INFO: Building PKG because PKG-00.toc is non existent
-102123 INFO: Building PKG (CArchive) pdtbuddyapp.pkg
-137800 INFO: Building PKG (CArchive) pdtbuddyapp.pkg completed successfully.
-137829 INFO: Bootloader C:\Users\slua_0038d920d430\Desktop\PDT_Buddy_V3.7_dont_touch\.venv\Lib\site-packages\PyInstaller\bootloader\Windows-64bit-intel\run.exe
-137830 INFO: checking EXE
-137830 INFO: Building EXE because EXE-00.toc is non existent
-137830 INFO: Building EXE from EXE-00.toc
-137846 INFO: Copying bootloader EXE to C:\Users\slua_0038d920d430\Desktop\PDT_Buddy_V3.7_dont_touch\dist\pdtbuddyapp.exe
-137912 INFO: Copying icon to EXE
-137943 INFO: Copying 0 resources to EXE
-137943 INFO: Embedding manifest in EXE
-137978 INFO: Appending PKG archive to EXE
-138082 INFO: Fixing EXE headers
-144527 INFO: Building EXE from EXE-00.toc completed successfully.
-144543 INFO: Build complete! The results are available in: C:\Users\slua_0038d920d430\Desktop\PDT_Buddy_V3.7_dont_touch\dist
+ 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv',
+ 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages',
+ 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge',
+ 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\win32',
+ 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\win32\\lib',
+ 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\pythonwin',
+ 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge']
+3080 INFO: Appending 'binaries' from .spec
+3080 INFO: Appending 'datas' from .spec
+3089 INFO: checking Analysis
+3089 INFO: Building Analysis because Analysis-00.toc is non existent
+3089 INFO: Looking for Python shared library...
+3089 INFO: Using Python shared library: C:\Python\Python313\python313.dll
+3089 INFO: Running Analysis Analysis-00.toc
+3089 INFO: Target bytecode optimization level: 0
+3089 INFO: Initializing module dependency graph...
+3090 INFO: Initializing module graph hook caches...
+3098 INFO: Analyzing modules for base_library.zip ...
+3985 INFO: Processing standard module hook 'hook-encodings.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+4641 INFO: Processing standard module hook 'hook-math.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+4797 INFO: Processing standard module hook 'hook-heapq.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+5535 INFO: Processing standard module hook 'hook-pickle.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+6297 INFO: Caching module dependency graph...
+6323 INFO: Analyzing C:\Users\slua_0038d920d430\Desktop\PDT_Buddy_V3.7_merge\app.py
+6763 INFO: Processing standard module hook 'hook-platform.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+6785 INFO: Processing standard module hook 'hook-sysconfig.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+6789 INFO: Processing standard module hook 'hook-_ctypes.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+6816 INFO: Processing standard module hook 'hook-difflib.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+6820 INFO: Processing standard module hook 'hook-pandas.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+7894 INFO: Processing standard module hook 'hook-numpy.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+8106 INFO: Processing pre-safe-import-module hook 'hook-typing_extensions.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+8107 INFO: SetuptoolsInfo: initializing cached setuptools info...
+8719 INFO: Processing standard module hook 'hook-multiprocessing.util.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+8825 INFO: Processing standard module hook 'hook-xml.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+9520 INFO: Processing standard module hook 'hook-webbrowser.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+10689 INFO: Processing standard module hook 'hook-charset_normalizer.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+10978 INFO: Processing standard module hook 'hook-zoneinfo.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+11834 INFO: Processing standard module hook 'hook-pandas.io.formats.style.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+13728 INFO: Processing standard module hook 'hook-pandas.plotting.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+14098 INFO: Processing standard module hook 'hook-dateutil.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+14187 INFO: Processing pre-safe-import-module hook 'hook-six.moves.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+14823 INFO: Processing standard module hook 'hook-openpyxl.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+14875 INFO: Processing standard module hook 'hook-lxml.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+15164 INFO: Processing standard module hook 'hook-lxml.etree.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+15170 INFO: Processing standard module hook 'hook-xml.etree.cElementTree.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+15226 INFO: Processing standard module hook 'hook-xml.dom.domreg.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+15668 INFO: Processing standard module hook 'hook-PIL.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+15734 INFO: Processing standard module hook 'hook-PIL.Image.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+16137 INFO: Processing standard module hook 'hook-PIL.ImageFilter.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+17184 INFO: Processing standard module hook 'hook-sqlite3.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+17480 INFO: Processing standard module hook 'hook-pandas.io.clipboard.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+18346 INFO: Processing standard module hook 'hook-jinja2.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+18715 INFO: Processing pre-safe-import-module hook 'hook-importlib_metadata.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+18716 INFO: Setuptools: 'importlib_metadata' appears to be a setuptools-vendored copy - creating alias to 'setuptools._vendor.importlib_metadata'!
+18719 INFO: Processing standard module hook 'hook-setuptools.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+18728 INFO: Processing pre-safe-import-module hook 'hook-distutils.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+18746 INFO: Processing pre-safe-import-module hook 'hook-jaraco.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+18747 INFO: Setuptools: 'jaraco' appears to be a full setuptools-vendored copy - creating alias to 'setuptools._vendor.jaraco'!
+18753 INFO: Processing pre-safe-import-module hook 'hook-more_itertools.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+18754 INFO: Setuptools: 'more_itertools' appears to be a setuptools-vendored copy - creating alias to 'setuptools._vendor.more_itertools'!
+18837 INFO: Processing standard module hook 'hook-_osx_support.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+18847 INFO: Processing pre-safe-import-module hook 'hook-packaging.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+19005 INFO: Processing standard module hook 'hook-setuptools._vendor.jaraco.text.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+19006 INFO: Processing pre-safe-import-module hook 'hook-importlib_resources.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+19012 INFO: Processing pre-safe-import-module hook 'hook-backports.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+19013 INFO: Setuptools: 'backports' appears to be a full setuptools-vendored copy - creating alias to 'setuptools._vendor.backports'!
+19351 INFO: Processing pre-safe-import-module hook 'hook-tomli.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+19352 INFO: Setuptools: 'tomli' appears to be a setuptools-vendored copy - creating alias to 'setuptools._vendor.tomli'!
+19695 INFO: Processing pre-safe-import-module hook 'hook-wheel.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+19696 INFO: Setuptools: 'wheel' appears to be a setuptools-vendored copy - creating alias to 'setuptools._vendor.wheel'!
+19729 INFO: Processing standard module hook 'hook-setuptools._vendor.importlib_metadata.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+19750 INFO: Processing pre-safe-import-module hook 'hook-zipp.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+19751 INFO: Setuptools: 'zipp' appears to be a setuptools-vendored copy - creating alias to 'setuptools._vendor.zipp'!
+20973 INFO: Processing standard module hook 'hook-urllib3.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+21309 INFO: Processing standard module hook 'hook-certifi.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+21596 INFO: Processing standard module hook 'hook-anyio.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+22358 INFO: Processing standard module hook 'hook-pygments.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+23589 INFO: Processing standard module hook 'hook-rich.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+24635 INFO: Processing standard module hook 'hook-pydantic.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+25761 INFO: Processing standard module hook 'hook-websockets.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+26345 INFO: Processing pre-safe-import-module hook 'hook-platformdirs.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+26354 INFO: Processing standard module hook 'hook-platformdirs.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+28350 INFO: Processing standard module hook 'hook-pptx.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+29991 INFO: Processing standard module hook 'hook-pythoncom.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+30101 INFO: Processing standard module hook 'hook-pywintypes.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+30207 INFO: Processing pre-safe-import-module hook 'hook-win32com.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\pre_safe_import_module'
+30323 INFO: Processing standard module hook 'hook-win32com.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+31050 INFO: Analyzing hidden import 'werkzeug.middleware.proxy_fix'
+31052 INFO: Analyzing hidden import 'mysql.connector.plugins.mysql_native_password'
+31054 INFO: Analyzing hidden import 'mysql.connector.plugins.sha256_password'
+31056 INFO: Analyzing hidden import 'mysql.connector.plugins.mysql_clear_password'
+31057 INFO: Analyzing hidden import 'mysql.connector.aio'
+31220 INFO: Analyzing hidden import 'waitress.runner'
+31222 INFO: Analyzing hidden import 'jira'
+31223 INFO: Processing standard module hook 'hook-jira.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+31908 INFO: Analyzing hidden import 'auth_service'
+31912 INFO: Analyzing hidden import 'run_ingest'
+31913 INFO: Analyzing hidden import 'mcp_mtbf_server'
+31932 INFO: Analyzing hidden import 'PAuth'
+31934 INFO: Analyzing hidden import 'pyi_rth_syspath'
+31935 INFO: Analyzing hidden import 'src.admin_routes'
+31938 INFO: Analyzing hidden import 'src.auth_routes'
+31948 INFO: Analyzing hidden import 'src.auto_hierarchy_routes'
+31965 INFO: Analyzing hidden import 'src.cr_info_routes'
+31985 INFO: Analyzing hidden import 'src.cr_utils'
+31990 INFO: Analyzing hidden import 'src.cache_utils'
+31993 INFO: Analyzing hidden import 'src.hwpdt_routes'
+31996 INFO: Analyzing hidden import 'src.navigation_routes'
+32002 INFO: Analyzing hidden import 'src.workspace_routes'
+32020 INFO: Analyzing hidden import 'mysql.connector.aio.plugins.authentication_kerberos_client'
+32041 INFO: Analyzing hidden import 'mysql.connector.aio.plugins.authentication_ldap_sasl_client'
+32050 INFO: Analyzing hidden import 'mysql.connector.aio.plugins.authentication_oci_client'
+32054 INFO: Analyzing hidden import 'mysql.connector.aio.plugins.authentication_openid_connect_client'
+32057 INFO: Analyzing hidden import 'mysql.connector.aio.plugins.authentication_webauthn_client'
+32061 INFO: Analyzing hidden import 'mysql.connector.aio.plugins.mysql_clear_password'
+32063 INFO: Analyzing hidden import 'mysql.connector.aio.plugins.mysql_native_password'
+32065 INFO: Analyzing hidden import 'mysql.connector.aio.plugins.sha256_password'
+32066 INFO: Analyzing hidden import 'mysql.connector.django'
+32067 INFO: Analyzing hidden import 'mysql.connector.django.base'
+32090 INFO: Analyzing hidden import 'mysql.connector.django.compiler'
+32091 INFO: Analyzing hidden import 'mysql.connector.locales.eng'
+32091 INFO: Analyzing hidden import 'mysql.connector.locales.eng.client_error'
+32093 INFO: Analyzing hidden import 'mysql.connector.plugins.authentication_kerberos_client'
+32101 INFO: Analyzing hidden import 'mysql.connector.plugins.authentication_ldap_sasl_client'
+32111 INFO: Analyzing hidden import 'mysql.connector.plugins.authentication_oci_client'
+32115 INFO: Analyzing hidden import 'mysql.connector.plugins.authentication_openid_connect_client'
+32117 INFO: Analyzing hidden import 'mysql.connector.plugins.authentication_webauthn_client'
+32121 INFO: Analyzing hidden import 'waitress.__main__'
+32121 INFO: Analyzing hidden import 'ldap3.protocol.rfc4527'
+32122 INFO: Analyzing hidden import 'jira.jirashell'
+32129 INFO: Processing module hooks (post-graph stage)...
+32323 INFO: Processing standard module hook 'hook-lxml.isoschematron.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+32752 INFO: Processing standard module hook 'hook-PIL.SpiderImagePlugin.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+34223 INFO: Processing standard module hook 'hook-lxml.objectify.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+34223 INFO: Processing standard module hook 'hook-tzdata.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+34633 INFO: Performing binary vs. data reclassification (1183 entries)
+34782 INFO: Looking for ctypes DLLs
+34836 INFO: Analyzing run-time hooks ...
+34836 INFO: Including custom run-time hook 'pyi_rth_syspath.py'
+34844 INFO: Including run-time hook 'pyi_rth_inspect.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
+34846 INFO: Including run-time hook 'pyi_rth_setuptools.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
+34847 INFO: Including run-time hook 'pyi_rth_pkgutil.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
+34848 INFO: Including run-time hook 'pyi_rth_multiprocessing.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
+34850 INFO: Including run-time hook 'pyi_rth_pywintypes.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\rthooks'
+34851 INFO: Including run-time hook 'pyi_rth_pythoncom.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\rthooks'
+34881 INFO: Creating base_library.zip...
+34899 INFO: Looking for dynamic libraries
+36566 INFO: Extra DLL search directories (AddDllDirectory): ['C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\numpy.libs', 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\pandas.libs']
+36566 INFO: Extra DLL search directories (PATH): []
+37102 INFO: Warnings written to C:\Users\slua_0038d920d430\Desktop\PDT_Buddy_V3.7_merge\build\BuddyApp\warn-BuddyApp.txt
+37218 INFO: Graph cross-reference written to C:\Users\slua_0038d920d430\Desktop\PDT_Buddy_V3.7_merge\build\BuddyApp\xref-BuddyApp.html
+37275 INFO: checking PYZ
+37276 INFO: Building PYZ because PYZ-00.toc is non existent
+37276 INFO: Building PYZ (ZlibArchive) C:\Users\slua_0038d920d430\Desktop\PDT_Buddy_V3.7_merge\build\BuddyApp\PYZ-00.pyz
+38730 INFO: Building PYZ (ZlibArchive) C:\Users\slua_0038d920d430\Desktop\PDT_Buddy_V3.7_merge\build\BuddyApp\PYZ-00.pyz completed successfully.
+38770 INFO: checking PKG
+38770 INFO: Building PKG because PKG-00.toc is non existent
+38770 INFO: Building PKG (CArchive) pdtbuddyapp.pkg
+59187 INFO: Building PKG (CArchive) pdtbuddyapp.pkg completed successfully.
+59202 INFO: Bootloader C:\Users\slua_0038d920d430\Desktop\PDT_Buddy_V3.7_merge\.venv\Lib\site-packages\PyInstaller\bootloader\Windows-64bit-intel\run.exe
+59202 INFO: checking EXE
+59202 INFO: Building EXE because EXE-00.toc is non existent
+59202 INFO: Building EXE from EXE-00.toc
+59210 INFO: Copying bootloader EXE to C:\Users\slua_0038d920d430\Desktop\PDT_Buddy_V3.7_merge\dist\pdtbuddyapp.exe
+59244 INFO: Copying icon to EXE
+59271 INFO: Copying 0 resources to EXE
+59271 INFO: Embedding manifest in EXE
+59298 INFO: Appending PKG archive to EXE
+59368 INFO: Fixing EXE headers
+65908 INFO: Building EXE from EXE-00.toc completed successfully.
+65923 INFO: Build complete! The results are available in: C:\Users\slua_0038d920d430\Desktop\PDT_Buddy_V3.7_merge\dist
  
 BuddyApp EXIT CODE: 0 
  
 ============================================ 
 Building IngestAutoUpdate.exe (IngestAutoUpdate.spec)... 
 ============================================ 
-143 INFO: PyInstaller: 6.22.3, contrib hooks: 2026.7
-144 INFO: Python: 3.13.12
-172 INFO: Platform: Windows-11-10.0.26100-SP0
-172 INFO: Python environment: C:\Users\slua_0038d920d430\Desktop\PDT_Buddy_V3.7_dont_touch\.venv
-174 INFO: Removing temporary files and cleaning cache in C:\Users\slua_0038d920d430\AppData\Local\pyinstaller
-1567 INFO: Module search paths (PYTHONPATH):
-['C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch',
+121 INFO: PyInstaller: 6.22.3, contrib hooks: 2026.7
+122 INFO: Python: 3.13.12
+146 INFO: Platform: Windows-11-10.0.26100-SP0
+146 INFO: Python environment: C:\Users\slua_0038d920d430\Desktop\PDT_Buddy_V3.7_merge\.venv
+148 INFO: Removing temporary files and cleaning cache in C:\Users\slua_0038d920d430\AppData\Local\pyinstaller
+1371 INFO: Module search paths (PYTHONPATH):
+['C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge',
  'C:\\Python\\Python313\\python313.zip',
  'C:\\Python\\Python313\\DLLs',
  'C:\\Python\\Python313\\Lib',
  'C:\\Python\\Python313',
- 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv',
- 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages',
- 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch',
- 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\win32',
- 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\win32\\lib',
- 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\pythonwin',
- 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch']
-2000 INFO: Appending 'datas' from .spec
-2003 INFO: checking Analysis
-2003 INFO: Building Analysis because Analysis-00.toc is non existent
-2003 INFO: Looking for Python shared library...
-2003 INFO: Using Python shared library: C:\Python\Python313\python313.dll
-2003 INFO: Running Analysis Analysis-00.toc
-2003 INFO: Target bytecode optimization level: 0
-2003 INFO: Initializing module dependency graph...
-2004 INFO: Initializing module graph hook caches...
-2012 INFO: Analyzing modules for base_library.zip ...
-3016 INFO: Processing standard module hook 'hook-heapq.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-3258 INFO: Processing standard module hook 'hook-math.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-3668 INFO: Processing standard module hook 'hook-encodings.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-4983 INFO: Processing standard module hook 'hook-pickle.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-6575 INFO: Caching module dependency graph...
-6611 INFO: Analyzing C:\Users\slua_0038d920d430\Desktop\PDT_Buddy_V3.7_dont_touch\ingest_autoupdate.py
-6695 INFO: Processing standard module hook 'hook-platform.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-6728 INFO: Processing standard module hook 'hook-sysconfig.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-6731 INFO: Processing standard module hook 'hook-_ctypes.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-7406 INFO: Processing standard module hook 'hook-openpyxl.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
-7559 INFO: Processing standard module hook 'hook-numpy.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-7864 INFO: Processing pre-safe-import-module hook 'hook-typing_extensions.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
-7866 INFO: SetuptoolsInfo: initializing cached setuptools info...
-8714 INFO: Processing standard module hook 'hook-multiprocessing.util.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-8874 INFO: Processing standard module hook 'hook-xml.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-10260 INFO: Processing standard module hook 'hook-webbrowser.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-11511 INFO: Processing standard module hook 'hook-difflib.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-12196 INFO: Processing standard module hook 'hook-charset_normalizer.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
-12566 INFO: Processing standard module hook 'hook-lxml.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
-12912 INFO: Processing standard module hook 'hook-lxml.etree.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
-12926 INFO: Processing standard module hook 'hook-xml.etree.cElementTree.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-13138 INFO: Processing standard module hook 'hook-xml.dom.domreg.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-13869 INFO: Processing standard module hook 'hook-PIL.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-13944 INFO: Processing standard module hook 'hook-PIL.Image.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-14499 INFO: Processing standard module hook 'hook-PIL.ImageFilter.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-15295 INFO: Processing standard module hook 'hook-pandas.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-16709 INFO: Processing standard module hook 'hook-zoneinfo.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
-18358 INFO: Processing standard module hook 'hook-pandas.io.formats.style.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-20986 INFO: Processing standard module hook 'hook-pandas.plotting.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-21513 INFO: Processing standard module hook 'hook-dateutil.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
-21656 INFO: Processing pre-safe-import-module hook 'hook-six.moves.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
-24117 INFO: Processing standard module hook 'hook-sqlite3.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-24479 INFO: Processing standard module hook 'hook-pandas.io.clipboard.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-25116 INFO: Processing standard module hook 'hook-urllib3.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
-25268 INFO: Processing pre-safe-import-module hook 'hook-backports.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
-25269 INFO: Setuptools: 'backports' appears to be a full setuptools-vendored copy - creating alias to 'setuptools._vendor.backports'!
-25274 INFO: Processing standard module hook 'hook-setuptools.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-25282 INFO: Processing pre-safe-import-module hook 'hook-distutils.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
-25303 INFO: Processing pre-safe-import-module hook 'hook-jaraco.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
-25304 INFO: Setuptools: 'jaraco' appears to be a full setuptools-vendored copy - creating alias to 'setuptools._vendor.jaraco'!
-25328 INFO: Processing pre-safe-import-module hook 'hook-more_itertools.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
-25329 INFO: Setuptools: 'more_itertools' appears to be a setuptools-vendored copy - creating alias to 'setuptools._vendor.more_itertools'!
-25500 INFO: Processing standard module hook 'hook-_osx_support.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-25514 INFO: Processing pre-safe-import-module hook 'hook-packaging.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
-25872 INFO: Processing standard module hook 'hook-setuptools._vendor.jaraco.text.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-25873 INFO: Processing pre-safe-import-module hook 'hook-importlib_resources.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
-26361 INFO: Processing pre-safe-import-module hook 'hook-tomli.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
-26361 INFO: Setuptools: 'tomli' appears to be a setuptools-vendored copy - creating alias to 'setuptools._vendor.tomli'!
-26883 INFO: Processing pre-safe-import-module hook 'hook-wheel.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
-26884 INFO: Setuptools: 'wheel' appears to be a setuptools-vendored copy - creating alias to 'setuptools._vendor.wheel'!
-27324 INFO: Processing standard module hook 'hook-certifi.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
-27432 INFO: Analyzing hidden import 'mysql.connector.plugins.mysql_native_password'
-27436 INFO: Analyzing hidden import 'mysql.connector.plugins.sha256_password'
-27439 INFO: Analyzing hidden import 'mysql.connector.plugins.mysql_clear_password'
-27442 INFO: Analyzing hidden import 'mysql.connector.aio'
-27683 INFO: Analyzing hidden import 'mysql.connector.aio.plugins.authentication_kerberos_client'
-27721 INFO: Analyzing hidden import 'mysql.connector.aio.plugins.authentication_ldap_sasl_client'
-27739 INFO: Analyzing hidden import 'mysql.connector.aio.plugins.authentication_oci_client'
-27747 INFO: Analyzing hidden import 'mysql.connector.aio.plugins.authentication_openid_connect_client'
-27751 INFO: Analyzing hidden import 'mysql.connector.aio.plugins.authentication_webauthn_client'
-27760 INFO: Analyzing hidden import 'mysql.connector.aio.plugins.mysql_clear_password'
-27764 INFO: Analyzing hidden import 'mysql.connector.aio.plugins.mysql_native_password'
-27768 INFO: Analyzing hidden import 'mysql.connector.aio.plugins.sha256_password'
-27773 INFO: Analyzing hidden import 'mysql.connector.django'
-27774 INFO: Analyzing hidden import 'mysql.connector.django.base'
-27823 INFO: Analyzing hidden import 'mysql.connector.django.compiler'
-27824 INFO: Analyzing hidden import 'mysql.connector.locales.eng'
-27824 INFO: Analyzing hidden import 'mysql.connector.locales.eng.client_error'
-27826 INFO: Analyzing hidden import 'mysql.connector.plugins.authentication_kerberos_client'
-27836 INFO: Analyzing hidden import 'mysql.connector.plugins.authentication_ldap_sasl_client'
-27846 INFO: Analyzing hidden import 'mysql.connector.plugins.authentication_oci_client'
-27850 INFO: Analyzing hidden import 'mysql.connector.plugins.authentication_openid_connect_client'
-27853 INFO: Analyzing hidden import 'mysql.connector.plugins.authentication_webauthn_client'
-27857 INFO: Processing module hooks (post-graph stage)...
-28055 INFO: Processing standard module hook 'hook-lxml.isoschematron.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
-28088 INFO: Processing standard module hook 'hook-jinja2.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
-28798 INFO: Processing standard module hook 'hook-PIL.SpiderImagePlugin.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-29087 INFO: Processing standard module hook 'hook-lxml.objectify.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
-29088 INFO: Processing standard module hook 'hook-tzdata.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
-29662 INFO: Performing binary vs. data reclassification (790 entries)
-29986 INFO: Looking for ctypes DLLs
-30063 INFO: Analyzing run-time hooks ...
-30063 INFO: Including custom run-time hook 'pyi_rth_syspath.py'
-30069 INFO: Including run-time hook 'pyi_rth_inspect.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
-30072 INFO: Including run-time hook 'pyi_rth_pkgutil.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
-30073 INFO: Including run-time hook 'pyi_rth_multiprocessing.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
-30075 INFO: Including run-time hook 'pyi_rth_setuptools.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
-30098 INFO: Creating base_library.zip...
-30134 INFO: Looking for dynamic libraries
-31325 INFO: Extra DLL search directories (AddDllDirectory): ['C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\numpy.libs', 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_dont_touch\\.venv\\Lib\\site-packages\\pandas.libs']
-31325 INFO: Extra DLL search directories (PATH): []
-32227 INFO: Warnings written to C:\Users\slua_0038d920d430\Desktop\PDT_Buddy_V3.7_dont_touch\build\IngestAutoUpdate\warn-IngestAutoUpdate.txt
-32352 INFO: Graph cross-reference written to C:\Users\slua_0038d920d430\Desktop\PDT_Buddy_V3.7_dont_touch\build\IngestAutoUpdate\xref-IngestAutoUpdate.html
-32420 INFO: checking PYZ
-32420 INFO: Building PYZ because PYZ-00.toc is non existent
-32420 INFO: Building PYZ (ZlibArchive) C:\Users\slua_0038d920d430\Desktop\PDT_Buddy_V3.7_dont_touch\build\IngestAutoUpdate\PYZ-00.pyz
-33722 INFO: Building PYZ (ZlibArchive) C:\Users\slua_0038d920d430\Desktop\PDT_Buddy_V3.7_dont_touch\build\IngestAutoUpdate\PYZ-00.pyz completed successfully.
-33769 INFO: checking PKG
-33769 INFO: Building PKG because PKG-00.toc is non existent
-33769 INFO: Building PKG (CArchive) IngestAutoUpdate.pkg
-46272 INFO: Building PKG (CArchive) IngestAutoUpdate.pkg completed successfully.
-46293 INFO: Bootloader C:\Users\slua_0038d920d430\Desktop\PDT_Buddy_V3.7_dont_touch\.venv\Lib\site-packages\PyInstaller\bootloader\Windows-64bit-intel\run.exe
-46293 INFO: checking EXE
-46293 INFO: Building EXE because EXE-00.toc is non existent
-46293 INFO: Building EXE from EXE-00.toc
-46299 INFO: Copying bootloader EXE to C:\Users\slua_0038d920d430\Desktop\PDT_Buddy_V3.7_dont_touch\dist\IngestAutoUpdate.exe
-46336 INFO: Copying icon to EXE
-46373 INFO: Copying 0 resources to EXE
-46373 INFO: Embedding manifest in EXE
-46405 INFO: Appending PKG archive to EXE
-46570 INFO: Fixing EXE headers
-50368 INFO: Building EXE from EXE-00.toc completed successfully.
-50390 INFO: Build complete! The results are available in: C:\Users\slua_0038d920d430\Desktop\PDT_Buddy_V3.7_dont_touch\dist
+ 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv',
+ 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages',
+ 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge',
+ 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\win32',
+ 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\win32\\lib',
+ 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\pythonwin',
+ 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge']
+1749 INFO: Appending 'datas' from .spec
+1752 INFO: checking Analysis
+1752 INFO: Building Analysis because Analysis-00.toc is non existent
+1752 INFO: Looking for Python shared library...
+1752 INFO: Using Python shared library: C:\Python\Python313\python313.dll
+1752 INFO: Running Analysis Analysis-00.toc
+1752 INFO: Target bytecode optimization level: 0
+1752 INFO: Initializing module dependency graph...
+1753 INFO: Initializing module graph hook caches...
+1760 INFO: Analyzing modules for base_library.zip ...
+2785 INFO: Processing standard module hook 'hook-math.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+2793 INFO: Processing standard module hook 'hook-heapq.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+2961 INFO: Processing standard module hook 'hook-encodings.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+4046 INFO: Processing standard module hook 'hook-pickle.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+4913 INFO: Caching module dependency graph...
+4934 INFO: Analyzing C:\Users\slua_0038d920d430\Desktop\PDT_Buddy_V3.7_merge\ingest_autoupdate.py
+4983 INFO: Processing standard module hook 'hook-platform.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+5005 INFO: Processing standard module hook 'hook-sysconfig.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+5008 INFO: Processing standard module hook 'hook-_ctypes.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+5430 INFO: Processing standard module hook 'hook-openpyxl.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+5491 INFO: Processing standard module hook 'hook-numpy.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+5686 INFO: Processing pre-safe-import-module hook 'hook-typing_extensions.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+5687 INFO: SetuptoolsInfo: initializing cached setuptools info...
+6302 INFO: Processing standard module hook 'hook-multiprocessing.util.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+6378 INFO: Processing standard module hook 'hook-xml.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+7111 INFO: Processing standard module hook 'hook-webbrowser.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+7786 INFO: Processing standard module hook 'hook-difflib.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+8206 INFO: Processing standard module hook 'hook-charset_normalizer.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+8413 INFO: Processing standard module hook 'hook-lxml.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+8713 INFO: Processing standard module hook 'hook-lxml.etree.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+8719 INFO: Processing standard module hook 'hook-xml.etree.cElementTree.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+8809 INFO: Processing standard module hook 'hook-xml.dom.domreg.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+9249 INFO: Processing standard module hook 'hook-PIL.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+9315 INFO: Processing standard module hook 'hook-PIL.Image.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+9726 INFO: Processing standard module hook 'hook-PIL.ImageFilter.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+10113 INFO: Processing standard module hook 'hook-pandas.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+11329 INFO: Processing standard module hook 'hook-zoneinfo.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+12230 INFO: Processing standard module hook 'hook-pandas.io.formats.style.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+14083 INFO: Processing standard module hook 'hook-pandas.plotting.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+14397 INFO: Processing standard module hook 'hook-dateutil.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+14487 INFO: Processing pre-safe-import-module hook 'hook-six.moves.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+15974 INFO: Processing standard module hook 'hook-sqlite3.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+16270 INFO: Processing standard module hook 'hook-pandas.io.clipboard.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+16654 INFO: Processing standard module hook 'hook-urllib3.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+16737 INFO: Processing pre-safe-import-module hook 'hook-backports.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+16737 INFO: Setuptools: 'backports' appears to be a full setuptools-vendored copy - creating alias to 'setuptools._vendor.backports'!
+16747 INFO: Processing standard module hook 'hook-setuptools.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+16755 INFO: Processing pre-safe-import-module hook 'hook-distutils.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+16775 INFO: Processing pre-safe-import-module hook 'hook-jaraco.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+16775 INFO: Setuptools: 'jaraco' appears to be a full setuptools-vendored copy - creating alias to 'setuptools._vendor.jaraco'!
+16782 INFO: Processing pre-safe-import-module hook 'hook-more_itertools.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+16782 INFO: Setuptools: 'more_itertools' appears to be a setuptools-vendored copy - creating alias to 'setuptools._vendor.more_itertools'!
+16867 INFO: Processing standard module hook 'hook-_osx_support.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+16877 INFO: Processing pre-safe-import-module hook 'hook-packaging.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+17082 INFO: Processing standard module hook 'hook-setuptools._vendor.jaraco.text.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+17083 INFO: Processing pre-safe-import-module hook 'hook-importlib_resources.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+17386 INFO: Processing pre-safe-import-module hook 'hook-tomli.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+17387 INFO: Setuptools: 'tomli' appears to be a setuptools-vendored copy - creating alias to 'setuptools._vendor.tomli'!
+17688 INFO: Processing pre-safe-import-module hook 'hook-wheel.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+17689 INFO: Setuptools: 'wheel' appears to be a setuptools-vendored copy - creating alias to 'setuptools._vendor.wheel'!
+17954 INFO: Processing standard module hook 'hook-certifi.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+18017 INFO: Analyzing hidden import 'mysql.connector.plugins.mysql_native_password'
+18019 INFO: Analyzing hidden import 'mysql.connector.plugins.sha256_password'
+18021 INFO: Analyzing hidden import 'mysql.connector.plugins.mysql_clear_password'
+18022 INFO: Analyzing hidden import 'mysql.connector.aio'
+18153 INFO: Analyzing hidden import 'mysql.connector.aio.plugins.authentication_kerberos_client'
+18174 INFO: Analyzing hidden import 'mysql.connector.aio.plugins.authentication_ldap_sasl_client'
+18183 INFO: Analyzing hidden import 'mysql.connector.aio.plugins.authentication_oci_client'
+18187 INFO: Analyzing hidden import 'mysql.connector.aio.plugins.authentication_openid_connect_client'
+18190 INFO: Analyzing hidden import 'mysql.connector.aio.plugins.authentication_webauthn_client'
+18194 INFO: Analyzing hidden import 'mysql.connector.aio.plugins.mysql_clear_password'
+18195 INFO: Analyzing hidden import 'mysql.connector.aio.plugins.mysql_native_password'
+18197 INFO: Analyzing hidden import 'mysql.connector.aio.plugins.sha256_password'
+18199 INFO: Analyzing hidden import 'mysql.connector.django'
+18199 INFO: Analyzing hidden import 'mysql.connector.django.base'
+18222 INFO: Analyzing hidden import 'mysql.connector.django.compiler'
+18223 INFO: Analyzing hidden import 'mysql.connector.locales.eng'
+18223 INFO: Analyzing hidden import 'mysql.connector.locales.eng.client_error'
+18225 INFO: Analyzing hidden import 'mysql.connector.plugins.authentication_kerberos_client'
+18233 INFO: Analyzing hidden import 'mysql.connector.plugins.authentication_ldap_sasl_client'
+18242 INFO: Analyzing hidden import 'mysql.connector.plugins.authentication_oci_client'
+18246 INFO: Analyzing hidden import 'mysql.connector.plugins.authentication_openid_connect_client'
+18248 INFO: Analyzing hidden import 'mysql.connector.plugins.authentication_webauthn_client'
+18252 INFO: Processing module hooks (post-graph stage)...
+18371 INFO: Processing standard module hook 'hook-lxml.isoschematron.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+18388 INFO: Processing standard module hook 'hook-jinja2.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+18829 INFO: Processing standard module hook 'hook-PIL.SpiderImagePlugin.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+19043 INFO: Processing standard module hook 'hook-lxml.objectify.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+19044 INFO: Processing standard module hook 'hook-tzdata.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+19433 INFO: Performing binary vs. data reclassification (792 entries)
+19541 INFO: Looking for ctypes DLLs
+19573 INFO: Analyzing run-time hooks ...
+19573 INFO: Including custom run-time hook 'pyi_rth_syspath.py'
+19578 INFO: Including run-time hook 'pyi_rth_inspect.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
+19580 INFO: Including run-time hook 'pyi_rth_pkgutil.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
+19581 INFO: Including run-time hook 'pyi_rth_multiprocessing.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
+19583 INFO: Including run-time hook 'pyi_rth_setuptools.py' from 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
+19603 INFO: Creating base_library.zip...
+19620 INFO: Looking for dynamic libraries
+20684 INFO: Extra DLL search directories (AddDllDirectory): ['C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\numpy.libs', 'C:\\Users\\slua_0038d920d430\\Desktop\\PDT_Buddy_V3.7_merge\\.venv\\Lib\\site-packages\\pandas.libs']
+20684 INFO: Extra DLL search directories (PATH): []
+21161 INFO: Warnings written to C:\Users\slua_0038d920d430\Desktop\PDT_Buddy_V3.7_merge\build\IngestAutoUpdate\warn-IngestAutoUpdate.txt
+21225 INFO: Graph cross-reference written to C:\Users\slua_0038d920d430\Desktop\PDT_Buddy_V3.7_merge\build\IngestAutoUpdate\xref-IngestAutoUpdate.html
+21260 INFO: checking PYZ
+21260 INFO: Building PYZ because PYZ-00.toc is non existent
+21260 INFO: Building PYZ (ZlibArchive) C:\Users\slua_0038d920d430\Desktop\PDT_Buddy_V3.7_merge\build\IngestAutoUpdate\PYZ-00.pyz
+22084 INFO: Building PYZ (ZlibArchive) C:\Users\slua_0038d920d430\Desktop\PDT_Buddy_V3.7_merge\build\IngestAutoUpdate\PYZ-00.pyz completed successfully.
+22106 INFO: checking PKG
+22107 INFO: Building PKG because PKG-00.toc is non existent
+22107 INFO: Building PKG (CArchive) IngestAutoUpdate.pkg
+29632 INFO: Building PKG (CArchive) IngestAutoUpdate.pkg completed successfully.
+29642 INFO: Bootloader C:\Users\slua_0038d920d430\Desktop\PDT_Buddy_V3.7_merge\.venv\Lib\site-packages\PyInstaller\bootloader\Windows-64bit-intel\run.exe
+29642 INFO: checking EXE
+29642 INFO: Building EXE because EXE-00.toc is non existent
+29642 INFO: Building EXE from EXE-00.toc
+29646 INFO: Copying bootloader EXE to C:\Users\slua_0038d920d430\Desktop\PDT_Buddy_V3.7_merge\dist\IngestAutoUpdate.exe
+29679 INFO: Copying icon to EXE
+29709 INFO: Copying 0 resources to EXE
+29709 INFO: Embedding manifest in EXE
+29736 INFO: Appending PKG archive to EXE
+29861 INFO: Fixing EXE headers
+32891 INFO: Building EXE from EXE-00.toc completed successfully.
+32901 INFO: Build complete! The results are available in: C:\Users\slua_0038d920d430\Desktop\PDT_Buddy_V3.7_merge\dist
  
 IngestAutoUpdate EXIT CODE: 0 
+[run_build] .env restored
  
-BOTH BUILDS COMPLETE 
+BOTH BUILDS COMPLETE (port 80 baked in) 
