@@ -269,11 +269,13 @@
             &nbsp;<span style="background:rgba(255,255,255,.15);border-radius:5px;padding:1px 7px;font-size:10px;">{{ site }}: {{ ucr_total_counts.get(site, 0) }}</span>
             {% endfor %}
           </div>
+          {% elif card_key == 'engineer_jiras' %}
+          <div class="wcd-content-meta">{{ eng_sel_month_label or eng_sel_month or '' }} &nbsp;&middot;&nbsp; {{ eng_total_count or 0 }} ticket(s)</div>
           {% else %}
           <div class="wcd-content-meta">{{ sel_start.strftime('%b %d') }} &ndash; {{ sel_end.strftime('%b %d, %Y') }} &nbsp;&middot;&nbsp; {{ table_rows|length }} row(s)</div>
           {% endif %}
         </div>
-        {% if card_key != 'unique_report' %}
+        {% if card_key not in ('unique_report', 'engineer_jiras') %}
         <select class="wcd-week-select" id="wcdWeekSelect" onchange="wcdChangeWeek(this.value)"
           style="background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.3);color:#fff;">
           {% for ws, we, label in week_ranges %}
@@ -1057,6 +1059,159 @@
 
         </div>
 
+        {% elif card_key == 'engineer_jiras' %}
+        {# ── ENGINEER REPORTED JIRAs – Pivot only ── #}
+        <style>
+        .eng-month-select { height:36px; padding:0 12px; border-radius:10px; border:1.5px solid #a5f3fc; background:#ecfeff; font-size:12px; font-weight:800; color:#0e7490; cursor:pointer; min-width:180px; }
+        .eng-month-select:focus { outline:none; border-color:#0891b2; }
+        /* Pivot table */
+        .eng-pivot-wrap { overflow-x:auto; border:1px solid #0891b2; border-radius:10px; margin-bottom:20px; }
+        .eng-pivot-tbl { border-collapse:separate; border-spacing:0; font-size:10px; width:max-content; min-width:100%; }
+        .eng-pivot-tbl thead th { position:sticky; top:0; z-index:4; background:linear-gradient(135deg,#0c4a6e,#0e7490); color:#e0f2fe; padding:6px 8px; font-size:10px; font-weight:900; border-bottom:2px solid #0891b2; border-right:1px solid rgba(255,255,255,.15); white-space:nowrap; text-align:center; }
+        .eng-pivot-tbl thead th.th-reporter { text-align:left; min-width:180px; position:sticky; left:0; z-index:6; background:linear-gradient(135deg,#0c4a6e,#0e7490); }
+        .eng-pivot-tbl thead th.th-total { background:#0c4a6e; border-left:2px solid #0891b2; }
+        .eng-pivot-tbl thead th .rot { writing-mode:vertical-rl; transform:rotate(180deg); display:inline-block; height:56px; line-height:1.2; font-size:9px; }
+        .eng-pivot-tbl tbody td { padding:5px 8px; border-bottom:1px solid #e0f2fe; border-right:1px solid #e0f2fe; background:#fff; white-space:nowrap; text-align:center; font-size:10px; color:#1e293b; }
+        .eng-pivot-tbl tbody td.td-reporter { text-align:left; font-weight:700; color:#0e7490; background:#ecfeff; border-right:2px solid #0891b2; position:sticky; left:0; z-index:1; }
+        .eng-pivot-tbl tbody td.td-total { font-weight:900; color:#0e7490; background:#ecfeff; border-left:2px solid #0891b2; }
+        .eng-pivot-tbl tbody td.td-zero { color:#e2e8f0; }
+        .eng-pivot-tbl tbody tr:nth-child(even) td { background:#f0f9ff; }
+        .eng-pivot-tbl tbody tr:nth-child(even) td.td-reporter { background:#cffafe; }
+        .eng-pivot-tbl tbody tr:nth-child(even) td.td-total { background:#cffafe; }
+        .eng-pivot-tbl tbody tr:hover td { background:#e0f2fe !important; }
+        .eng-pivot-tbl tfoot td { position:sticky; bottom:0; z-index:2; background:#0c4a6e; color:#fff; font-weight:900; padding:6px 8px; border-top:2px solid #0891b2; text-align:center; font-size:10px; }
+        .eng-pivot-tbl tfoot td.td-reporter { text-align:left; position:sticky; left:0; z-index:3; }
+        /* Toggle buttons */
+        .eng-toggle-btn { height:32px; padding:0 14px; border-radius:8px; border:1.5px solid #a5f3fc; background:#ecfeff; font-size:11px; font-weight:800; color:#0e7490; cursor:pointer; transition:background .15s,color .15s; }
+        .eng-toggle-btn.active-jira    { background:#0e7490; color:#fff; border-color:#0e7490; }
+        .eng-toggle-btn.active-nonjira { background:#7c3aed; color:#fff; border-color:#7c3aed; }
+        .eng-toggle-btn.active-all     { background:#0e7490; color:#fff; border-color:#0e7490; }
+        /* Non-JIRA reported panel */
+        .eng-nonjira-panel { background:#faf5ff; border:1.5px solid #c4b5fd; border-radius:12px; padding:16px 18px; margin-bottom:20px; }
+        .eng-nonjira-panel h4 { font-size:12px; font-weight:900; color:#5b21b6; margin:0 0 10px; }
+        .eng-uid-chips { display:flex; flex-wrap:wrap; gap:6px; }
+        .eng-uid-chip { background:#ede9fe; border:1px solid #c4b5fd; border-radius:20px; padding:3px 10px; font-size:11px; font-weight:700; color:#5b21b6; }
+        </style>
+
+        {# Month selector + toggle #}
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
+          <span style="font-size:12px;font-weight:900;color:#0f172a;">&#x1F4C5; Month:</span>
+          <select class="eng-month-select" id="engMonthSelect" onchange="engChangeMonth(this.value)" oninput="engChangeMonth(this.value)">
+            {% for mkey, mlabel in (eng_months or []) %}
+            <option value="{{ mkey }}" {{ 'selected' if mkey == eng_sel_month else '' }}>{{ mlabel }}</option>
+            {% endfor %}
+          </select>
+          <div style="display:flex;gap:6px;margin-left:auto;align-items:center;">
+            <button id="engBtnJira"    class="eng-toggle-btn active-jira" onclick="engFilterPivot('jira')">&#128100; JIRA Reported</button>
+            <button id="engBtnNonJira" class="eng-toggle-btn"             onclick="engFilterPivot('nonjira')">&#128683; Non-JIRA Reported</button>
+            <button onclick="engCopyPivotTable(this)" style="height:32px;padding:0 14px;border-radius:8px;border:1.5px solid #a5f3fc;background:#ecfeff;font-size:11px;font-weight:800;color:#0e7490;cursor:pointer;">&#10697; Copy</button>
+          </div>
+        </div>
+
+        {# Summary line: JIRA reported + Non-JIRA reported must equal current PDT total #}
+        {%- set _use_hc_counts = (eng_hc_total|default(0)|int) > 0 -%}
+        {%- set _jira_cnt = (eng_active_pdt_count|default(0)|int) if _use_hc_counts else ((eng_pivot_rows or [])|selectattr('is_pdt_member')|list|length) -%}
+        {%- set _nonjira_list = (eng_inactive_hc_employees or []) if _use_hc_counts else (eng_inactive_members or []) -%}
+        {%- set _nonjira_cnt = _nonjira_list|length -%}
+        {%- set _pdt_total   = (eng_pdt_total or 0) -%}
+        <div style="font-size:12px;font-weight:800;color:#0e7490;margin-bottom:10px;">
+          &#128100; {{ _jira_cnt }} / {{ _pdt_total }} active JIRA reporters
+          &nbsp;&middot;&nbsp;
+          <span style="color:#7c3aed;">&#128683; {{ _nonjira_cnt }} non-JIRA reported</span>
+          &nbsp;&middot;&nbsp;
+          <span style="color:#64748b;">{{ eng_total_count or 0 }} ticket(s)</span>
+        </div>
+
+        {# Non-JIRA Reported panel (hidden by default, shown when toggle clicked) #}
+        <div id="engNonJiraPanel" class="eng-nonjira-panel" style="display:none;">
+          <h4>&#128683; Non-JIRA Reported PDT Members &mdash; {{ eng_sel_month_label or eng_sel_month or '' }}</h4>
+          {%- set _use_hc_panel = (eng_hc_total|default(0)|int) > 0 -%}
+          {%- set _nj_list = (eng_inactive_hc_employees or []) if _use_hc_panel else [] -%}
+          {%- set _ldap_nj_list = (eng_inactive_members or []) if not _use_hc_panel else [] -%}
+          {%- if _nj_list or _ldap_nj_list %}
+          <div style="overflow-x:auto;border:1px solid #c4b5fd;border-radius:10px;margin-top:8px;">
+            <table style="border-collapse:collapse;font-size:11px;width:100%;min-width:200px;">
+              <thead>
+                <tr style="background:#7c3aed;color:#fff;">
+                  <th style="padding:6px 10px;text-align:center;font-weight:900;border-right:1px solid #a78bfa;width:40px;">#</th>
+                  <th style="padding:6px 10px;text-align:left;font-weight:900;">Name</th>
+                </tr>
+              </thead>
+              <tbody>
+                {%- if _use_hc_panel %}
+                  {% for emp in _nj_list %}
+                  <tr style="background:{{ '#f5f3ff' if loop.index is odd else '#ede9fe' }};">
+                    <td style="padding:5px 10px;text-align:center;color:#7c3aed;font-weight:700;border-right:1px solid #ddd8fe;">{{ loop.index }}</td>
+                    <td style="padding:5px 10px;color:#1e293b;font-weight:700;">{{ emp.name }}</td>
+                  </tr>
+                  {% endfor %}
+                {%- else %}
+                  {% for uid in _ldap_nj_list %}
+                  {%- set _disp = (eng_uid_display_names or {}).get(uid, '') -%}
+                  <tr style="background:{{ '#f5f3ff' if loop.index is odd else '#ede9fe' }};">
+                    <td style="padding:5px 10px;text-align:center;color:#7c3aed;font-weight:700;border-right:1px solid #ddd8fe;">{{ loop.index }}</td>
+                    <td style="padding:5px 10px;color:#1e293b;font-weight:700;">{{ _disp if (_disp and _disp != uid) else uid }}</td>
+                  </tr>
+                  {% endfor %}
+                {%- endif %}
+              </tbody>
+              <tfoot>
+                <tr style="background:#5b21b6;color:#fff;">
+                  <td colspan="2" style="padding:5px 10px;font-weight:900;font-size:11px;">Total: {{ (_nj_list or _ldap_nj_list)|length }} member(s) with no JIRA reported this month</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+          {%- else %}
+          <div style="color:#7c3aed;font-size:12px;font-weight:700;">All PDT members reported at least one JIRA this month. &#127881;</div>
+          {%- endif %}
+        </div>
+
+        {# ── Pivot Table: Reporter × Target ── #}
+        {% if eng_pivot_rows and eng_pivot_targets %}
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+          <span style="font-size:13px;font-weight:900;color:#0f172a;">&#128202; Reporter &times; Target Pivot</span>
+          <span id="engPivotCount" style="font-size:11px;color:#64748b;font-weight:600;">&nbsp;{{ (eng_pivot_rows or [])|length }} reporters &middot; {{ (eng_pivot_targets or [])|length }} targets</span>
+        </div>
+        <div class="eng-pivot-wrap">
+          <table id="engPivotTable" class="eng-pivot-tbl">
+            <thead>
+              <tr>
+                <th class="th-reporter">Reporter</th>
+                {% for tgt in (eng_pivot_targets or []) %}
+                <th title="{{ tgt }}"><span class="rot">{{ tgt }}</span></th>
+                {% endfor %}
+                <th class="th-total">Total</th>
+              </tr>
+            </thead>
+            <tbody id="engPivotTbody">
+              {% for row in (eng_pivot_rows or []) %}
+              <tr data-pdt="{{ 'yes' if row.is_pdt_member else 'no' }}">
+                <td class="td-reporter" title="{{ row.uid or '' }}">{{ row.reporter }}</td>
+                {% for tgt in (eng_pivot_targets or []) %}
+                  {%- set cnt = row.get(tgt, 0) -%}
+                  <td class="{{ 'td-zero' if not cnt else '' }}">{{ cnt if cnt else '' }}</td>
+                {% endfor %}
+                <td class="td-total">{{ row.total }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+            <tfoot>
+              <tr id="engPivotFoot">
+                <td class="td-reporter">TOTAL</td>
+                {% for tgt in (eng_pivot_targets or []) %}
+                  {%- set col_total = (eng_pivot_col_totals or {}).get(tgt, 0) -%}
+                  <td data-tgt="{{ tgt }}">{{ col_total if col_total else '' }}</td>
+                {% endfor %}
+                <td id="engPivotGrandTotal">{{ eng_total_count or 0 }}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+        {% else %}
+        <div style="text-align:center;padding:40px;color:#94a3b8;font-weight:800;">No data for selected month.</div>
+        {% endif %}
+
         {% elif card_key not in ('cr_pie', 'unique_report') %}
 
         <div class="wcd-placeholder">
@@ -1070,6 +1225,112 @@
     </div>
   </div>
 </div>
+
+{% if card_key == 'engineer_jiras' %}
+<script>
+(function(){
+  /* Month dropdown: reload page with ?month=YYYY-MM */
+  window.engChangeMonth = function(val){
+    if(!val || window._engMonthChanging) return;
+    var currentMonth = {{ eng_sel_month | tojson | safe }};
+    if(String(val) === String(currentMonth || '')) return;
+    window._engMonthChanging = true;
+    var url = new URL(window.location.href);
+    url.searchParams.set('month', val);
+    url.searchParams.set('_ts', String(Date.now()));
+    window.location.assign(url.toString());
+  };
+
+  /* Toggle: 'all' | 'jira' | 'nonjira' */
+  var _engCurrentFilter = 'all';
+  window.engFilterPivot = function(mode){
+    _engCurrentFilter = mode;
+
+    /* Update button styles */
+    var btnAll     = document.getElementById('engBtnAll');
+    var btnJira    = document.getElementById('engBtnJira');
+    var btnNonJira = document.getElementById('engBtnNonJira');
+    if(btnAll)     { btnAll.className     = 'eng-toggle-btn' + (mode==='all'     ? ' active-all'     : ''); }
+    if(btnJira)    { btnJira.className    = 'eng-toggle-btn' + (mode==='jira'    ? ' active-jira'    : ''); }
+    if(btnNonJira) { btnNonJira.className = 'eng-toggle-btn' + (mode==='nonjira' ? ' active-nonjira' : ''); }
+
+    /* Non-JIRA Reported panel: show only when nonjira mode */
+    var nonJiraPanel = document.getElementById('engNonJiraPanel');
+    var pivotSection = document.getElementById('engPivotTable') ? document.getElementById('engPivotTable').closest('.eng-pivot-wrap') : null;
+    var pivotHeader  = pivotSection ? pivotSection.previousElementSibling : null;
+
+    if(mode === 'nonjira'){
+      /* Show non-JIRA panel, hide pivot table */
+      if(nonJiraPanel) nonJiraPanel.style.display = '';
+      if(pivotSection) pivotSection.style.display = 'none';
+      if(pivotHeader)  pivotHeader.style.display  = 'none';
+      return;
+    }
+
+    /* Show pivot table, hide non-JIRA panel */
+    if(nonJiraPanel) nonJiraPanel.style.display = 'none';
+    if(pivotSection) pivotSection.style.display = '';
+    if(pivotHeader)  pivotHeader.style.display  = '';
+
+    /* Filter pivot rows: 'all' shows everyone, 'jira' shows only matched PDT members */
+    var tbody = document.getElementById('engPivotTbody');
+    if(!tbody) return;
+    var rows = tbody.rows;
+    var visCount = 0;
+    var colTotals = {};
+    var grandTotal = 0;
+    for(var i=0; i<rows.length; i++){
+      var isPdt = rows[i].getAttribute('data-pdt') === 'yes';
+      var show = (mode === 'all') || (mode === 'jira' && isPdt);
+      rows[i].style.display = show ? '' : 'none';
+      if(show){
+        visCount++;
+        var cells = rows[i].cells;
+        for(var c=1; c<cells.length-1; c++){
+          var v = parseInt(cells[c].textContent || '0', 10) || 0;
+          colTotals[c] = (colTotals[c] || 0) + v;
+        }
+        grandTotal += parseInt(cells[cells.length-1].textContent || '0', 10) || 0;
+      }
+    }
+
+    /* Update footer totals */
+    var footRow = document.getElementById('engPivotFoot');
+    if(footRow){
+      var footCells = footRow.cells;
+      for(var fc=1; fc<footCells.length-1; fc++){
+        footCells[fc].textContent = colTotals[fc] || '';
+      }
+      var grandEl = document.getElementById('engPivotGrandTotal');
+      if(grandEl) grandEl.textContent = grandTotal || 0;
+    }
+
+    /* Update count label */
+    var countEl = document.getElementById('engPivotCount');
+    if(countEl){
+      var tgtCount = document.querySelectorAll('#engPivotTable thead th:not(.th-reporter):not(.th-total)').length;
+      countEl.textContent = '\u00a0' + visCount + ' reporter(s)' + (tgtCount ? ' \u00b7 ' + tgtCount + ' targets' : '');
+    }
+  };
+
+  /* Initialize: apply 'jira' filter on page load so pivot shows PDT members only */
+  (function(){ engFilterPivot('jira'); })();
+
+  /* Copy pivot table */
+  window.engCopyPivotTable = function(btn){
+    var tbl = document.getElementById('engPivotTable');
+    if(!tbl){ alert('Pivot table not found'); return; }
+    if(window.spCopyTableRich){ spCopyTableRich(tbl, btn); return; }
+    var range = document.createRange(); range.selectNode(tbl);
+    window.getSelection().removeAllRanges();
+    window.getSelection().addRange(range);
+    var ok=false; try{ ok=document.execCommand('copy'); }catch(e){}
+    window.getSelection().removeAllRanges();
+    if(btn){ btn.textContent=ok?'Copied!':'Select manually'; setTimeout(function(){ btn.textContent='\u10697 Copy'; },2000); }
+  };
+})();
+</script>
+{% endif %}
 
 {% if card_key == 'cr_pie' %}
 <script>
@@ -1913,7 +2174,7 @@ window.spCloseNoCrashModal = window.spCloseNoCrashModal || function(){
         var _buSel = document.getElementById('spNoCrashBu');
         if(info.bu && _buSel && !_buSel.value) spSetSelectValue('spNoCrashBu', info.bu);
         var _buNote = document.getElementById('spNoCrashBuNote');
-        if(_buNote){
+       if(_buNote){
           if(info.require_bu_selection && _buSel && !_buSel.value){
             _buNote.textContent = 'BU not found in dashboard — please select manually.';
             _buNote.style.display = 'block';

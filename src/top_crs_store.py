@@ -397,6 +397,40 @@ def update_config(
             pass
 
 
+def delete_config(config_id: int, updated_by: str) -> dict:
+    """Soft-delete a Top CR config by disabling it so it disappears from saved config dropdowns."""
+    ensure_tables()
+    conn = get_mysql_connection_db()
+    if not conn:
+        return {"ok": False, "error": "DB connection failed"}
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            UPDATE pdt_buddy_top_cr_configs
+            SET enabled=0, updated_by=%s
+            WHERE id=%s
+        """, (updated_by, config_id))
+        if cur.rowcount == 0:
+            conn.rollback()
+            cur.close()
+            return {"ok": False, "error": "Config not found"}
+        conn.commit()
+        cur.close()
+        return {"ok": True}
+    except Exception as e:
+        logger.exception("Failed to remove Top CR config %s", config_id)
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        return {"ok": False, "error": str(e)}
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+
 def _insert_sources(cur, config_id: int, sources: list[dict], by: str):
     for i, s in enumerate(sources):
         cur.execute("""

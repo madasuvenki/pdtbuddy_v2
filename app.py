@@ -2694,6 +2694,13 @@ def _hwpdt_scheduler():
 # or its standalone .exe. Do not start an app.py background HWPDT scheduler.
 logger.info("[APP] HWPDT scheduler disabled; use update_axiom_job_summary.py/.exe for Axiom updates.")
 
+try:
+    from weekly_summary_routes import start_pdt_group_members_daily_scheduler as _start_pdt_group_members_daily_scheduler
+    if _start_pdt_group_members_daily_scheduler():
+        logger.info("[APP] PDT group user-id JSON scheduler started (fires daily at 00:00).")
+except Exception as _e:
+    logger.warning("[APP] PDT group user-id JSON scheduler could not start: %s", _e)
+
 
 # ---------------------------------------------------------------------------
 # QIPL CSV Auto-Import Scheduler

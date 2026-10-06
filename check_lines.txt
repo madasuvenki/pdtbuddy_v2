@@ -1,0 +1,126 @@
+('lines:', 4264)
+1386:         if(!cell || cell.textContent.trim().toLowerCase() !== filters[j]){ ok=false; break; }
+
+1387:       }
+
+1388:       if(ok){ var c=rows[i].cells[0]; if(c) c.textContent=++n; }
+
+1389:     }
+
+1390:   };
+
+1391: 
+
+1392:   /* Copy summary table */
+
+1393:   window.engCopySummaryTable = function(btn){
+
+1394:     var tbl = document.getElementById('engSummaryTable');
+
+1395:     if(!tbl){ alert('Table not found'); return; }
+
+1396:     if(window.spCopyTableRich){ spCopyTableRich(tbl, btn); return; }
+
+1397:     var range = document.createRange(); range.selectNode(tbl);
+
+1398:     window.getSelection().removeAllRanges();
+
+1399:     window.getSelection().addRange(range);
+
+1400:     var ok=false; try{ ok=document.execCommand('copy'); }catch(e){}
+
+1401:     window.getSelection().removeAllRanges();
+
+1402:     if(btn){ btn.textContent=ok?'Copied!':'Select manually'; setTimeout(function(){ btn.textContent=
+1403:   };
+
+1404: 
+
+1405:   /* Copy pivot table */
+
+1406:   window.engCopyPivotTable = function(btn){
+
+1407:     var tbl = document.getElementById('engPivotTable');
+
+1408:     if(!tbl){ alert('Pivot table not found'); return; }
+
+1409:     if(window.spCopyTableRich){ spCopyTableRich(tbl, btn); return; }
+
+1410:     var range = document.createRange(); range.selectNode(tbl);
+
+1411:     window.getSelection().removeAllRanges();
+
+1412:     window.getSelection().addRange(range);
+
+1413:     var ok=false; try{ ok=document.execCommand('copy'); }catch(e){}
+
+1414:     window.getSelection().removeAllRanges();
+
+1415:     if(btn){ btn.textContent=ok?'Copied!':'Select manually'; setTimeout(function(){ btn.textContent=
+1416:   };
+
+1417: 
+
+1418:   /* Copy detail table */
+
+1419:   window.engCopyDetailTable = function(btn){
+
+1420:     var tbl = document.getElementById('engDetailTable');
+
+1421:     if(!tbl){ alert('Table not found'); return; }
+
+1422:     if(window.spCopyTableRich){ spCopyTableRich(tbl, btn); return; }
+
+1423:     var range = document.createRange(); range.selectNode(tbl);
+
+1424:     window.getSelection().removeAllRanges();
+
+1425:     window.getSelection().addRange(range);
+
+1426:     var ok=false; try{ ok=document.execCommand('copy'); }catch(e){}
+
+1427:     window.getSelection().removeAllRanges();
+
+1428:     if(btn){ btn.textContent=ok?'Copied!':'Select manually'; setTimeout(function(){ btn.textContent=
+1429:   };
+
+1430: })();
+
+1431: </script>
+
+1432: {% endif %}
+
+1433: 
+
+1434: {% if card_key == 'cr_pie' %}
+
+1435: <script>
+
+1436: (function(){
+
+1437:   if(typeof Highcharts !== 'undefined' && !Highcharts.seriesTypes.pie3d){
+
+1438:     var s = document.createElement('script');
+
+1439:     s.src = 'https://cdn.jsdelivr.net/npm/highcharts@12/highcharts-3d.js';
+
+1440:     s.onload = function(){ if(typeof renderTargetPies === 'function') renderTargetPies(); };
+
+1441:     document.head.appendChild(s);
+
+1442:   }
+
+1443: })();
+
+1444: </script>
+
+1445: {% endif %}
+
+1446: 
+
+1447: {% if card_key == 'sharepoint' %}
+
+1448: <div id="spBuRequiredModal" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba
+1449:   <div style="background:#fff;border-radius:18px;padding:22px;width:430px;max-width:94vw;box-shadow:
+1450:     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap
+done

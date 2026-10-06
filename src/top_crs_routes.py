@@ -21,15 +21,18 @@ from __future__ import annotations
 
 import io
 import logging
+import os
 import re
 from datetime import date, datetime
 
 from flask import (
     Blueprint,
     jsonify,
+    redirect,
     render_template,
     request,
     send_file,
+    url_for,
 )
 from flask_login import current_user, login_required
 
@@ -138,6 +141,47 @@ def _pdt_priority(occurrence) -> str:
         return "P1" if int(str(occurrence).strip()) > 10 else "P2"
     except (TypeError, ValueError):
         return "P2"
+
+
+# ---------------------------------------------------------------------------
+# Private API token helpers
+# ---------------------------------------------------------------------------
+
+_PRIVATE_API_TOKEN_ENV = "TOP_CRS_PRIVATE_API_TOKEN"
+
+
+def _get_private_api_token() -> str:
+    """Return the configured private API token from environment."""
+    return os.environ.get(_PRIVATE_API_TOKEN_ENV, "").strip()
+
+
+def _has_token_attempt() -> bool:
+    """Return True if the request carries any token credential."""
+    return bool(
+        request.headers.get("Authorization", "").startswith("Bearer ")
+        or request.headers.get("X-API-Token", "").strip()
+        or request.args.get("token", "").strip()
+    )
+
+
+def _validate_private_token() -> bool:
+    """Return True if the request carries the correct private API token."""
+    configured = _get_private_api_token()
+    if not configured:
+        return False
+    # Authorization: Bearer <token>
+    auth = request.headers.get("Authorization", "")
+    if auth.startswith("Bearer "):
+        return auth[7:].strip() == configured
+    # X-API-Token: <token>
+    x_tok = request.headers.get("X-API-Token", "").strip()
+    if x_tok:
+        return x_tok == configured
+    # ?token=<token>  (convenience for browser/curl testing)
+    q_tok = request.args.get("token", "").strip()
+    if q_tok:
+        return q_tok == configured
+    return False
 
 
 def _is_admin() -> bool:
@@ -339,15 +383,60 @@ def _fetch_rows_for_config(
     raw: list[dict] = []
     try:
         cur = conn.cursor(dictionary=True)
-        union_sql = " UNION ALL ".join(
-            f"""SELECT cr, cr_occurrence, pdt_priority_tag, cr_age, cr_title,
-                       cr_area, cr_subsystem, cr_functionality, cr_date, cr_status,
-                       cr_notes, jira_date__last_instance, image, cr_category,
-                       parent_cr
-                FROM `{schema}`.`{t}`
-                WHERE cr IS NOT NULL AND cr <> ''"""
-            for t in unique_crs_tables
-        )
+        expected_cols = [
+            "cr",
+            "cr_occurrence",
+            "pdt_priority_tag",
+            "cr_age",
+            "cr_title",
+            "cr_area",
+            "cr_subsystem",
+            "cr_functionality",
+            "cr_date",
+            "cr_status",
+            "cr_notes",
+            "jira_date__last_instance",
+            "image",
+            "cr_category",
+            "parent_cr",
+        ]
+
+        union_parts: list[str] = []
+        for t in unique_crs_tables:
+            try:
+                cur.execute(
+                    """
+                    SELECT COLUMN_NAME
+                    FROM INFORMATION_SCHEMA.COLUMNS
+                    WHERE TABLE_SCHEMA=%s AND TABLE_NAME=%s
+                    """,
+                    (schema, t),
+                )
+                table_cols = {
+                    str(row["COLUMN_NAME"])
+                    for row in (cur.fetchall() or [])
+                    if row.get("COLUMN_NAME")
+                }
+                if "cr" not in table_cols:
+                    logger.warning("Skipping %s.%s for Top CRs: missing required cr column", schema, t)
+                    continue
+                select_cols = [
+                    f"`{col}` AS `{col}`" if col in table_cols else f"NULL AS `{col}`"
+                    for col in expected_cols
+                ]
+                union_parts.append(
+                    f"""SELECT {", ".join(select_cols)}
+                        FROM `{schema}`.`{t}`
+                        WHERE `cr` IS NOT NULL AND `cr` <> ''"""
+                )
+            except Exception:
+                logger.debug("Failed to inspect/build Top CR source %s.%s", schema, t, exc_info=True)
+
+        if not union_parts:
+            cur.close()
+            return []
+
+        union_sql = " UNION ALL ".join(union_parts)
         cur.execute(f"""
             SELECT * FROM ( {union_sql} ) AS u
             ORDER BY (jira_date__last_instance IS NULL),
@@ -612,12 +701,163 @@ def _build_seen_other_map(schema: str, seen_sources: list[dict], raw_rows: list[
 
 
 # ---------------------------------------------------------------------------
-# Page route
+# Private API row builder  (excludes cr_notes / scenario / comments)
+# ---------------------------------------------------------------------------
+
+def _build_private_api_row(row: dict, s_no: int) -> dict:
+    """Return a clean API-safe row dict, stripping internal/text-heavy fields."""
+    return {
+        "s_no": s_no,
+        "cr": row.get("cr", ""),
+        "parent_cr": row.get("parent_cr", ""),
+        "is_dup": bool(row.get("is_dup")),
+        "jira_count": row.get("occurrence", ""),
+        "recent_jira_count": row.get("recent_occurrence") if row.get("recent_occurrence") else None,
+        "pdt_priority": row.get("priority", ""),
+        "crash_type": row.get("crash_type", ""),
+        "cr_age": row.get("age", ""),
+        "cr_title": row.get("title", ""),
+        "cr_area": row.get("area", ""),
+        "meta_id": row.get("meta_id", ""),
+        "last_meta_ids": row.get("last_meta_ids") or [],
+        "rb_ml": row.get("rb_ml", ""),
+        "cr_date": row.get("cr_date", ""),
+        "last_seen": row.get("last_seen", ""),
+        "cr_status": row.get("status", ""),
+        "ready_date": row.get("ready_date", ""),
+        "seen_other_target": row.get("seen_other_target", ""),
+    }
+
+
+def _private_top_crs_api_response():
+    """Build and return the private JSON response for /top_crs."""
+    try:
+        top_n = int(request.args.get("top", "10"))
+    except (TypeError, ValueError):
+        top_n = 10
+    limit = 10 if top_n >= 10 else 5
+
+    requested = {
+        c.strip().lower()
+        for c in (request.args.get("crash_types", "") or "").split(",")
+        if c.strip()
+    }
+    crash_types = requested & {"system", "ssr", "process"}
+
+    try:
+        filter_config_id = int(request.args.get("config_id") or 0)
+    except (TypeError, ValueError):
+        filter_config_id = 0
+
+    requested_bu = str(request.args.get("bu") or "").strip().upper()
+
+    config_summaries = store.get_all_configs()
+    if requested_bu:
+        config_summaries = [
+            c for c in config_summaries
+            if str(c.get("bu") or "").strip().upper() == requested_bu
+        ]
+    if filter_config_id:
+        config_summaries = [c for c in config_summaries if c.get("id") == filter_config_id]
+
+    if filter_config_id and not config_summaries:
+        return jsonify({"ok": False, "error": f"Config {filter_config_id} not found"}), 404
+    if requested_bu and not config_summaries:
+        return jsonify({"ok": False, "error": f"No Top CR configs found for BU {requested_bu}"}), 404
+
+    # get_all_configs() only returns config metadata/source counts. Hydrate each
+    # config with its source table definitions so _fetch_rows_for_config() can
+    # read the configured unique_crs/jiras tables for this token-access API.
+    configs = []
+    for cfg_summary in config_summaries:
+        cfg = store.get_config(cfg_summary.get("id"))
+        if cfg:
+            configs.append(cfg)
+
+    if filter_config_id and not configs:
+        return jsonify({"ok": False, "error": f"Config {filter_config_id} source details not found"}), 404
+
+    result_configs = []
+    for cfg in configs:
+        config_id = cfg.get("id")
+        sources = cfg.get("sources") or []
+        unique_crs_tables = [
+            s["table_name"] for s in sources
+            if s.get("source_type") == "unique_crs" and s.get("enabled", True)
+        ]
+        combo_key = store.make_combo_key(config_id, unique_crs_tables)
+        state_map = store.get_state_map(config_id, combo_key)
+        excluded_cr_ids = {cr for cr, st in state_map.items() if st.get("is_removed")}
+        crash_type_overrides = {
+            cr: str(st.get("crash_type_override") or "").lower()
+            for cr, st in state_map.items()
+            if st.get("crash_type_override")
+        }
+
+        fetch_limit = max(200, limit * 20 + len(excluded_cr_ids))
+        rows = _fetch_rows_for_config(
+            cfg,
+            crash_types,
+            fetch_limit,
+            excluded_cr_ids,
+            meta_limit=limit,
+            crash_type_overrides=crash_type_overrides,
+        )
+
+        # Apply crash type overrides from saved state
+        for r in rows:
+            key = r["cr"].upper()
+            state = state_map.get(key)
+            if state and state.get("crash_type_override"):
+                r["crash_type"] = state["crash_type_override"]
+
+        rows = rows[:limit]
+
+        has_seen_other = any(
+            s.get("source_type") == "seen_other_target" and s.get("enabled", True)
+            for s in sources
+        )
+
+        api_rows = [_build_private_api_row(r, i + 1) for i, r in enumerate(rows)]
+        if not has_seen_other:
+            for ar in api_rows:
+                ar.pop("seen_other_target", None)
+
+        result_configs.append({
+            "config_id": config_id,
+            "sp": cfg.get("display_name", ""),
+            "bu": cfg.get("bu", ""),
+            "top": limit,
+            "count": len(api_rows),
+            "rows": api_rows,
+        })
+
+    return jsonify({
+        "ok": True,
+        "top": limit,
+        "bu": requested_bu or None,
+        "total_configs": len(result_configs),
+        "configs": result_configs,
+    })
+
+
+# ---------------------------------------------------------------------------
+# Page route  (also serves private JSON API when token is present)
 # ---------------------------------------------------------------------------
 
 @top_crs_bp.route("/top_crs")
-@login_required
 def top_crs_page():
+    # ── Private API mode: token present ────────────────────────────────────
+    if _has_token_attempt():
+        if not _validate_private_token():
+            return jsonify({"ok": False, "error": "Invalid or missing API token"}), 401
+        return _private_top_crs_api_response()
+
+    # ── Normal UI mode: require login ───────────────────────────────────────
+    if not (current_user and current_user.is_authenticated):
+        return redirect(url_for("auth.login", next=request.url))
+
+    # ── Original page logic below ───────────────────────────────────────────
     configs = store.get_all_configs()
     excluded_dropdown_bus = {"WEEKLY_QIPL_REPORTS"}
 
@@ -762,6 +1002,15 @@ def api_top_crs_update_config(config_id: int):
         updated_by=_current_user_id(),
     )
     return jsonify(result), (200 if result.get("ok") else 400)
+
+
+@top_crs_bp.route("/api/top_crs/configs/<int:config_id>", methods=["DELETE"])
+@login_required
+def api_top_crs_delete_config(config_id: int):
+    if not _is_admin():
+        return jsonify({"ok": False, "error": "Admin only"}), 403
+    result = store.delete_config(config_id, _current_user_id())
+    return jsonify(result), (200 if result.get("ok") else 404)
 
 
 @top_crs_bp.route("/api/top_crs/available_tables", methods=["GET"])
@@ -1155,7 +1404,7 @@ def _build_ppt(
         "Debug Notes", "Scenario", "Comments",
     ]
     col_widths = [
-        0.35, 0.85, 0.65, 0.50, 0.65, 0.45,
+        0.35, 0.85, 0.80, 0.50, 0.65, 0.45,  # Jira count col widened to 0.80
         2.35, 1.05,
         0.45, 0.65, 0.65, 0.65,
         1.65, 1.05, 1.05,
@@ -1193,7 +1442,7 @@ def _build_ppt(
 
     def _add_cr_slide(slide_title: str, page_rows: list[dict],
                       start_idx: int, ct: str) -> None:
-        """Add one data slide with up to 5 CR rows."""
+        """Add one data slide — row height auto-adjusts to the number of CRs."""
         slide = prs.slides.add_slide(prs.slide_layouts[6])
         title_color = _CT_COLOR.get(ct, BLUE)
 
@@ -1221,32 +1470,49 @@ def _build_ppt(
         srun.font.size = Pt(9)
         srun.font.color.rgb = RGBColor(0x66, 0x66, 0x66)
 
-        # Table
-        n_rows = len(page_rows) + 1   # header + data
+        # ── Table — compact fixed-height rows ────────────────────────────
+        n_data_rows = len(page_rows)
         n_cols = len(headers)
+
+        _TABLE_TOP_IN = 1.0
+        _HDR_H_IN     = 0.50   # compact header
+        _ROW_H_IN     = 1.16   # fixed data row height (fits 5 rows in slide)
+        _TABLE_H_IN   = _HDR_H_IN + n_data_rows * _ROW_H_IN
+
         tshape = slide.shapes.add_table(
-            n_rows, n_cols,
-            Inches(0.12), Inches(1.0), Inches(13.1), Inches(6.3),
+            n_data_rows + 1, n_cols,
+            Inches(0.12), Inches(_TABLE_TOP_IN),
+            Inches(13.1), Inches(_TABLE_H_IN),
         )
         tbl = tshape.table
         total_w = sum(col_widths)
         for ci, cw in enumerate(col_widths):
             tbl.columns[ci].width = int(Inches(13.1) * (cw / total_w))
 
-        # Header row
+        # Set ALL row heights immediately after table creation (before filling)
+        tbl.rows[0].height = Inches(_HDR_H_IN)
+        for ri in range(1, n_data_rows + 1):
+            tbl.rows[ri].height = Inches(_ROW_H_IN)
+
+        # Header row — fill cells
         for ci, h in enumerate(headers):
             _set(tbl.cell(0, ci), h, size=6.5, bold=True,
                  color=WHITE, fill=BLUE)
 
-        # Data rows
+        # Data rows — fill cells (heights already pinned above)
         for ri, row in enumerate(page_rows, start=1):
             bg = ROW if ri % 2 else ROW_ALT
             cr_disp = row.get("cr", "")
             if row.get("parent_cr"):
                 cr_disp = f"{cr_disp} / {row.get('parent_cr')}"
-            occ_disp = str(row.get("occurrence", "") or "")
+            occurrence = str(row.get("occurrence", "") or "")
+            recent_occ = row.get("recent_occurrence")
             if row.get("is_dup") and row.get("parent_cr"):
                 occ_disp = f"Dup of {row.get('parent_cr')}"
+            elif recent_occ is not None and str(recent_occ) != occurrence and occurrence:
+                occ_disp = f"{recent_occ}\n(total: {occurrence})"
+            else:
+                occ_disp = occurrence
             vals = [
                 str(start_idx + ri),
                 cr_disp,
@@ -1287,6 +1553,9 @@ def _build_ppt(
                 if (r.get("crash_type") or "").lower() == ct
             ]
             if ct_open:
+                # Sort by Jira count (occurrence) descending
+                ct_open.sort(key=lambda r: -(int(str(r.get("occurrence") or "0").strip() or "0")
+                    if str(r.get("occurrence") or "0").strip().isdigit() else 0))
                 total_pages = (len(ct_open) + ROWS_PER_SLIDE - 1) // ROWS_PER_SLIDE
                 for page_idx in range(total_pages):
                     start = page_idx * ROWS_PER_SLIDE
@@ -1308,6 +1577,9 @@ def _build_ppt(
                 if (r.get("crash_type") or "").lower() == ct
             ]
             if ct_built:
+                # Sort by Jira count (occurrence) descending
+                ct_built.sort(key=lambda r: -(int(str(r.get("occurrence") or "0").strip() or "0")
+                    if str(r.get("occurrence") or "0").strip().isdigit() else 0))
                 total_pages = (len(ct_built) + ROWS_PER_SLIDE - 1) // ROWS_PER_SLIDE
                 for page_idx in range(total_pages):
                     start = page_idx * ROWS_PER_SLIDE

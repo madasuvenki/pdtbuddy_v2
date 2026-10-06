@@ -451,6 +451,28 @@ and must respect Jira date/device filters; if the selected end date is not lates
 
 ## Current Work Focus
 
+### Engineer JIRAs Card — Exact Match Fix (Completed 2026-10-06)
+
+**Changes made:**
+
+1. **`weekly_summary_routes.py` — `_build_engineer_jiras_card`:**
+   - Removed `_uid_substrings` pre-computation (heuristic substring matching)
+   - Removed Step 4 (heuristic UID substring match) from `_is_pdt_member`
+   - `_is_pdt_member` now uses only: (1) direct uid match, (2) exact normalized display name match, (3) token-set match (same words, any order)
+   - `inactive_members` (non-JIRA reporters) now uses exact matching only: (1) reporter IS the uid, (2) uid's known display name appears as a reporter
+   - Added `uid_to_dn` reverse map (uid → normalized display name)
+   - Added `uid_to_display_name` dict (uid → title-cased display name) for template tooltips
+   - Added `_reporter_uid()` helper to resolve uid for each pivot row
+   - Added `uid` field to each pivot row
+   - Added `eng_uid_display_names` to return dict
+
+2. **`templates/weekly_card_detail.html`:**
+   - Non-JIRA uid chips now show full display name as `title` tooltip on hover
+   - Pivot table reporter cells now show uid as `title` tooltip on hover
+
+---
+
+
 ### Weekly Smart Build Total Hours Capacity KPI Fix — Complete (2026-09-14)
 
 **User request addressed:** On `/weekly-report/smart-build-report?week_start=2026-08-31&week_end=2026-09-06`, Smart Build headline **Total Hours** was much lower than expected. The business sanity check is approximately `1600 devices * 20 hours/day * 7 days = 224,000h`, but the UI was showing about `107,636h`.
@@ -1739,3 +1761,34 @@ and must respect Jira date/device filters; if the selected end date is not lates
 - Total unique devices in `/api/sp2/builds` now comes from filtered build rows, not stale consolidate rows that may have been generated before this fix.
 - CHIPMD tickets are excluded from Smart Build crash/JIRA counts. Existing ticket parsing already drops `CHIPMD*` tokens; follow-up SQL filters now also exclude rows whose `stability_ticket` starts with `CHIPMD` from `_sp2_weekly_crash_map()` and `/api/sp2/stability_health` total Jira counts.
 - Validation: `uv run python -m py_compile weekly_summary_routes.py` passed, and helper checks confirmed prior-week-only rows are excluded while selected-week overlapping rows are included for Aug 31-Sep 6.
+
+## 2026-10-06 - Engineer JIRAs Card — Email + Reporter Cache Matching
+
+**Changes made to `weekly_summary_routes.py`:**
+
+1. **`_fetch_pdt_group_members_from_jira()`** — already returned 3-tuple `(members, display_names, emails)`.
+2. **`refresh_pdt_group_members_json()`** — updated to unpack 3-tuple and pass `emails` to `_save_pdt_group_members_json()`.
+3. **`_save_pdt_group_members_json()`** — updated to accept `emails` kwarg and persist `emails` + preserve `reporter_cache` across refreshes.
+4. **`_refresh_pdt_group_members_background()`** — updated to unpack 3-tuple from JIRA and pass `emails` to save.
+5. **`_load_pdt_group_members_json()`** — already loads `emails` and `reporter_cache` from JSON.
+6. **`_update_reporter_cache_in_json()`** — new helper: atomically updates a single reporter→uid entry in JSON (thread-safe, background-only).
+7. **`_lookup_reporter_in_jira_background()`** — new helper: background JIRA user search for unmatched reporters; writes result to `reporter_cache`.
+8. **`_build_engineer_jiras_card()`**:
+   - `_is_pdt_member()` — added step 4 (email match via `email_to_uid`) and step 5 (reporter_cache lookup).
+   - `_reporter_uid()` — added step 4 (email match) and step 5 (reporter_cache lookup).
+   - Background JIRA lookup trigger — fires for up to 20 unmatched reporters per page load.
+9. **`weekly_report_card()` (engineer_jiras branch)** — now loads `emails` and `reporter_cache` from JSON and passes them to `_build_engineer_jiras_card()`.
+10. **`weekly_report_landing()`** — now loads `emails` and `reporter_cache` from JSON and passes them to `_build_engineer_jiras_card()`.
+
+**Matching priority in `_is_pdt_member()` and `_reporter_uid()`:**
+1. Direct uid match (reporter IS the uid)
+2. Exact normalized display name match via `display_name_to_uid`
+3. Token-set match (same words, any order)
+4. Email match (reporter IS the email address of a PDT member)
+5. `reporter_cache` lookup (previously resolved via background JIRA user search)
+
+**Background JIRA lookup flow:**
+- Unmatched reporters (not in pdt_set, dn_to_uid, email_to_uid, or reporter_cache) trigger `_lookup_reporter_in_jira_background()`.
+- Capped at 20 lookups per page load to avoid hammering JIRA.
+- Results written atomically to `pdt_group_members.json` reporter_cache.
+- Future page loads resolve these reporters instantly from cache.

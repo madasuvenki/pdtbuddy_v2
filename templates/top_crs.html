@@ -169,7 +169,10 @@ table.tc-table tr:hover td{background:#f8fafc;}
       {% if is_admin %}
       <div class="tc-field" id="tcEditBtnWrap" style="display:none;">
         <span class="tc-label">&nbsp;</span>
-        <button class="tc-btn ghost" onclick="tcOpenAdminModal(tcCurrentConfigId)"><i class="fas fa-edit"></i> Edit Config</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="tc-btn ghost" onclick="tcOpenAdminModal(tcCurrentConfigId)"><i class="fas fa-edit"></i> Edit Config</button>
+          <button id="tcDeleteConfigBtn" class="tc-btn danger" onclick="tcDeleteSelectedConfig()" disabled><i class="fas fa-trash"></i> Remove Config</button>
+        </div>
       </div>
       {% endif %}
 
@@ -184,9 +187,9 @@ table.tc-table tr:hover td{background:#f8fafc;}
       <div class="tc-field">
         <span class="tc-label"><i class="fas fa-bug"></i> Crash Type</span>
         <div class="tc-crash-group">
-          <label id="tcCrash_all" onclick="tcSetCrashType('all')" style="border:1.5px solid #c7d2fe;background:#ede9fe;color:#4338ca;font-weight:900;cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:999px;font-size:12px;user-select:none;transition:.15s;">All</label>
-          <label id="tcCrash_system" onclick="tcSetCrashType('system')" style="border:1.5px solid #e2e8f0;background:#fff;color:#64748b;opacity:0.55;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:999px;font-size:12px;user-select:none;transition:.15s;">System</label>
-          <label id="tcCrash_ssr" onclick="tcSetCrashType('ssr')" style="border:1.5px solid #e2e8f0;background:#fff;color:#64748b;opacity:0.55;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:999px;font-size:12px;user-select:none;transition:.15s;">SSR</label>
+          <label id="tcCrash_all" onclick="tcSetCrashType('all')" style="border:1.5px solid #e2e8f0;background:#fff;color:#64748b;opacity:0.55;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:999px;font-size:12px;user-select:none;transition:.15s;">All</label>
+          <label id="tcCrash_system" onclick="tcSetCrashType('system')" style="border:1.5px solid #fca5a5;background:#fee2e2;color:#991b1b;font-weight:900;cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:999px;font-size:12px;user-select:none;transition:.15s;">System</label>
+          <label id="tcCrash_ssr" onclick="tcSetCrashType('ssr')" style="border:1.5px solid #fcd34d;background:#fef3c7;color:#92400e;font-weight:900;cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:999px;font-size:12px;user-select:none;transition:.15s;">SSR</label>
           <label id="tcCrash_process" onclick="tcSetCrashType('process')" style="border:1.5px solid #e2e8f0;background:#fff;color:#64748b;opacity:0.55;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:999px;font-size:12px;user-select:none;transition:.15s;">Process</label>
           <label class="tc-chip" id="tcChipDups" style="border-color:#e2e8f0;background:#f8fafc;color:#64748b;opacity:0.5;" onclick="tcToggleDups()"><i class="fas fa-copy"></i> Show Dups</label>
         </div>
@@ -449,7 +452,8 @@ table.tc-table tr:hover td{background:#f8fafc;}
 <script>
 // ── State ──────────────────────────────────────────────────────────────────
 let tcTop = 5;
-let tcCrashType = 'all'; // radio: 'all' | 'system' | 'ssr' | 'process'
+let tcCrashTypes = new Set(['system', 'ssr']); // default: System + SSR checked, Process unchecked
+let tcCrashType = 'all'; // legacy/export label derived from selected crash types
 let tcCurrentConfigId = null;
 let tcCurrentComboKey = null;
 let tcCurrentTab = 'top';
@@ -491,8 +495,9 @@ function tcSetTop(n){
   document.querySelectorAll('#tcTopSeg button').forEach(b=>b.classList.toggle('active',String(b.dataset.top)===String(n)));
   tcReload();
 }
-function tcSetCrashType(type){
-  tcCrashType=type;
+function tcRenderCrashTypeChips(){
+  const types=['system','ssr','process'];
+  const allSelected=types.every(t=>tcCrashTypes.has(t));
   const _active={
     all:'border:1.5px solid #c7d2fe;background:#ede9fe;color:#4338ca;font-weight:900;',
     system:'border:1.5px solid #fca5a5;background:#fee2e2;color:#991b1b;font-weight:900;',
@@ -502,14 +507,31 @@ function tcSetCrashType(type){
   const _base='border:1.5px solid #e2e8f0;background:#fff;color:#64748b;opacity:0.55;font-weight:800;';
   ['all','system','ssr','process'].forEach(t=>{
     const el=document.getElementById('tcCrash_'+t);
-    if(el) el.setAttribute('style',(t===type?_active[t]:_base)+'cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:999px;font-size:12px;user-select:none;transition:.15s;');
+    const on=t==='all'?allSelected:tcCrashTypes.has(t);
+    if(el) el.setAttribute('style',(on?_active[t]:_base)+'cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:999px;font-size:12px;user-select:none;transition:.15s;');
   });
+  const selected=tcSelectedCrashTypes();
+  tcCrashType=selected.length===0?'all':(selected.length===1?selected[0]:'all');
+}
+function tcSetCrashType(type){
+  const types=['system','ssr','process'];
+  if(type==='all'){
+    tcCrashTypes=new Set(types);
+  } else if(types.includes(type)){
+    if(tcCrashTypes.has(type)){
+      if(tcCrashTypes.size>1) tcCrashTypes.delete(type);
+    } else {
+      tcCrashTypes.add(type);
+    }
+  }
+  tcRenderCrashTypeChips();
   tcReload();
 }
 function tcSelectedCrashTypes(){
-  // 'all' → send empty array so backend skips crash-type filtering entirely
-  // (includes system + ssr + process + other)
-  return tcCrashType==='all'?[]:[tcCrashType];
+  const types=['system','ssr','process'];
+  // All selected → send empty array so backend skips crash-type filtering entirely
+  // (includes system + ssr + process + other). Default sends only system + ssr.
+  return types.every(t=>tcCrashTypes.has(t))?[]:types.filter(t=>tcCrashTypes.has(t));
 }
 
 // ── BU filter ──────────────────────────────────────────────────────────────
@@ -528,6 +550,8 @@ function tcOnBuFilterChange(){
     tcCurrentConfigId=null;
     const editWrap=document.getElementById('tcEditBtnWrap');
     if(editWrap) editWrap.style.display='none';
+    const deleteBtn=document.getElementById('tcDeleteConfigBtn');
+    if(deleteBtn) deleteBtn.disabled=true;
     tcCurrentComboKey=null;
     tcReload();
   }
@@ -539,6 +563,8 @@ function tcOnConfigChange(){
   tcCurrentConfigId=sel.value?parseInt(sel.value):null;
   const editWrap=document.getElementById('tcEditBtnWrap');
   if(editWrap) editWrap.style.display=tcCurrentConfigId?'':'none';
+  const deleteBtn=document.getElementById('tcDeleteConfigBtn');
+  if(deleteBtn) deleteBtn.disabled=!tcCurrentConfigId;
   tcCurrentComboKey=null;
   tcReload();
 }
@@ -608,7 +634,7 @@ async function tcReload(){
     // Date chips are built from the displayed rows only.
     tcAllRows = rows;
     tcCurrentSlide = 0;
-    tcCheckedDates = new Set(); // reset = all checked
+    tcCheckedDates = null; // null = uninitialized → tcApplyFilter will seed with all chip dates
     tcApplyFilter();
     document.getElementById('tcDownloadBtn').disabled=false;
     tcLoadNonlistCount();
@@ -630,7 +656,7 @@ function tcBuildDateChips(rows){
   const dates=[...new Set(visibleRows.map(r=>r.last_seen||'').filter(Boolean))].sort().reverse();
   if(!dates.length){ wrap.style.display='none'; chipsEl.innerHTML=''; return; }
   chipsEl.innerHTML=dates.map((d)=>{
-    const checked=!tcCheckedDates.has(d);
+    const checked=tcCheckedDates===null||tcCheckedDates.has(d);
     const checkedAttr=checked?'checked':'';
     const chipStyle=checked
       ?'border:1.5px solid #c7d2fe;background:#f5f3ff;color:#4338ca;'
@@ -644,22 +670,27 @@ function tcBuildDateChips(rows){
 }
 
 function tcToggleDate(date, checked){
-  if(checked){ tcCheckedDates.delete(date); }
-  else { tcCheckedDates.add(date); } // add to EXCLUDED set
+  // tcCheckedDates is now a set of INCLUDED dates.
+  // If still null (shouldn't happen, but guard), seed from all visible chips.
+  if(tcCheckedDates===null){
+    const allDates=[...document.querySelectorAll('#tcDateChips input[type=checkbox]')].map(cb=>cb.getAttribute('data-date'));
+    tcCheckedDates=new Set(allDates);
+  }
+  if(checked) tcCheckedDates.add(date);
+  else tcCheckedDates.delete(date);
   tcCurrentSlide=0;
   tcApplyFilter();
 }
 
 function tcSelectAllDates(){
-  tcCheckedDates.clear();
+  tcCheckedDates=null; // null → tcApplyFilter re-seeds with all chip dates
   document.querySelectorAll('#tcDateChips input[type=checkbox]').forEach(cb=>{ cb.checked=true; });
   tcCurrentSlide=0;
   tcApplyFilter();
 }
 
 function tcClearAllDates(){
-  const dates=[...document.querySelectorAll('#tcDateChips input[type=checkbox]')].map(cb=>cb.getAttribute('data-date'));
-  dates.forEach(d=>tcCheckedDates.add(d));
+  tcCheckedDates=new Set(); // empty set = no dates selected = show no rows
   document.querySelectorAll('#tcDateChips input[type=checkbox]').forEach(cb=>{ cb.checked=false; });
   tcCurrentSlide=0;
   tcApplyFilter();
@@ -697,17 +728,32 @@ function tcApplyFilter(){
   // from the larger hidden candidate pool returned by the API.
   const openChipRows  = nonDateBase.filter(r=>tcClassifyStatus(r.status)==='open').slice(0, tcTop);
   const builtChipRows = nonDateBase.filter(r=>tcClassifyStatus(r.status)==='built').slice(0, tcTop);
-  tcBuildDateChips([...(tcShowOpen?openChipRows:[]), ...(tcShowBuilt?builtChipRows:[])]);
+  const chipRows=[...(tcShowOpen?openChipRows:[]), ...(tcShowBuilt?builtChipRows:[])];
+  const allChipDates=[...new Set(chipRows.map(r=>r.last_seen||'').filter(Boolean))];
 
+  // Seed tcCheckedDates with all chip dates on first load (null = uninitialized)
+  if(tcCheckedDates===null) tcCheckedDates=new Set(allChipDates);
+
+  tcBuildDateChips(chipRows);
+
+  // tcCheckedDates = INCLUDED dates.  Empty → no rows.  Non-empty → only matching rows.
   tcFilteredRows = tcCheckedDates.size===0
-    ? nonDateBase
-    : nonDateBase.filter(r=>!tcCheckedDates.has(r.last_seen||''));
+    ? []
+    : nonDateBase.filter(r=>{
+        const d=r.last_seen||'';
+        if(!d) return true; // rows with no last_seen always pass
+        return tcCheckedDates.has(d);
+      });
 
-  // The API intentionally returns extra latest candidates. After browser-side
-  // filters, cap each visible status group to the selected Top N so Top 5/10
-  // fills from Last Seen instead of stopping early at 3–4 visible rows.
-  tcOpenRows  = tcFilteredRows.filter(r=>tcClassifyStatus(r.status)==='open').slice(0, tcTop);
-  tcBuiltRows = tcFilteredRows.filter(r=>tcClassifyStatus(r.status)==='built').slice(0, tcTop);
+  // Sort by Jira count (occurrence) descending, then slice to Top N
+  const _sortByJira = rows => rows.slice().sort((a, b) => {
+    const aOcc = parseInt(String(a.occurrence||'0').trim()||'0', 10);
+    const bOcc = parseInt(String(b.occurrence||'0').trim()||'0', 10);
+    return bOcc - aOcc;
+  });
+
+  tcOpenRows  = _sortByJira(tcFilteredRows.filter(r=>tcClassifyStatus(r.status)==='open')).slice(0, tcTop);
+  tcBuiltRows = _sortByJira(tcFilteredRows.filter(r=>tcClassifyStatus(r.status)==='built')).slice(0, tcTop);
 
   const visibleCount=(tcShowOpen?tcOpenRows.length:0)+(tcShowBuilt?tcBuiltRows.length:0);
   document.getElementById('tcCount').textContent=visibleCount;
@@ -1323,6 +1369,42 @@ function tcCollectSources(){
   return sources;
 }
 
+async function tcDeleteSelectedConfig(){
+  if(!tcCurrentConfigId) return;
+  const sel=document.getElementById('tcConfig');
+  const selectedOpt=sel&&sel.selectedIndex>=0?sel.options[sel.selectedIndex]:null;
+  const cfgName=(selectedOpt?selectedOpt.textContent:'selected config').trim();
+  if(!confirm(`Remove saved config "${cfgName}" from Top CRs?`)) return;
+
+  const btn=document.getElementById('tcDeleteConfigBtn');
+  if(btn){
+    btn.disabled=true;
+    btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Removing…';
+  }
+
+  try{
+    const resp=await fetch(`/api/top_crs/configs/${tcCurrentConfigId}`,{
+      method:'DELETE',
+      headers:{'X-Requested-With':'XMLHttpRequest'}
+    });
+    const data=await resp.json();
+    if(data.ok){
+      tcToast('Config removed','ok');
+      setTimeout(()=>window.location.reload(),600);
+    } else {
+      tcToast(data.error||'Remove config failed','err');
+      if(btn) btn.disabled=false;
+    }
+  }catch(e){
+    tcToast('Network error','err');
+    if(btn) btn.disabled=false;
+  }finally{
+    if(btn){
+      btn.innerHTML='<i class="fas fa-trash"></i> Remove Config';
+    }
+  }
+}
+
 async function tcSaveConfig(){
   const configId=document.getElementById('tcModalConfigId').value;
   const key=document.getElementById('tcModalKey').value.trim();
@@ -1379,8 +1461,9 @@ async function tcSaveConfig(){
   }
 }
 
-// ── Init: sync chip opacity + hide built section by default ──────────────
+// ── Init: sync chips + hide built section by default ─────────────────────
 (function(){
+  tcRenderCrashTypeChips();
   const builtChip=document.getElementById('tcChipBuiltCtrl');
   if(builtChip) builtChip.style.opacity='0.4';
 })();

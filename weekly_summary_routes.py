@@ -77,11 +77,12 @@ _FARM_MAP_TTL_SECONDS = 300
 _QIPL_WEEK_ROWS_CACHE_TTL_SECONDS = 120
 
 _CARDS = [
-    {'key': 'cr_age',        'title': 'CR Age',               'icon': '\U0001f4c5'},
-    {'key': 'cr_pie',        'title': 'CR Pie Chart',         'icon': '\U0001f967'},
-    {'key': 'smart_build',   'title': 'Smart Build Report',   'icon': '\U0001f4ca'},
-    {'key': 'unique_report', 'title': 'Unique Weekly Report', 'icon': '\U0001f4cb'},
-    {'key': 'farm_testing',  'title': 'Farm Testing',         'icon': '\U0001f9ea'},
+    {'key': 'cr_age',          'title': 'CR Age',                   'icon': '\U0001f4c5'},
+    {'key': 'cr_pie',          'title': 'CR Pie Chart',             'icon': '\U0001f967'},
+    {'key': 'smart_build',     'title': 'Smart Build Report',       'icon': '\U0001f4ca'},
+    {'key': 'unique_report',   'title': 'Unique Weekly Report',     'icon': '\U0001f4cb'},
+    {'key': 'farm_testing',    'title': 'Farm Testing',             'icon': '\U0001f9ea'},
+    {'key': 'engineer_jiras',  'title': 'Engineer Reported JIRAs',  'icon': '\U0001f464'},
 ]
 
 
@@ -1895,6 +1896,1118 @@ def _build_cr_age_card(table_rows: list, sel_start: date, sel_end: date) -> dict
                                   sorted(pie_area_age15.items(),   key=lambda x: -x[1])],
         'pie_target_data_age14': [{'name': k, 'y': v} for k, v in
                                   sorted(pie_target_age15.items(), key=lambda x: -x[1])],
+    }
+
+
+# ---------------------------------------------------------------------------
+# ENGINEER REPORTED JIRAs  helpers
+# ---------------------------------------------------------------------------
+
+_PDT_GROUP_MEMBERS_CACHE: dict = {'date': '', 'members': [], 'source': ''}
+_PDT_GROUP_MEMBERS_SCHEDULER_STARTED = False
+
+
+def _pdt_group_members_json_path() -> Path:
+    """Location for the daily TARGET_GROUP user-id cache."""
+    env_path = os.environ.get('PDT_GROUP_MEMBERS_JSON')
+    return Path(env_path) if env_path else Path(__file__).with_name('pdt_group_members.json')
+
+
+def _normalize_pdt_group_user_id(value) -> str:
+    """Normalize a JIRA/LDAP user id for membership comparisons."""
+    return str(value or '').strip().lower()
+
+
+def _dedupe_pdt_group_members(values) -> list:
+    return sorted({
+        _normalize_pdt_group_user_id(v)
+        for v in (values or [])
+        if _normalize_pdt_group_user_id(v)
+    })
+
+
+# ---------------------------------------------------------------------------
+# PDT Head Count page integration
+# ---------------------------------------------------------------------------
+_PDT_HEADCOUNT_URL = 'http://10.142.209.148:8007/PDT_Head_Count_Dynamic.html'
+_PDT_HEADCOUNT_TDA_DEPTS = frozenset({'58419', '14559', '89209', '51563'})
+_PDT_HEADCOUNT_CACHE: dict = {}
+_PDT_HEADCOUNT_CACHE_TTL = 900  # 15 minutes
+
+
+def _load_pdt_headcount_employees(exclude_tda: bool = True) -> list:
+    """Fetch PDT head-count employees from the live HTML page.
+
+    Returns list of employee dicts with keys:
+    Name, Type, Email, Title, Manager Name, Department, Affiliation.
+    Excludes TDA departments by default.
+    Caches result for 15 minutes in-process.
+    Falls back to [] on any error.
+    """
+    import time as _hc_time
+    import re as _hc_re
+    import json as _hc_json
+    import urllib.request as _hc_urlreq
+
+    global _PDT_HEADCOUNT_CACHE
+    now = _hc_time.time()
+    cached = _PDT_HEADCOUNT_CACHE
+    if cached.get('employees') is not None and (now - cached.get('ts', 0)) < _PDT_HEADCOUNT_CACHE_TTL:
+        emps = cached['employees']
+        if exclude_tda:
+            return [e for e in emps if str(e.get('Department', '')).strip() not in _PDT_HEADCOUNT_TDA_DEPTS]
+        return list(emps)
+
+    try:
+        req = _hc_urlreq.Request(_PDT_HEADCOUNT_URL, headers={'User-Agent': 'PDTBuddy/1.0'})
+        s = _hc_urlreq.urlopen(req, timeout=15).read().decode('utf-8', 'replace')
+        m = _hc_re.search(r'let\s+employees\s*=\s*(\[.*?\]);', s, _hc_re.S)
+        if not m:
+            return []
+        emps = _hc_json.loads(m.group(1))
+        if not isinstance(emps, list):
+            return []
+        _PDT_HEADCOUNT_CACHE = {'ts': now, 'employees': emps}
+        if exclude_tda:
+            return [e for e in emps if str(e.get('Department', '')).strip() not in _PDT_HEADCOUNT_TDA_DEPTS]
+        return list(emps)
+    except Exception:
+        return []
+
+
+def _normalize_headcount_name(name: str) -> str:
+    """Normalize a PDT head-count name for matching against JIRA reporter names.
+
+    Removes ALL parenthetical suffixes like (Temp), (Consultant), (Consultant)(Temp)
+    and lowercases the result.
+    """
+    import re as _hcn_re
+    n = _hcn_re.sub(r'\s*\([^)]*\)', '', str(name or '')).strip().lower()
+    return ' '.join(n.split())
+
+
+def _build_headcount_member_index(employees: list) -> dict:
+    """Build lookup structures from head-count employee list for fast reporter matching.
+
+    Returns dict with:
+    - 'by_norm_name': {normalized_name: employee_dict}
+    - 'by_tok_name':  {sorted_token_name: employee_dict}
+    - 'by_email':     {email_lower: employee_dict}
+    """
+    by_norm: dict = {}
+    by_tok: dict = {}
+    by_email: dict = {}
+    for emp in (employees or []):
+        name = str(emp.get('Name') or '').strip()
+        email = str(emp.get('Email') or '').strip().lower()
+        norm = _normalize_headcount_name(name)
+        tok = ' '.join(sorted(norm.split()))
+        if norm and norm not in by_norm:
+            by_norm[norm] = emp
+        if tok and tok not in by_tok:
+            by_tok[tok] = emp
+        if email and email not in by_email:
+            by_email[email] = emp
+    return {'by_norm_name': by_norm, 'by_tok_name': by_tok, 'by_email': by_email}
+
+
+def _normalize_reporter_name(name: str) -> str:
+    """Normalize a JIRA reporter display name for PDT membership matching.
+
+    Strips common suffixes like (temp), (contract), (ext), (intern) and
+    lowercases the result so it can be compared against LDAP cn values.
+    """
+    import re as _re_norm
+    return _re_norm.sub(r'\s*\(.*?\)\s*$', '', str(name or '')).strip().lower()
+
+
+def _load_pdt_group_members_json() -> dict:
+    """Load the saved daily TARGET_GROUP user-id list from JSON.
+
+    Returns dict with keys: date, refreshed_at, source, members,
+    display_names (uid->name), display_name_to_uid (normalized_name->uid),
+    emails (uid->email), reporter_cache (reporter_string->uid_or_null).
+    """
+    try:
+        path = _pdt_group_members_json_path()
+        if not path.exists():
+            return {}
+        with path.open('r', encoding='utf-8') as fh:
+            data = json.load(fh) or {}
+        members = _dedupe_pdt_group_members(data.get('members') or [])
+        return {
+            'date': str(data.get('date') or '').strip(),
+            'refreshed_at': str(data.get('refreshed_at') or '').strip(),
+            'source': str(data.get('source') or 'json').strip(),
+            'members': members,
+            'display_names': dict(data.get('display_names') or {}),
+            'display_name_to_uid': dict(data.get('display_name_to_uid') or {}),
+            # uid → email  e.g. "maninakk" → "maninakk@qti.qualcomm.com"
+            'emails': dict(data.get('emails') or {}),
+            # reporter_string → uid (or None = confirmed non-member)
+            # populated lazily by background JIRA lookups for unmatched reporters
+            'reporter_cache': dict(data.get('reporter_cache') or {}),
+        }
+    except Exception:
+        return {}
+
+
+def _save_pdt_group_members_json(members: list, source: str = 'jira',
+                                  display_names: dict | None = None,
+                                  emails: dict | None = None) -> None:
+    """Persist the daily TARGET_GROUP user-id list atomically.
+
+    display_names: optional dict of {uid: 'Full Name'} fetched from LDAP/JIRA.
+    emails: optional dict of {uid: 'email@qti.qualcomm.com'} fetched from JIRA.
+    Also builds a normalized reverse map {normalized_full_name: uid} for
+    matching JIRA reporter names (which use full display names) to user IDs.
+    The existing reporter_cache is preserved across full member-list refreshes
+    so lazily-resolved reporter→uid mappings are not lost.
+    """
+    import re as _re_save
+    members = _dedupe_pdt_group_members(members)
+    if not members:
+        return
+    try:
+        from config import TARGET_GROUP
+    except Exception:
+        TARGET_GROUP = 'qipl.target.pdt'
+    path = _pdt_group_members_json_path()
+
+    # Preserve existing reporter_cache across full refreshes
+    existing_reporter_cache: dict = {}
+    try:
+        if path.exists():
+            with path.open('r', encoding='utf-8') as _fh:
+                _existing = json.load(_fh) or {}
+            existing_reporter_cache = dict(_existing.get('reporter_cache') or {})
+    except Exception:
+        existing_reporter_cache = {}
+
+    # Build normalized display_name → uid reverse map
+    dn_map = dict(display_names or {})
+    normalized_map: dict = {}
+    for uid, name in dn_map.items():
+        norm = _normalize_reporter_name(name)
+        if norm:
+            normalized_map[norm] = uid
+
+    payload = {
+        'group': TARGET_GROUP,
+        'source': source,
+        'date': date.today().isoformat(),
+        'refreshed_at': datetime.now().isoformat(timespec='seconds'),
+        'count': len(members),
+        'members': members,
+        # uid → display name  e.g. "vmadasu" → "Venkatesh Madasu"
+        'display_names': dn_map,
+        # normalized display name → uid  e.g. "venkatesh madasu" → "vmadasu"
+        'display_name_to_uid': normalized_map,
+        # uid → email  e.g. "maninakk" → "maninakk@qti.qualcomm.com"
+        'emails': dict(emails or {}),
+        # reporter_string → uid (or None = confirmed non-member)
+        # preserved across full refreshes; populated lazily by background JIRA lookups
+        'reporter_cache': existing_reporter_cache,
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = path.with_name(path.name + '.tmp')
+    with tmp_path.open('w', encoding='utf-8') as fh:
+        json.dump(payload, fh, indent=2, sort_keys=True)
+    os.replace(str(tmp_path), str(path))
+
+
+def _update_reporter_cache_in_json(reporter: str, uid_or_none) -> None:
+    """Atomically update a single reporter→uid entry in pdt_group_members.json.
+
+    uid_or_none: the resolved uid string, or None to mark as confirmed non-member.
+    This is called from background threads only — never blocks a page request.
+    """
+    import threading as _rc_lock
+    _RC_LOCK = getattr(_update_reporter_cache_in_json, '_lock', None)
+    if _RC_LOCK is None:
+        _update_reporter_cache_in_json._lock = _rc_lock.Lock()
+        _RC_LOCK = _update_reporter_cache_in_json._lock
+    reporter_key = str(reporter or '').strip().lower()
+    if not reporter_key or reporter_key == '(unknown)':
+        return
+    try:
+        with _RC_LOCK:
+            path = _pdt_group_members_json_path()
+            if not path.exists():
+                return
+            with path.open('r', encoding='utf-8') as fh:
+                data = json.load(fh) or {}
+            cache = dict(data.get('reporter_cache') or {})
+            cache[reporter_key] = uid_or_none
+            data['reporter_cache'] = cache
+            tmp_path = path.with_name(path.name + '.tmp')
+            with tmp_path.open('w', encoding='utf-8') as fh:
+                json.dump(data, fh, indent=2, sort_keys=True)
+            os.replace(str(tmp_path), str(path))
+    except Exception:
+        pass  # best-effort; never crash a background thread
+
+
+def _lookup_reporter_in_jira_background(reporter: str, pdt_members: list,
+                                         pdt_display_name_to_uid: dict | None = None) -> None:
+    """Look up an unmatched JIRA reporter via the JIRA user search API in a background thread.
+
+    Flow:
+      1. Check reporter_cache in JSON — if already resolved, skip.
+      2. Call JIRA /rest/api/2/user/search?username={reporter}
+      3. Check if any returned user is a PDT member (by uid or display name).
+      4. Write result to reporter_cache in JSON (uid string or None).
+
+    Never blocks the page request — always runs in a daemon thread.
+    """
+    import threading as _bg_jira
+
+    def _do_lookup():
+        reporter_key = str(reporter or '').strip().lower()
+        if not reporter_key or reporter_key == '(unknown)':
+            return
+        # Check cache first (may have been populated by a concurrent lookup)
+        try:
+            saved = _load_pdt_group_members_json()
+            cache = saved.get('reporter_cache') or {}
+            if reporter_key in cache:
+                return  # already resolved
+        except Exception:
+            pass
+
+        pdt_set = {str(m).strip().lower() for m in (pdt_members or []) if str(m).strip()}
+        dn_to_uid = dict(pdt_display_name_to_uid or {})
+
+        try:
+            from config import JIRA_SERVER_ENDPOINT, JIRA_USER, JIRA_PASSWORD
+            import requests as _jira_req
+            import urllib3
+            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+            url = '{}/rest/api/2/user/search'.format(str(JIRA_SERVER_ENDPOINT or '').rstrip('/'))
+            # Qualcomm Jira DC requires the legacy `username` parameter here.
+            # Using `query` returns HTTP 400 ("The username query parameter was not provided").
+            resp = _jira_req.get(
+                url,
+                params={'username': reporter, 'maxResults': 10, 'includeInactive': 'false'},
+                auth=(JIRA_USER, JIRA_PASSWORD),
+                timeout=10, verify=False,
+            )
+            if resp.status_code != 200:
+                # API error (403, 404, etc.) — do NOT cache None.
+                # Caching None would permanently mark the reporter as non-member
+                # even when the API is temporarily unavailable.
+                return
+
+            users = resp.json() or []
+            resolved_uid = None
+            for user in users:
+                uid = str(user.get('name') or user.get('key') or user.get('accountId') or '').strip().lower()
+                if not uid:
+                    continue
+                # Check if this user is a PDT member
+                if uid in pdt_set:
+                    resolved_uid = uid
+                    break
+                # Check by display name
+                disp = str(user.get('displayName') or '').strip()
+                if disp:
+                    norm = _normalize_reporter_name(disp)
+                    if norm in dn_to_uid:
+                        resolved_uid = str(dn_to_uid[norm]).strip().lower()
+                        break
+            # Only cache None when JIRA returned 200 but no matching PDT member found.
+            # This is a confirmed non-member, not an API error.
+            _update_reporter_cache_in_json(reporter_key, resolved_uid)
+        except Exception:
+            # On any exception (network error, timeout, etc.) do NOT cache None.
+            # The reporter will be retried on the next page load.
+            pass
+
+    t = _bg_jira.Thread(target=_do_lookup, name=f'jira-reporter-lookup-{reporter[:20]}', daemon=True)
+    t.start()
+
+
+def _fetch_pdt_group_members_from_jira() -> tuple:
+    """Fetch the full TARGET_GROUP member user-id list + display names + emails from JIRA REST.
+
+    Returns (members_list, display_names_dict, emails_dict) where:
+      - display_names maps uid -> full display name (e.g. 'maninakk' -> 'Manisha Nakka')
+      - emails maps uid -> email address (e.g. 'maninakk' -> 'maninakk@qti.qualcomm.com')
+    The JIRA group/member API returns displayName and emailAddress for every member.
+    """
+    from config import JIRA_SERVER_ENDPOINT, JIRA_USER, JIRA_PASSWORD, TARGET_GROUP
+    import requests as _jira_req
+    import urllib3
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+    url = '{}/rest/api/2/group/member'.format(str(JIRA_SERVER_ENDPOINT or '').rstrip('/'))
+    members = []
+    display_names: dict = {}
+    emails: dict = {}
+    start_at = 0
+    max_results = 1000
+    while True:
+        params = {
+            'groupname': TARGET_GROUP,
+            'startAt': start_at,
+            'maxResults': max_results,
+            'includeInactiveUsers': 'false',
+        }
+        resp = _jira_req.get(
+            url, params=params,
+            auth=(JIRA_USER, JIRA_PASSWORD),
+            timeout=30, verify=False,
+        )
+        if resp.status_code != 200:
+            raise RuntimeError(f'JIRA group member API returned HTTP {resp.status_code}')
+        data = resp.json() or {}
+        values = data.get('values') or []
+        for member in values:
+            email_raw = str(member.get('emailAddress') or '').strip()
+            user_id = (
+                member.get('name')
+                or member.get('key')
+                or member.get('accountId')
+                or email_raw
+                or ''
+            )
+            if user_id:
+                members.append(user_id)
+                # Capture displayName — full name shown in JIRA
+                # e.g. "Manisha Nakka" for uid "maninakk"
+                disp = str(member.get('displayName') or '').strip()
+                if disp and disp.lower() != user_id.lower():
+                    display_names[user_id] = disp
+                # Capture emailAddress — e.g. "maninakk@qti.qualcomm.com"
+                if email_raw and '@' in email_raw:
+                    emails[user_id] = email_raw
+
+        start_at += len(values)
+        total = int(data.get('total') or 0)
+        if data.get('isLast') is True or not values or (total and start_at >= total):
+            break
+
+    return _dedupe_pdt_group_members(members), display_names, emails
+
+
+def refresh_pdt_group_members_json(force: bool = True) -> list:
+    """Refresh and save the TARGET_GROUP user-id JSON cache.
+
+    Used by the nightly scheduler and by the Engineer JIRAs card when today's
+    JSON is missing/stale.
+    """
+    today_key = date.today().isoformat()
+    cached = _PDT_GROUP_MEMBERS_CACHE
+    if not force and cached.get('date') == today_key and cached.get('members'):
+        return list(cached.get('members') or [])
+
+    members, display_names, emails = _fetch_pdt_group_members_from_jira()
+    if members:
+        _save_pdt_group_members_json(members, source='jira', display_names=display_names, emails=emails)
+        _PDT_GROUP_MEMBERS_CACHE.update({'date': today_key, 'members': members, 'source': 'jira'})
+    return list(members)
+
+
+def _fetch_pdt_group_members_from_ldap() -> tuple:
+    """Fetch TARGET_GROUP member user-ids + display names from LDAP.
+
+    Returns (members_list, display_names_dict).
+    Tries multiple filter + attribute strategies to handle Qualcomm's LDAP schema.
+    Also fetches cn (full name) for each member so JIRA reporter names can be matched.
+    """
+    try:
+        from config import TARGET_GROUP
+        from ldap3 import Server, Connection, SUBTREE
+        from ldap3.utils.conv import escape_filter_chars
+    except Exception:
+        return [], {}
+
+    _LDAP_HOST = 'qed-ldap.qualcomm.com'
+    _LDAP_PORT = 636
+    _LDAP_BASE = 'dc=qualcomm,dc=com'
+
+    _group_email = f'{TARGET_GROUP}@qualcomm.com'
+    _safe_cn = escape_filter_chars(TARGET_GROUP)
+
+    _strategies = [
+        {'filter': f'(mail={escape_filter_chars(_group_email)})', 'attrs': ['uniqueMember', 'member']},
+        {'filter': f'(&(cn={_safe_cn})(objectClass=groupOfUniqueNames))', 'attrs': ['uniqueMember', 'member']},
+        {'filter': f'(&(cn={_safe_cn})(objectClass=qcMailList))', 'attrs': ['uniqueMember', 'member']},
+        {'filter': f'(&(cn={_safe_cn})(qclisttype=list))', 'attrs': ['member', 'uniqueMember']},
+        {'filter': f'(cn={_safe_cn})', 'attrs': ['member', 'uniqueMember']},
+    ]
+
+    def _extract_uid(dn: str) -> str:
+        for part in str(dn or '').split(','):
+            part = part.strip()
+            if part.lower().startswith('uid='):
+                return part[4:].strip().lower()
+        return ''
+
+    members: list = []
+    display_names: dict = {}
+    conn = None
+    try:
+        server = Server(host=_LDAP_HOST, port=_LDAP_PORT, use_ssl=True,
+                        get_info=None, connect_timeout=5)
+        conn = Connection(server, auto_bind=True, receive_timeout=15)
+
+        # Step 1: find group members
+        for strategy in _strategies:
+            try:
+                conn.search(
+                    search_base=_LDAP_BASE,
+                    search_filter=strategy['filter'],
+                    search_scope=SUBTREE,
+                    attributes=strategy['attrs'],
+                    size_limit=5,
+                )
+                if not conn.entries:
+                    continue
+                raw_members = []
+                for entry in conn.entries:
+                    d = entry.entry_attributes_as_dict
+                    for attr in strategy['attrs']:
+                        raw_members.extend(d.get(attr) or [])
+                if not raw_members:
+                    continue
+                uids = [_extract_uid(dn) for dn in raw_members]
+                uids = [u for u in uids if u]
+                if uids:
+                    members = uids
+                    break
+            except Exception:
+                continue
+
+        # Step 2: fetch display names for all members in batches of 50.
+        # Priority: givenName+sn > displayName > cn (only if it contains a space).
+        # Batch queries are much faster than 131 individual LDAP lookups.
+        _BATCH_SIZE = 50
+        for _batch_start in range(0, len(members), _BATCH_SIZE):
+            _batch = members[_batch_start:_batch_start + _BATCH_SIZE]
+            try:
+                _uid_filters = ''.join(f'(uid={_u})' for _u in _batch)
+                _batch_filter = f'(|{_uid_filters})' if len(_batch) > 1 else f'(uid={_batch[0]})'
+                conn.search(
+                    search_base=_LDAP_BASE,
+                    search_filter=_batch_filter,
+                    search_scope=SUBTREE,
+                    attributes=['uid', 'cn', 'displayName', 'givenName', 'sn'],
+                    size_limit=len(_batch) + 5,
+                )
+                for entry in (conn.entries or []):
+                    try:
+                        _uid_val = str(entry['uid'].values[0]).strip().lower() if 'uid' in entry and entry['uid'].values else ''
+                    except Exception:
+                        _uid_val = ''
+                    if not _uid_val:
+                        continue
+                    cn = None
+                    # 1. Try givenName + sn first — most reliable for full name
+                    try:
+                        gn = str(entry['givenName'].values[0]).strip() if 'givenName' in entry and entry['givenName'].values else ''
+                        sn = str(entry['sn'].values[0]).strip() if 'sn' in entry and entry['sn'].values else ''
+                        if gn and sn:
+                            cn = f'{gn} {sn}'.strip()
+                        elif gn or sn:
+                            cn = (gn or sn).strip()
+                    except Exception:
+                        pass
+                    # 2. Try displayName if still no full name
+                    if not cn:
+                        try:
+                            vals = entry['displayName'].values if 'displayName' in entry else []
+                            if vals:
+                                val = str(vals[0]).strip()
+                                if val:
+                                    cn = val
+                        except Exception:
+                            pass
+                    # 3. Fall back to cn only if it looks like a full name (contains a space)
+                    if not cn:
+                        try:
+                            vals = entry['cn'].values if 'cn' in entry else []
+                            if vals:
+                                val = str(vals[0]).strip()
+                                if val and ' ' in val:
+                                    cn = val
+                        except Exception:
+                            pass
+                    if cn:
+                        display_names[_uid_val] = cn
+            except Exception:
+                continue
+
+    except Exception:
+        pass
+    finally:
+        try:
+            if conn:
+                conn.unbind()
+        except Exception:
+            pass
+
+    return _dedupe_pdt_group_members(members), display_names
+
+
+def _refresh_pdt_group_members_background() -> None:
+    """Refresh pdt_group_members.json in a background daemon thread.
+
+    Tries LDAP first (has display names + UIDs), then JIRA fallback (UIDs only).
+    JIRA returns HTTP 403 in most environments so LDAP is the primary source.
+    Never blocks the page request.
+    """
+    import threading as _bg_threading
+
+    def _do_refresh():
+        import logging as _log
+        log = _log.getLogger(__name__)
+        today_key = date.today().isoformat()
+
+        # Step 1: Try LDAP for member UIDs + display names
+        ldap_members: list = []
+        ldap_display_names: dict = {}
+        try:
+            ldap_members, ldap_display_names = _fetch_pdt_group_members_from_ldap()
+            log.info('[PDT GROUP] LDAP: %d members, %d display names',
+                     len(ldap_members), len(ldap_display_names))
+        except Exception as exc:
+            log.warning('[PDT GROUP] LDAP fetch failed: %s', exc)
+
+        # Step 2: Try JIRA for display names + emails (JIRA group/member API returns
+        # displayName and emailAddress for every member — most reliable source).
+        # Always try JIRA when LDAP returned no display names.
+        jira_members: list = []
+        jira_display_names: dict = {}
+        jira_emails: dict = {}
+        if not ldap_display_names:
+            try:
+                jira_members, jira_display_names, jira_emails = _fetch_pdt_group_members_from_jira()
+                log.info('[PDT GROUP] JIRA: %d members, %d display names, %d emails',
+                         len(jira_members), len(jira_display_names), len(jira_emails))
+            except Exception as exc:
+                log.warning('[PDT GROUP] JIRA fetch failed: %s', exc)
+
+        # Step 3: Merge — prefer LDAP UIDs (more complete), JIRA display names + emails (more reliable)
+        members = ldap_members or jira_members
+        display_names = jira_display_names if jira_display_names else ldap_display_names
+        emails = jira_emails
+
+        if members:
+            source = 'ldap+jira' if (ldap_members and jira_display_names) else ('ldap' if ldap_members else 'jira')
+            _save_pdt_group_members_json(members, source=source, display_names=display_names, emails=emails)
+            _PDT_GROUP_MEMBERS_CACHE.update({'date': today_key, 'members': members, 'source': source})
+            log.info('[PDT GROUP] saved %d members, %d display names, %d emails (source=%s)',
+                     len(members), len(display_names), len(emails), source)
+        else:
+            log.warning('[PDT GROUP] background refresh: no members from LDAP or JIRA')
+
+    t = _bg_threading.Thread(target=_do_refresh, name='pdt-group-bg-refresh', daemon=True)
+    t.start()
+
+
+def _get_pdt_group_members() -> list:
+    """Return qipl.target.pdt user ids from the daily JSON cache.
+
+    NEVER calls JIRA or LDAP synchronously during a page request.
+    Priority:
+    1. In-process cache (any date, any members)
+    2. Any saved JSON (regardless of age) — use immediately
+    3. No JSON at all — trigger one-shot background refresh and return []
+
+    LDAP/JIRA refresh is triggered ONLY on Sunday night or when JSON is
+    missing/older than 7 days. Other days the existing JSON is reused as-is.
+    """
+    cached = _PDT_GROUP_MEMBERS_CACHE
+
+    # 1. In-process cache hit (any date)
+    if cached.get('members'):
+        return list(cached['members'])
+
+    # 2. Any saved JSON — use it immediately regardless of age
+    saved = _load_pdt_group_members_json()
+    if saved.get('members'):
+        cached.update({
+            'date': saved.get('date') or '',
+            'members': saved['members'],
+            'source': saved.get('source') or 'json',
+        })
+        # Only refresh on Sunday (weekday=6) or if JSON is older than 7 days
+        saved_date = _safe_date(saved.get('date'))
+        today = date.today()
+        is_sunday = today.weekday() == 6
+        is_old = not saved_date or (today - saved_date).days >= 7
+        # Also refresh immediately when display_names is empty — without display
+        # names the reporter-name matching cannot work (e.g. "Manisha Nakka"
+        # cannot be matched to uid "maninakk" without the uid→name mapping).
+        has_no_display_names = not saved.get('display_names')
+        if is_sunday or is_old or has_no_display_names:
+            _refresh_pdt_group_members_background()
+        return list(saved['members'])
+
+    # 3. No JSON at all — trigger background refresh, return empty for now
+    _refresh_pdt_group_members_background()
+    return []
+
+
+def start_pdt_group_members_daily_scheduler() -> bool:
+    """Start one daemon that refreshes pdt_group_members.json daily at 00:00."""
+    global _PDT_GROUP_MEMBERS_SCHEDULER_STARTED
+    if _PDT_GROUP_MEMBERS_SCHEDULER_STARTED:
+        return False
+    _PDT_GROUP_MEMBERS_SCHEDULER_STARTED = True
+
+    def _loop():
+        import logging as _logging
+        import threading as _threading
+        import time as _time
+
+        log = _logging.getLogger(__name__)
+        log.info('[PDT GROUP] daily JSON scheduler started: path=%s', _pdt_group_members_json_path())
+        while True:
+            try:
+                now = datetime.now()
+                next_run = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+                sleep_seconds = max(60, int((next_run - now).total_seconds()))
+                _time.sleep(sleep_seconds)
+                members = refresh_pdt_group_members_json(force=True)
+                log.info('[PDT GROUP] refreshed daily JSON with %d member user ids', len(members))
+            except Exception:
+                log.exception('[PDT GROUP] daily JSON refresh failed')
+
+    import threading as _threading
+    thread = _threading.Thread(target=_loop, name='pdt-group-members-json-scheduler', daemon=True)
+    thread.start()
+    return True
+
+
+def _get_available_months() -> list:
+    """Return available months derived from consolidate_snapshots/ weekly files.
+
+    Returns list of (year_month, label) tuples newest first,
+    e.g. [('2026-09', 'Sep 2026'), ('2026-08', 'Aug 2026'), ...].
+    """
+    import re as _re_months
+    months: dict = {}
+    try:
+        for base in (_CONSOLIDATE_JSON_LOCAL,):
+            if not base or not os.path.isdir(base):
+                continue
+            for fname in os.listdir(base):
+                if not fname.startswith('qipl_week_') or not fname.endswith('.json'):
+                    continue
+                m = _re_months.search(r'qipl_week_(\d{4}-\d{2}-\d{2})\.json', fname)
+                if not m:
+                    continue
+                we = _safe_date(m.group(1))
+                if not we or we < _QIPL_MIN_DATE:
+                    continue
+                month_key = we.strftime('%Y-%m')
+                if month_key not in months:
+                    months[month_key] = we.strftime('%b %Y')
+    except Exception:
+        pass
+    return sorted(months.items(), reverse=True)
+
+
+def _load_qipl_month_rows(year_month: str) -> list:
+    """Load all QIPL rows for a given calendar month (e.g. '2026-09') from weekly snapshots.
+
+    Includes cross-month weeks (e.g. Sep 28–Oct 4) by loading any snapshot
+    whose week_start OR week_end falls in the requested month, then filtering
+    individual rows by their actual jira_date so only Sep 1–Sep 30 rows are
+    returned for '2026-09'.
+    """
+    import re as _re_mr
+    if not year_month:
+        return []
+    all_rows: list = []
+    loaded_keys: set = set()
+    try:
+        for base in (_CONSOLIDATE_JSON_LOCAL,):
+            if not base or not os.path.isdir(base):
+                continue
+            for fname in sorted(os.listdir(base)):
+                if not fname.startswith('qipl_week_') or not fname.endswith('.json'):
+                    continue
+                m = _re_mr.search(r'qipl_week_(\d{4}-\d{2}-\d{2})\.json', fname)
+                if not m:
+                    continue
+                we = _safe_date(m.group(1))
+                if not we:
+                    continue
+                ws = we - timedelta(days=6)
+                # Include snapshot if week_end OR week_start falls in the requested month
+                if we.strftime('%Y-%m') != year_month and ws.strftime('%Y-%m') != year_month:
+                    continue
+                key = we.isoformat()
+                if key in loaded_keys:
+                    continue
+                loaded_keys.add(key)
+                rows = _load_qipl_week_snapshot(ws, we)
+                all_rows.extend(rows)
+    except Exception:
+        pass
+
+    # Filter rows to only those whose jira_date (or fetched_date) falls in the
+    # requested calendar month.  Rows with no parseable date are kept so they
+    # are not silently dropped.
+    filtered = []
+    for row in all_rows:
+        jd = _safe_date(
+            row.get('jira_date') or row.get('fetched_date') or row.get('cr_date')
+        )
+        if jd and jd.strftime('%Y-%m') != year_month:
+            continue
+        filtered.append(row)
+    return filtered
+
+
+def _build_engineer_jiras_card(rows: list, pdt_members: list,
+                                pdt_display_name_to_uid: dict | None = None,
+                                pdt_display_names: dict | None = None,
+                                pdt_emails: dict | None = None,
+                                pdt_reporter_cache: dict | None = None,
+                                pdt_headcount_employees: list | None = None,
+                                pdt_headcount_index: dict | None = None) -> dict:
+    """Build Engineer Reported JIRAs card data from all QIPL rows for a month.
+
+    pdt_members: list of user IDs (e.g. ['vmadasu', 'rmittal', ...])
+    pdt_display_name_to_uid: normalized display name → uid map (pre-built reverse map)
+        e.g. {'venkatesh madasu': 'vmadasu', 'dedeepya pinninti': 'dpinnint', ...}
+    pdt_display_names: raw uid → display name map from JSON
+        e.g. {'vmadasu': 'Venkatesh Madasu', ...}
+        Used to rebuild the reverse map at runtime when display_name_to_uid is empty/stale.
+    pdt_emails: uid → email map  e.g. {'maninakk': 'maninakk@qti.qualcomm.com'}
+        Used to match reporters who report using their email address.
+    pdt_reporter_cache: reporter_string → uid (or None = confirmed non-member)
+        Lazily populated by background JIRA lookups for unmatched reporters.
+    pdt_headcount_employees: list of employee dicts from PDT Head Count page
+        (excluding TDA departments). When provided, used as the authoritative
+        PDT member source for JIRA reported / non-JIRA reported classification.
+    pdt_headcount_index: pre-built lookup index from _build_headcount_member_index()
+        with keys 'by_norm_name', 'by_tok_name', 'by_email'.
+    """
+    from collections import defaultdict
+    pdt_set = {str(m).strip().lower() for m in (pdt_members or []) if str(m).strip()}
+    # Start with the pre-built reverse map
+    dn_to_uid = dict(pdt_display_name_to_uid or {})  # normalized name → uid
+    # Also build from raw display_names so the reverse map is always populated
+    # even when display_name_to_uid is missing from an old JSON file or empty.
+    for _raw_uid, _raw_name in (pdt_display_names or {}).items():
+        _norm_dn = _normalize_reporter_name(_raw_name)
+        if _norm_dn and _norm_dn not in dn_to_uid:
+            dn_to_uid[_norm_dn] = str(_raw_uid).strip().lower()
+    emails_map = dict(pdt_emails or {})               # uid → email
+    reporter_cache = dict(pdt_reporter_cache or {})   # reporter_lower → uid_or_None
+
+    # Build reverse map: uid (lower) → normalized display name
+    uid_to_dn: dict = {}
+    for _dn, _uid in dn_to_uid.items():
+        _uid_l = str(_uid).strip().lower()
+        if _uid_l and _uid_l not in uid_to_dn:
+            uid_to_dn[_uid_l] = _dn
+
+    # Build reverse map: email (lower) → uid
+    email_to_uid: dict = {}
+    for _uid, _email in emails_map.items():
+        _email_l = str(_email or '').strip().lower()
+        if _email_l and '@' in _email_l:
+            email_to_uid[_email_l] = str(_uid).strip().lower()
+
+    hc_by_norm = (pdt_headcount_index or {}).get('by_norm_name') or {}
+    hc_by_tok = (pdt_headcount_index or {}).get('by_tok_name') or {}
+    hc_by_email = (pdt_headcount_index or {}).get('by_email') or {}
+
+    def _hc_emp_key(emp: dict) -> str:
+        return _normalize_headcount_name((emp or {}).get('Name')) or str((emp or {}).get('Email') or '').strip().lower()
+
+    def _headcount_match_employee(reporter: str):
+        """Return matching current head-count employee for one JIRA reporter, else None."""
+        if not reporter or not pdt_headcount_index:
+            return None
+        r_lower = str(reporter or '').strip().lower()
+        r_email_key = r_lower.split('@', 1)[0]
+        r_norm = _normalize_headcount_name(reporter)
+        if r_norm and r_norm in hc_by_norm:
+            return hc_by_norm[r_norm]
+        r_tok = ' '.join(sorted(r_norm.split())) if r_norm else ''
+        if r_tok and r_tok in hc_by_tok:
+            return hc_by_tok[r_tok]
+        if r_lower in hc_by_email:
+            return hc_by_email[r_lower]
+        if r_email_key in hc_by_email:
+            return hc_by_email[r_email_key]
+
+        # Initial expansion, e.g. "rama krishna d" -> "Rama Krishna Dokka".
+        r_tokens = r_norm.split()
+        if len(r_tokens) >= 2:
+            for known_norm, emp in hc_by_norm.items():
+                k_tokens = str(known_norm or '').split()
+                if len(k_tokens) != len(r_tokens):
+                    continue
+                if all(rt == kt or (len(rt) == 1 and kt.startswith(rt)) for rt, kt in zip(r_tokens, k_tokens)):
+                    return emp
+        return None
+
+    def _is_pdt_member(reporter: str) -> bool:
+        """Check if a JIRA reporter is a PDT member.
+
+        Tries (in order):
+        1. Direct uid match (reporter IS the uid)
+        2. Exact normalized display name match via display_name_to_uid map
+        3. Token-set match via display_name_to_uid map (same words, any order)
+        4. Email match (reporter IS the email address of a PDT member)
+        5. reporter_cache lookup (previously resolved via background JIRA search)
+        No heuristic/substring matching — exact matches only.
+        """
+        if not reporter:
+            return False
+
+        # When current PDT head-count is available, it is authoritative.
+        # Do not fall back to stale LDAP/group members, otherwise JIRA Reported
+        # + Non-JIRA Reported can exceed the current PDT total.
+        if pdt_headcount_index:
+            return bool(_headcount_match_employee(reporter))
+
+        r_lower = reporter.strip().lower()
+        # 1. Direct uid match
+        if r_lower in pdt_set:
+            return True
+        # 2. Exact normalized display name match
+        r_norm = _normalize_reporter_name(reporter)
+        if r_norm in dn_to_uid:
+            return True
+        # 3. Token-set match via display name map (same word set, any order)
+        if r_norm and dn_to_uid:
+            r_tokens = set(r_norm.split())
+            for known_name in dn_to_uid:
+                if not known_name:
+                    continue
+                if len(r_norm) >= 5 and len(known_name) >= 5:
+                    k_tokens = set(known_name.split())
+                    if len(r_tokens) >= 2 and r_tokens == k_tokens:
+                        return True
+        # 4. Email match: reporter IS the email address of a PDT member
+        if r_lower in email_to_uid:
+            return True
+        # 5. reporter_cache: previously resolved via background JIRA user search
+        if r_lower in reporter_cache:
+            return bool(reporter_cache[r_lower])  # None = confirmed non-member
+        # 6. PDT Head Count page match (primary source when available)
+        if pdt_headcount_index:
+            hc_by_norm = pdt_headcount_index.get('by_norm_name') or {}
+            hc_by_tok = pdt_headcount_index.get('by_tok_name') or {}
+            hc_by_email = pdt_headcount_index.get('by_email') or {}
+            r_hc_norm = _normalize_headcount_name(reporter)
+            if r_hc_norm and r_hc_norm in hc_by_norm:
+                return True
+            r_hc_tok = ' '.join(sorted(r_hc_norm.split())) if r_hc_norm else ''
+            if r_hc_tok and r_hc_tok in hc_by_tok:
+                return True
+            if r_lower in hc_by_email:
+                return True
+        return False
+
+    # Group all rows by jira_reporter
+    reporter_rows: dict = defaultdict(list)
+    for row in (rows or []):
+        reporter = str(
+            _qipl_pick(row, 'jira_reporter', 'JIRA Reporter', 'Jira Reporter', 'Reporter') or ''
+        ).strip()
+        if not reporter:
+            reporter = '(Unknown)'
+        reporter_rows[reporter].append(row)
+
+    # Build per-reporter summary sorted by ticket count desc
+    summary = []
+    for reporter, rrows in sorted(reporter_rows.items(), key=lambda x: -len(x[1])):
+        targets = sorted({
+            str(r.get('target') or '').strip()
+            for r in rrows if r.get('target')
+        })
+        unique_crs = len({
+            str(r.get('cr_current_ticket') or '').strip()
+            for r in rrows if r.get('cr_current_ticket')
+        })
+        summary.append({
+            'reporter':      reporter,
+            'count':         len(rrows),
+            'unique_crs':    unique_crs,
+            'targets':       targets[:5],
+            'is_pdt_member': _is_pdt_member(reporter),
+        })
+
+    # Non-JIRA Reported = PDT member UIDs that have NO matching JIRA reporter.
+    # Uses exact matching only (no heuristic/substring):
+    #   1. Reporter name IS the uid (direct match)
+    #   2. Reporter's normalized display name matches the uid's known display name
+    reporter_uid_set = {r.strip().lower() for r in reporter_rows.keys() if r != '(Unknown)'}
+    reporter_norm_set = {
+        _normalize_reporter_name(r).lower()
+        for r in reporter_rows.keys()
+        if r != '(Unknown)'
+    }
+
+    inactive_members = []
+    for _uid in sorted(pdt_members or []):
+        _uid_lower = str(_uid).strip().lower()
+        if not _uid_lower:
+            continue
+        _matched = False
+        # 1. Direct uid match: reporter IS the uid
+        if _uid_lower in reporter_uid_set:
+            _matched = True
+        # 2. Display name match: uid's known display name appears as a reporter
+        if not _matched and _uid_lower in uid_to_dn:
+            if uid_to_dn[_uid_lower] in reporter_norm_set:
+                _matched = True
+        if not _matched:
+            inactive_members.append(_uid)
+
+    # Head-count based active/inactive sets. This uses the same matching logic
+    # as the pivot row membership flag, so active + inactive == current PDT total.
+    reported_hc_keys: set = set()
+    if pdt_headcount_employees and pdt_headcount_index:
+        for rep in reporter_rows.keys():
+            if rep == '(Unknown)':
+                continue
+            matched_emp = _headcount_match_employee(rep)
+            if matched_emp:
+                reported_hc_keys.add(_hc_emp_key(matched_emp))
+
+    eng_inactive_hc_employees: list = []
+    if pdt_headcount_employees and pdt_headcount_index:
+        for emp in pdt_headcount_employees:
+            emp_key = _hc_emp_key(emp)
+            if emp_key and emp_key in reported_hc_keys:
+                continue
+            eng_inactive_hc_employees.append({
+                'name': str(emp.get('Name') or ''),
+                'email': str(emp.get('Email') or ''),
+                'type': str(emp.get('Type') or ''),
+                'title': str(emp.get('Title') or ''),
+                'manager': str(emp.get('Manager Name') or ''),
+                'department': str(emp.get('Department') or ''),
+                'affiliation': str(emp.get('Affiliation') or ''),
+            })
+
+    # ── Pivot table: Reporter × Target (ticket count matrix) ─────────────
+    # Collect all unique targets (top 20 by total tickets to keep table manageable)
+    target_totals: dict = defaultdict(int)
+    for row in (rows or []):
+        tgt = str(row.get('target') or '').strip()
+        if tgt:
+            target_totals[tgt] += 1
+    top_targets = [t for t, _ in sorted(target_totals.items(), key=lambda x: -x[1])[:20]]
+
+    # Build reporter × target matrix
+    pivot_matrix: dict = defaultdict(lambda: defaultdict(int))
+    reporter_totals: dict = defaultdict(int)
+    for row in (rows or []):
+        reporter = str(
+            _qipl_pick(row, 'jira_reporter', 'JIRA Reporter', 'Jira Reporter', 'Reporter') or ''
+        ).strip() or '(Unknown)'
+        tgt = str(row.get('target') or '').strip()
+        if tgt in top_targets:
+            pivot_matrix[reporter][tgt] += 1
+        reporter_totals[reporter] += 1
+
+    # Build uid → display name map for template tooltips
+    uid_to_display_name: dict = {}
+    for _dn, _uid in dn_to_uid.items():
+        _uid_l = str(_uid).strip().lower()
+        if _uid_l and _uid_l not in uid_to_display_name:
+            uid_to_display_name[_uid_l] = _dn.title()
+
+    def _reporter_uid(rep: str) -> str:
+        """Return the uid for a reporter, or empty string if not a PDT member.
+
+        Tries (in order):
+        1. Direct uid match
+        2. Normalized display name match
+        3. Token-set match
+        4. Email match (reporter IS the email address)
+        5. reporter_cache lookup
+        """
+        r_lower = rep.strip().lower()
+        if r_lower in pdt_set:
+            return r_lower
+        r_norm = _normalize_reporter_name(rep)
+        if r_norm in dn_to_uid:
+            return str(dn_to_uid[r_norm]).strip().lower()
+        if r_norm and dn_to_uid:
+            r_tokens = set(r_norm.split())
+            for known_name, _u in dn_to_uid.items():
+                if not known_name:
+                    continue
+                if len(r_norm) >= 5 and len(known_name) >= 5:
+                    k_tokens = set(known_name.split())
+                    if len(r_tokens) >= 2 and r_tokens == k_tokens:
+                        return str(_u).strip().lower()
+        # 4. Email match
+        if r_lower in email_to_uid:
+            return email_to_uid[r_lower]
+        # 5. reporter_cache
+        if r_lower in reporter_cache:
+            cached_uid = reporter_cache[r_lower]
+            return str(cached_uid).strip().lower() if cached_uid else ''
+        return ''
+
+    # Trigger background JIRA lookups for reporters that could not be matched
+    # by any of the above methods. This populates reporter_cache lazily so
+    # future page loads can resolve them without a synchronous JIRA call.
+    _unmatched_reporters = [
+        rep for rep in reporter_rows.keys()
+        if rep != '(Unknown)'
+        and not _is_pdt_member(rep)
+        and rep.strip().lower() not in reporter_cache
+    ]
+    for _rep in _unmatched_reporters[:20]:  # cap at 20 background lookups per page load
+        _lookup_reporter_in_jira_background(_rep, list(pdt_members or []), dn_to_uid)
+
+    # Build pivot rows sorted by total desc
+    pivot_rows = []
+    for rep, rrows in sorted(reporter_rows.items(), key=lambda x: -len(x[1])):
+        row_data = {
+            'reporter':      rep,
+            'uid':           _reporter_uid(rep),
+            'is_pdt_member': _is_pdt_member(rep),
+            'total':         reporter_totals[rep],
+        }
+        for tgt in top_targets:
+            row_data[tgt] = pivot_matrix[rep].get(tgt, 0)
+        pivot_rows.append(row_data)
+
+    # Use head-count total when available (excludes TDA), otherwise LDAP count
+    _pdt_total = len(pdt_headcount_employees) if pdt_headcount_employees else len(pdt_members or [])
+
+    return {
+        'eng_reporter_summary': summary,
+        'eng_jira_rows':        sorted(
+            rows or [],
+            key=lambda r: (
+                str(r.get('jira_reporter') or '').lower(),
+                str(r.get('jira_date') or ''),
+            ),
+        ),
+        'eng_total_count':      len(rows or []),
+        'eng_active_count':     len(summary),
+        'eng_active_pdt_count': len(reported_hc_keys) if pdt_headcount_employees else sum(1 for x in summary if x.get('is_pdt_member')),
+        'eng_pdt_total':        _pdt_total,
+        'eng_inactive_members': inactive_members,
+        'eng_inactive_hc_employees': eng_inactive_hc_employees,
+        'eng_top_reporters':    summary[:5],
+        # Pivot table data
+        'eng_pivot_targets':    top_targets,
+        'eng_pivot_rows':       pivot_rows,
+        'eng_pivot_col_totals': {t: target_totals.get(t, 0) for t in top_targets},
+        # uid → display name for template tooltips
+        'eng_uid_display_names': uid_to_display_name,
+        # Head-count source metadata
+        'eng_hc_source_url':    _PDT_HEADCOUNT_URL if pdt_headcount_employees else '',
+        'eng_hc_total':         len(pdt_headcount_employees) if pdt_headcount_employees else 0,
     }
 
 
@@ -6080,6 +7193,35 @@ def weekly_report_landing():
     ucr_total = sum(int(v or 0) for v in ucr_counts.values() if str(v).strip() != '') if ucr_exists else ''
     hwpdt_msm_rows = _build_hwpdt_msm_table(sel_start, sel_end)
     sp2_summary = _sp2_landing_summary(sel_start, sel_end)
+
+    # Engineer JIRAs landing preview (current/latest available month)
+    try:
+        _eng_months = _get_available_months()
+        _eng_sel_month = _eng_months[0][0] if _eng_months else ''
+        _eng_month_rows = _load_qipl_month_rows(_eng_sel_month) if _eng_sel_month else []
+        _eng_pdt_members = _get_pdt_group_members()
+        _eng_saved_json = _load_pdt_group_members_json()
+        _eng_dn_to_uid = _eng_saved_json.get('display_name_to_uid') or {}
+        _eng_display_names = _eng_saved_json.get('display_names') or {}
+        _eng_emails = _eng_saved_json.get('emails') or {}
+        _eng_reporter_cache = _eng_saved_json.get('reporter_cache') or {}
+        _eng_card = _build_engineer_jiras_card(_eng_month_rows, _eng_pdt_members,
+                                                pdt_display_name_to_uid=_eng_dn_to_uid,
+                                                pdt_display_names=_eng_display_names,
+                                                pdt_emails=_eng_emails,
+                                                pdt_reporter_cache=_eng_reporter_cache)
+        eng_landing_total = _eng_card.get('eng_total_count', 0)
+        eng_landing_active = _eng_card.get('eng_active_count', 0)
+        eng_landing_pdt_total = _eng_card.get('eng_pdt_total', 0)
+        eng_landing_top = _eng_card.get('eng_top_reporters', [])
+        eng_landing_month_label = dict(_eng_months).get(_eng_sel_month, '') if _eng_months else ''
+    except Exception:
+        eng_landing_total = 0
+        eng_landing_active = 0
+        eng_landing_pdt_total = 0
+        eng_landing_top = []
+        eng_landing_month_label = ''
+
     return render_template(
         'weekly_reports_landing.html', cards=_CARDS, sel_start=sel_start, sel_end=sel_end,
         week_ranges=_week_ranges_for_templates(), table_rows=rows,
@@ -6090,6 +7232,11 @@ def weekly_report_landing():
         ucr_landing_has_excel=ucr_exists, ucr_landing_excel_path=ucr_path,
         ucr_landing_source_path=ucr_latest_source_path,
         hwpdt_msm_rows=hwpdt_msm_rows,
+        eng_landing_total=eng_landing_total,
+        eng_landing_active=eng_landing_active,
+        eng_landing_pdt_total=eng_landing_pdt_total,
+        eng_landing_top=eng_landing_top,
+        eng_landing_month_label=eng_landing_month_label,
         **sp2_summary,
         **card_data
     )
@@ -6134,6 +7281,37 @@ def weekly_report_card(card_key):
         ctx.update(_build_sharepoint_context(rows, sel_start, sel_end))
         ctx['sp_known_targets'] = _fetch_sharepoint_known_targets(sel_end)
         ctx['sp_bu_options'] = _sp_bu_options()
+
+    elif card_key == 'engineer_jiras':
+        # Month-based view: aggregate all QIPL rows for the selected month
+        available_months = _get_available_months()
+        sel_month = str(request.args.get('month') or '').strip()
+        _valid_months = {m[0] for m in (available_months or [])}
+        if sel_month and _valid_months and sel_month not in _valid_months:
+            sel_month = ''
+        if not sel_month and available_months:
+            sel_month = available_months[0][0]
+        month_rows = _load_qipl_month_rows(sel_month) if sel_month else []
+        pdt_members = _get_pdt_group_members()
+        # Load display_name_to_uid, display_names, emails, and reporter_cache for reporter matching
+        _saved_json = _load_pdt_group_members_json()
+        _dn_to_uid = _saved_json.get('display_name_to_uid') or {}
+        _display_names = _saved_json.get('display_names') or {}
+        _emails = _saved_json.get('emails') or {}
+        _reporter_cache = _saved_json.get('reporter_cache') or {}
+        # Load PDT Head Count employees (replaces LDAP for member list, excludes TDA)
+        _hc_employees = _load_pdt_headcount_employees(exclude_tda=True)
+        _hc_index = _build_headcount_member_index(_hc_employees) if _hc_employees else {}
+        ctx.update(_build_engineer_jiras_card(month_rows, pdt_members,
+                                               pdt_display_name_to_uid=_dn_to_uid,
+                                               pdt_display_names=_display_names,
+                                               pdt_emails=_emails,
+                                               pdt_reporter_cache=_reporter_cache,
+                                               pdt_headcount_employees=_hc_employees or None,
+                                               pdt_headcount_index=_hc_index or None))
+        ctx['eng_sel_month'] = sel_month
+        ctx['eng_months'] = available_months
+        ctx['eng_sel_month_label'] = dict(available_months).get(sel_month, sel_month)
 
     elif card_key == 'unique_report':
         we = _safe_date(request.args.get('ucr_week_end')) or sel_end
